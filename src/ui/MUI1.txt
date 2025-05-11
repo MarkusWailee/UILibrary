@@ -1,0 +1,133 @@
+#include "MUI.hpp"
+
+using namespace UI;
+
+/*
+
+*/
+
+
+
+
+//Helper Data structures
+namespace UI
+{
+    template<typename T, unsigned int CAPACITY>
+    class ArrayStack
+    {
+        T data[CAPACITY]{};
+        unsigned int size = 0;
+    public:
+        inline void Push(const T& node)
+        {
+            if(size < CAPACITY)
+            {
+                data[size] = node;
+                size++;
+            }
+        }
+        inline void Pop()
+        {
+            if(size > 0)
+                size--;
+        }
+        inline T& Peak()
+        {
+            if(size > 0)
+                return data[size - 1];
+            throw "UI ArrayStack cant peak size of 0";
+        }
+        inline void Clear()
+        {
+            size = 0; 
+        }
+        inline unsigned int Size() const
+        {
+            return size;
+        }
+        inline unsigned int Capacity() const
+        {
+            return CAPACITY;
+        }
+        inline T& operator[](unsigned int index) 
+        {
+            if(index >= CAPACITY)
+                throw "UI ArrayStack index out of scope";
+            else
+                return data[index];
+        }
+    };
+
+    template<typename T>
+    struct Node
+    {
+        Node* children = nullptr;
+        unsigned int size = 0;;
+    };
+}
+
+
+
+
+namespace UI
+{
+    struct DivNode
+    {
+        DivNode* begin_div = nullptr;
+        const StyleSheet* style_sheet = nullptr;
+        int layer = 0;
+        float width, height;
+        float x, y;
+    };
+
+    ArrayStack<DivNode, 200> stack1;
+    ArrayStack<DivNode*, 100> stack2;
+    int traverse_layer = 0;
+    StyleSheet default_sheet;
+    void BuildSize();
+}
+
+
+//sizes only need to get propogated up for content_percent
+void UI::BuildSize()
+{
+    for(int i = 0; i<stack1.Size(); i++)
+    {
+
+    }
+}
+
+
+void UI::BeginDiv(const StyleSheet* sheet, DivMouseInfo* get_info)
+{
+    //builds the tree
+    DivNode div;
+    div.layer = traverse_layer;
+    div.style_sheet = sheet? sheet: &default_sheet;
+    stack1.Push(div);           
+    stack2.Push(&stack1.Peak()); //Push Begin address
+    traverse_layer++;
+}
+void UI::EndDiv()
+{
+    traverse_layer--;
+    DivNode div;
+    div.style_sheet = nullptr;
+    stack1.Push(div); //Pushes the end
+    stack1.Peak().begin_div = stack2.Peak(); //asign the correct Begin address
+    stack2.Pop();     //Pop that node off
+}
+void UI::Draw()
+{
+
+}
+
+
+
+
+
+
+
+
+
+
