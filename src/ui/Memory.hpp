@@ -1,0 +1,567 @@
+#pragma once
+
+#include <iostream>
+#include <stdint.h>
+#include <cassert>
+
+
+namespace UI
+{
+    template<typename T, unsigned int CAPACITY>
+    class Array;
+
+    template<typename T, unsigned int CAPACITY>
+    class FixedStack;
+
+    template<typename T>    
+    class Stack;
+
+    class MemoryArena;
+
+    template<typename T>
+    class ObjectPool;
+
+
+    template<typename T>
+    class ArenaLL;
+
+}
+
+//Stack allocated data structures
+namespace UI
+{
+
+
+
+    template<typename T, unsigned int CAPACITY>
+    class Array
+    {
+        T data[CAPACITY];
+        public:
+        inline unsigned int Capacity() const;
+        inline T& operator[](unsigned int index);
+        inline T* Data();
+    };
+
+
+
+
+    template<typename T, unsigned int CAPACITY>
+    class FixedStack
+    {
+        T data[CAPACITY];
+        unsigned int size = 0;
+    public:
+        inline void Push(const T& value);
+        inline void Pop();
+        inline T& Peek();
+        inline void Clear();
+        inline bool IsEmpty() const;
+        inline unsigned int Size() const;
+        inline unsigned int Capacity() const;
+        inline T& operator[](unsigned int index) ;
+        inline T* Data();
+    };
+
+
+
+    template<typename T>    
+    class Stack
+    {
+        T* data = nullptr;
+        uint32_t size = 0;
+        uint32_t capacity = 0;
+        bool has_arena = false;
+    public:
+        Stack(uint32_t capacity, MemoryArena* arena = nullptr);
+        ~Stack();
+        void Push(const T& value);
+        void Pop();
+        T& Peek();
+        uint32_t Size() const;
+        uint32_t Capacity() const;
+        bool IsEmpty() const;
+        bool HasArena() const;
+        T& operator[](uint32_t index);
+    };
+
+
+
+
+
+    class MemoryArena
+    {
+        char* data = nullptr;
+        uint64_t capacity = 0;
+        uint64_t current_offset = 0; 
+    public:
+        inline MemoryArena(uint64_t cap);
+        inline ~MemoryArena();
+        inline void ResizeAndReset(uint64_t bytes);
+        inline void* Allocate(uint64_t bytes);
+
+        template<typename T>
+        inline T* New(uint64_t count);
+
+        template<typename T>
+        inline T* New();
+
+        inline void Reset();
+        inline uint64_t Capacity() const;
+    };
+
+
+    template<typename T>
+    class ObjectPool
+    {
+        Stack<uint32_t> free_list;
+        T* data = nullptr;
+    public:
+        ObjectPool(uint32_t obj_count, MemoryArena* arena = nullptr);
+        ~ObjectPool();
+        T* New();
+        void Free(T* obj);
+        uint32_t Size() const;
+        uint32_t Capacity() const;
+        bool IsExhausted() const;
+
+    };
+
+
+    /*
+    template<typename T>
+    class IndexArena
+    {
+        T* data = nullptr;
+        int capacity = 0;
+        int current_index = 0;
+    public:
+        IndexArena(int obj_count, MemoryArena* arena);
+        int NewIndex();
+        T* Data();
+        T& operator[](int index);
+    };
+
+    template<typename T>    
+    class ArrayLL
+    {
+    public:
+        struct Node
+        {
+            T value;
+            int next = -1;
+        };
+    private:
+        int head = -1;
+        int tail = -1;
+    public:
+        void Add(const T& value, IndexArena<Node>* index_arena);
+        int GetHead();
+    };
+    */
+
+    template<typename T>
+    class ArenaLL
+    {
+    public:
+        struct Node 
+        {
+            Node* next = nullptr;
+            T value;
+        };
+    private:
+        Node* head = nullptr;
+        Node* tail = nullptr;
+    public:
+        T* Add(const T& value, MemoryArena* arena);
+        bool IsEmpty() const;
+        void Clear();
+        Node* GetHead();
+    };
+
+}
+
+
+
+
+//Array
+namespace UI
+{
+    template<typename T, unsigned int CAPACITY>
+    inline unsigned int Array<T, CAPACITY>::Capacity() const
+    {
+        return CAPACITY;
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline T& Array<T, CAPACITY>::operator[](unsigned int index) 
+    {
+        assert(index < CAPACITY);
+        return data[index];
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline T* Array<T, CAPACITY>::Data()
+    {
+        return data;
+    }
+}
+
+
+
+
+//Fixed Stack
+namespace UI
+{
+    template<typename T, unsigned int CAPACITY>
+    inline void FixedStack<T, CAPACITY>::Push(const T& value)
+    {
+        assert(size < CAPACITY);
+        data[size] = value;
+        size++;
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline void FixedStack<T, CAPACITY>::Pop()
+    {
+        assert(size > 0);
+        size--;
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline T& FixedStack<T, CAPACITY>::Peek()
+    {
+        assert(size > 0);
+        return data[size - 1];
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline void FixedStack<T, CAPACITY>::Clear()
+    {
+        size = 0; 
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline unsigned int FixedStack<T, CAPACITY>::Size() const
+    {
+        return size;
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline unsigned int FixedStack<T, CAPACITY>::Capacity() const
+    {
+        return CAPACITY;
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline T& FixedStack<T, CAPACITY>::operator[](unsigned int index) 
+    {
+        assert(index < size);
+        return data[index];
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline T* FixedStack<T, CAPACITY>::Data()
+    {
+        return data;
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline bool FixedStack<T, CAPACITY>::IsEmpty() const
+    {
+        return size == 0;
+    }
+
+}
+
+
+
+
+//Stack
+namespace UI
+{
+
+    template<typename T>
+    Stack<T>::Stack(uint32_t capacity, MemoryArena* arena)
+        : size(0), capacity(capacity), data(nullptr), has_arena(arena)
+    {
+        if(!arena)
+        {
+            data = new T[capacity];
+        }
+        else
+        {
+            data = arena->New<T>(capacity);
+        }
+
+        //Should always contain memory
+        assert(data);
+    }
+    template<typename T>
+    Stack<T>::~Stack()
+    {
+        if(!has_arena)
+            delete[] data;
+
+    }
+    template<typename T>
+    void Stack<T>::Push(const T& value)
+    {
+        assert(size < capacity);
+        data[size] = value;
+        size++;
+    }
+    template<typename T>
+    void Stack<T>::Pop()
+    {
+        assert(size > 0);
+        size--;
+    }
+    template<typename T>
+    uint32_t Stack<T>::Size() const
+    {
+        return size;
+    }
+
+    template<typename T>
+    uint32_t Stack<T>::Capacity() const
+    {
+        return capacity;
+    }
+    template<typename T>
+    T& Stack<T>::Peek()
+    {
+        assert(size > 0);
+        return data[size - 1];
+    }
+
+    template<typename T>
+    T& Stack<T>::operator[](uint32_t index)
+    {
+        assert(index < size);
+        return data[index];
+    }
+    template<typename T>
+    bool Stack<T>::HasArena() const
+    {
+        return has_arena;
+    }
+    template<typename T>
+    bool Stack<T>::IsEmpty() const
+    {
+        return size == 0;
+    }
+}
+
+//Memory Pool
+namespace UI
+{
+
+    inline MemoryArena::MemoryArena(uint64_t bytes) 
+        : capacity(bytes), current_offset(0), data(new char[bytes])
+    {
+        assert(data); //Over Capacity
+    }
+    inline MemoryArena::~MemoryArena()
+    {
+        delete[] data;
+    }
+    inline void MemoryArena::ResizeAndReset(uint64_t bytes)
+    {
+        if(data)
+            delete[] data;
+        data = new char[bytes];
+        capacity = bytes;
+        current_offset = 0;
+        assert(data); //should not happen
+    }
+    inline void* MemoryArena::Allocate(uint64_t bytes)
+    {
+        //(address + (ALIGNMENT - 1)) & ~(ALIGNMENT - 1)
+        uint64_t aligned_bytes = (bytes + 7) & ~7;
+        uint64_t new_offset = current_offset + aligned_bytes; 
+        if(new_offset <= capacity)
+        {
+            void* ptr = (data + current_offset);
+            current_offset = new_offset;
+            return ptr;
+        }
+        return nullptr;
+    }
+    template<typename T>
+    inline T* MemoryArena::New(uint64_t count)
+    {
+        T* temp = (T*)Allocate(count * sizeof(T)); 
+        if(!temp) return nullptr;
+        //initialize
+        for(uint64_t i = 0; i<count; i++)
+            temp[i] = T();
+        return temp;
+    }
+    template<typename T>
+    inline T* MemoryArena::New()
+    {
+        T* temp = (T*)Allocate(sizeof(T)); 
+        if(!temp) return nullptr;
+        //initialize;
+        *temp = T();
+        return temp;
+    }
+    inline void MemoryArena::Reset()
+    {
+        current_offset = 0;
+    }
+    inline uint64_t MemoryArena::Capacity() const
+    {
+        return capacity;
+    }
+
+}
+
+
+
+//ObjectPool
+namespace UI
+{
+    template<typename T>
+    inline ObjectPool<T>::ObjectPool(uint32_t obj_count, MemoryArena* arena): free_list(obj_count, arena)
+    {
+        if(arena)
+        {
+            data = arena->New<T>(obj_count);
+        }
+        else
+        {
+            data = new T[obj_count]{};
+        }
+
+        //Fill the free list
+        for(uint32_t i = 0; i < free_list.Capacity(); i++)
+            free_list.Push(i);
+
+        //Should contain data
+        assert(data);
+    }
+    template<typename T>
+    inline ObjectPool<T>::~ObjectPool()
+    {
+        if(!free_list.HasArena())
+            delete[] data;
+    }
+    template<typename T>
+    inline T* ObjectPool<T>::New()
+    {
+        if(!free_list.IsEmpty())
+        {
+            uint32_t index = free_list.Peek();
+            free_list.Pop();
+            return (data + index);
+        }
+        return nullptr;
+    }
+    template<typename T>
+    inline void ObjectPool<T>::Free(T* ptr)
+    {
+        assert(ptr);
+        assert((uintptr_t)data <= (uintptr_t)ptr);
+        uintptr_t index = ((uintptr_t)ptr - (uintptr_t)data) / sizeof(T);
+        assert(index < free_list.Capacity());
+        free_list.Push((uint32_t)index);
+    }
+    template<typename T>
+    inline bool ObjectPool<T>::IsExhausted() const
+    {
+        return free_list.IsEmpty();
+    }
+    template<typename T>
+    inline uint32_t ObjectPool<T>::Size() const
+    {
+        return free_list.Size();
+    }
+    template<typename T>
+    inline uint32_t ObjectPool<T>::Capacity() const
+    {
+        return free_list.Capacity();
+    }
+    
+}
+
+/*
+namespace UI
+{
+    template<typename T>
+    inline IndexArena<T>::IndexArena(int obj_count, MemoryArena* arena)
+        :   data(nullptr), current_index(0), capacity(obj_count)
+    {
+        assert(arena);
+        data = arena->New<T>(obj_count);
+        assert(data);
+    }
+    template<typename T>
+    inline int IndexArena<T>::NewIndex()
+    {
+        if(current_index >= capacity)
+            return -1;
+        current_index++;
+        return current_index - 1;
+    }
+    template<typename T>
+    inline T* IndexArena<T>::Data()
+    {
+        return data;
+    }
+    template<typename T>
+    inline T& IndexArena<T>::operator[](int index)
+    {
+        assert(index >= 0 && index <= capacity);
+    }
+}
+
+namespace UI
+{
+    template<typename T>
+    inline void ArrayLL<T>::Add(const T& value, IndexArena<Node>* index_arena)
+    {
+        assert(index_arena);
+        int index = index_arena->NewIndex(); 
+        assert(index != -1);
+        index_arena.Data()[index] = value;
+    }
+    template<typename T>
+    inline int ArrayLL<T>::GetHead()
+    {
+        return head;
+    }
+}
+
+*/
+
+namespace UI
+{
+    template<typename T>
+    inline T* ArenaLL<T>::Add(const T& value, MemoryArena* arena)
+    {
+        assert(arena);
+        Node* temp = arena->New<ArenaLL<T>::Node>();
+        assert(temp);
+        temp->value = value;
+        if(head == nullptr)
+        {
+            head = temp;
+            tail = temp;
+        }
+        else
+        {
+            tail->next = temp;
+            tail = temp;
+        }
+        return &temp->value;
+    }
+
+    template<typename T>
+    inline typename ArenaLL<T>::Node* ArenaLL<T>::GetHead()
+    {
+        return head; 
+    }
+    template<typename T>
+    inline void ArenaLL<T>::Clear()
+    {
+        head = nullptr;
+        tail = nullptr;
+    }
+    template<typename T>
+    inline bool ArenaLL<T>::IsEmpty() const
+    {
+        return head == nullptr;
+    }
+}

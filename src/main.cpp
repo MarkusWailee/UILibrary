@@ -12,7 +12,7 @@ int main(void)
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
-    SetTargetFPS(10);
+    SetTargetFPS(100);
 
 
 
@@ -25,70 +25,54 @@ int main(void)
     std::cout<<sizeof(UI::StyleSheet)<<'\n';
 
     UI::StyleSheet base;
-    base.width = UI::Unit{(short)GetScreenWidth(), UI::Unit::Type::PIXEL};
-    base.height = UI::Unit{(short)GetScreenHeight(), UI::Unit::Type::PIXEL};
     base.layout = UI::Layout::FLOW;  
     base.flow.axis = UI::Flow::Axis::HORIZONTAL;
+    base.background_color = UI::Color{59, 58, 60, 255};
 
-    UI::StyleSheet vertical_panel;
-    vertical_panel.width = UI::Unit{100, UI::Unit::Type::PIXEL};
-    vertical_panel.height = UI::Unit{100, UI::Unit::Type::PARENT_PERCENT};
-    vertical_panel.layout = UI::Layout::FLOW;
-    vertical_panel.flow.axis = UI::Flow::Axis::VERTICAL;
-    vertical_panel.flow.vertical_spacing = UI::Flow::Spacing::START;
+    UI::StyleSheet red_div;
+    red_div.width = UI::Unit{50, UI::Unit::Type::PARENT_PERCENT};
+    red_div.height = UI::Unit{50, UI::Unit::Type::PARENT_PERCENT};
+    red_div.background_color = UI::Color{255, 0, 0, 255};
 
-    UI::StyleSheet grid1;
-    grid1.width = UI::Unit{100, UI::Unit::Type::AVAILABLE_PERCENT};
-    grid1.height = UI::Unit{100, UI::Unit::Type::AVAILABLE_PERCENT}; //PARENT_PERCENT should do the same thing
-    grid1.layout = UI::Layout::GRID;
-    grid1.grid.column_max = 2;
-    grid1.grid.row_max = 2; //Wont add more if items are maxed. Setting to a large number will add rows(Might turn into a scrollable).
-    grid1.overflow = UI::OverFlow::SCROLL;
-    grid1.grid.column_height = UI::Unit{100, UI::Unit::Type::PIXEL};
-    grid1.grid.row_width = UI::Unit{100, UI::Unit::Type::PIXEL};
+    UI::StyleSheet green_div = red_div;
+    green_div.background_color = UI::Color{0, 255, 0, 255};
+    green_div.width = UI::Unit{90, UI::Unit::Type::PARENT_PERCENT};
+    green_div.flow.wrap = false;
+    green_div.max_width = UI::Unit{30, UI::Unit::Type::PIXEL};
+    green_div.flow.wrap = true;
 
-    UI::StyleSheet items;
-    items.width = UI::Unit{100, UI::Unit::Type::AVAILABLE_PERCENT};
-    items.height = UI::Unit{100, UI::Unit::Type::AVAILABLE_PERCENT};
+
+    UI::StyleSheet blue_div;
+    blue_div.background_color = UI::Color{0, 0, 255, 255};
+    blue_div.width = UI::Unit{50, UI::Unit::Type::MM};
+    blue_div.height = UI::Unit{50, UI::Unit::Type::AVAILABLE_PERCENT};
+
 
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
+        base.width = UI::Unit{(short)GetScreenWidth(), UI::Unit::Type::PIXEL};
+        base.height = UI::Unit{(short)GetScreenHeight(), UI::Unit::Type::PIXEL};
 
 
         BeginDrawing();
         ClearBackground(Color{43, 41, 51, 255});
 
         //UI LIBRARY TEST
-        UI::BeginDiv(nullptr);
-            UI::BeginDiv(nullptr);
-                UI::BeginDiv(nullptr);
-                UI::EndDiv();
-
-                UI::BeginDiv(nullptr);
-                    UI::BeginDiv(nullptr);
-                    UI::EndDiv();
-
-                    UI::BeginDiv(nullptr);
+        UI::BeginDiv(&base);
+            UI::BeginDiv(&red_div);
+                UI::BeginDiv(&green_div);
+                    UI::BeginDiv(&blue_div);
                     UI::EndDiv();
                 UI::EndDiv();
-
-                UI::BeginDiv(nullptr);
-                UI::EndDiv();
-
             UI::EndDiv();
-                UI::BeginDiv(nullptr);
-                UI::EndDiv();
-
-                UI::BeginDiv(nullptr);
-                UI::EndDiv();
         UI::EndDiv();
 
 
         UI::Draw();
 
         
-        { { {} {} } { {} {} } }
 
+        DrawText(TextFormat("%i", GetFPS()), GetScreenWidth() - 50, 10, 30, WHITE);
         EndDrawing();
         //----------------------------------------------------------------------------------
     }

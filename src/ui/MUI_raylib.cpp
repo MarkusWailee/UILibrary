@@ -8,7 +8,7 @@ namespace UI
 {
     void DrawRectangle_impl(const RectanglePrimitive& p)
     {
-        DrawRectangle(p.x, p.y, p.width, p.height, {p.background_color.r, p.background_color.b, p.background_color.g, p.background_color.a});
+        DrawRectangle(p.x, p.y, p.width, p.height, {p.background_color.r, p.background_color.g, p.background_color.b, p.background_color.a});
     }
     void DrawText_impl(const char* text, const TextPrimitive& p)
     {
