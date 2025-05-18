@@ -29,23 +29,23 @@ int main(void)
     base.flow.axis = UI::Flow::Axis::HORIZONTAL;
     base.background_color = UI::Color{59, 58, 60, 255};
 
-    UI::StyleSheet red_div;
-    red_div.width = UI::Unit{50, UI::Unit::Type::PARENT_PERCENT};
-    red_div.height = UI::Unit{50, UI::Unit::Type::PARENT_PERCENT};
-    red_div.background_color = UI::Color{255, 0, 0, 255};
 
-    UI::StyleSheet green_div = red_div;
+    UI::StyleSheet red_div;
+    red_div.width = UI::Unit{200, UI::Unit::Type::PIXEL};
+    red_div.height = UI::Unit{200, UI::Unit::Type::PIXEL};
+    red_div.background_color = UI::Color{255, 0, 0, 255};
+    red_div.flow.wrap = true;
+
+    UI::StyleSheet green_div;
     green_div.background_color = UI::Color{0, 255, 0, 255};
-    green_div.width = UI::Unit{90, UI::Unit::Type::PARENT_PERCENT};
-    green_div.flow.wrap = false;
-    green_div.max_width = UI::Unit{30, UI::Unit::Type::PIXEL};
-    green_div.flow.wrap = true;
+    green_div.width = UI::Unit{250, UI::Unit::Type::PIXEL};
+    green_div.height = UI::Unit{50, UI::Unit::Type::PARENT_PERCENT};
 
 
     UI::StyleSheet blue_div;
     blue_div.background_color = UI::Color{0, 0, 255, 255};
-    blue_div.width = UI::Unit{50, UI::Unit::Type::MM};
-    blue_div.height = UI::Unit{50, UI::Unit::Type::AVAILABLE_PERCENT};
+    blue_div.width = UI::Unit{100, UI::Unit::Type::PIXEL};
+    blue_div.height = UI::Unit{100, UI::Unit::Type::AVAILABLE_PERCENT};
 
 
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -60,9 +60,9 @@ int main(void)
         //UI LIBRARY TEST
         UI::BeginDiv(&base);
             UI::BeginDiv(&red_div);
-                UI::BeginDiv(&green_div);
-                    UI::BeginDiv(&blue_div);
-                    UI::EndDiv();
+            UI::EndDiv();
+            UI::BeginDiv(&green_div);
+                UI::BeginDiv(&blue_div);
                 UI::EndDiv();
             UI::EndDiv();
         UI::EndDiv();

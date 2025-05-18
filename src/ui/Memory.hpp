@@ -1,8 +1,8 @@
 #pragma once
 
-#include <iostream>
 #include <stdint.h>
 #include <cassert>
+#include <cstring>
 
 
 namespace UI
@@ -21,17 +21,22 @@ namespace UI
     template<typename T>
     class ObjectPool;
 
-
     template<typename T>
     class ArenaLL;
 
+    void StringCopy(char* dst, const char* src, uint32_t size)
+    {
+        if(size == 0) return;
+        uint32_t i;
+        for(i = 0; i<size-1 && src[i] != '\0'; i++)
+            dst[i] = src[i];
+        dst[i] = '\0';
+    }
 }
 
 //Stack allocated data structures
 namespace UI
 {
-
-
 
     template<typename T, unsigned int CAPACITY>
     class Array
@@ -173,6 +178,7 @@ namespace UI
         Node* head = nullptr;
         Node* tail = nullptr;
     public:
+        //returns address or nullptr if arena is out of space
         T* Add(const T& value, MemoryArena* arena);
         bool IsEmpty() const;
         void Clear();
@@ -533,7 +539,8 @@ namespace UI
     {
         assert(arena);
         Node* temp = arena->New<ArenaLL<T>::Node>();
-        assert(temp);
+        if(!temp)
+            return nullptr;
         temp->value = value;
         if(head == nullptr)
         {

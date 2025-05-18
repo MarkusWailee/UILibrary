@@ -27,6 +27,15 @@ void UI::EndScissorMode_impl()
 {
     EndScissorMode();
 }
+#include <iostream>
+void UI::LogError_impl(const char* msg)
+{
+    std::cout<<msg; 
+}
+void UI::LogError_impl(int n)
+{
+    std::cout<<n; 
+}
 
 
 

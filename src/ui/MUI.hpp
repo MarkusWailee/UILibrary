@@ -17,12 +17,18 @@ namespace UI
     {
         enum class Type : unsigned char 
         {
+            //Unit Type 1
             PIXEL,
             MM,
             CM,
-            CONTENT_PERCENT,    //Based on the size of the inner content(child divs)
+
+            //Unit Type 2
             PARENT_PERCENT,     //Based on the size of the parent div
             ROOT_PERCENT,       //Based on the root div size
+
+            //Unit Type 3
+            // width/height only
+            CONTENT_PERCENT,    //Based on the size of the inner content(child divs)
             AVAILABLE_PERCENT   //Based on the amount of space available
         };
 
@@ -69,9 +75,9 @@ namespace UI
         Unit height = Unit{0, Unit::Type::PIXEL};
 
         Unit min_width;
-        Unit max_width = Unit{100, Unit::Type::ROOT_PERCENT};
+        Unit max_width = Unit{9999, Unit::Type::PIXEL};
         Unit min_height;
-        Unit max_height = Unit{100, Unit::Type::ROOT_PERCENT};
+        Unit max_height = Unit{9999, Unit::Type::PIXEL};
 
         Unit x = Unit{0, Unit::Type::PIXEL};
         Unit y = Unit{0, Unit::Type::PIXEL};
@@ -95,7 +101,6 @@ namespace UI
         unsigned char margin_bottom = 0;
         unsigned char margin_left = 0;
 
-
         inline void set_padding(unsigned char value) {padding_top = padding_right = padding_bottom = padding_left = value;}
         inline void set_margin(unsigned char value){margin_top = margin_right = margin_bottom = margin_left = value;}
     };
@@ -114,7 +119,7 @@ namespace UI
         bool on_mouse_click = 0;
         bool on_mouse_release = 0;
     };
-    void BeginDiv(const UI::StyleSheet* div_style_sheet, UI::DivMouseInfo* get_info = nullptr);
+    void BeginDiv(const UI::StyleSheet* div_style_sheet, const char* label = nullptr, UI::DivMouseInfo* get_info = nullptr);
     void EndDiv();
     void Draw();
 }
@@ -138,10 +143,15 @@ namespace UI
         float font_size;
         UI::Color color;
     };
+
+    //Error handling
+    void LogError_impl(const char* text);
+    void LogError_impl(int num);
+
+    //Rendering
     void DrawText_impl(const char* text, const TextPrimitive& p);
     void DrawRectangle_impl(const RectanglePrimitive& p);
     float MeasureText_impl(const char* text, const TextPrimitive& p);
-
     void BeginScissorMode_impl(float x, float y, float width, float height);
     void EndScissorMode_impl();
 }
