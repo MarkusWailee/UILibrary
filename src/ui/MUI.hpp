@@ -21,6 +21,7 @@ namespace UI
             PIXEL,
             MM,
             CM,
+            INCH,
 
             //Unit Type 2
             PARENT_PERCENT,     //Based on the size of the parent div
@@ -32,7 +33,7 @@ namespace UI
             AVAILABLE_PERCENT   //Based on the amount of space available
         };
 
-        short value = 0;
+        float value = 0;
         Unit::Type unit = Type::PIXEL;
     };
     struct Color
@@ -45,10 +46,10 @@ namespace UI
     struct Flow
     {
         enum class Axis : unsigned char {HORIZONTAL, VERTICAL};
-        enum class Spacing: unsigned char {START, END, CENTERED, AROUND, BETWEEN};
+        enum class Alignment: unsigned char {START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN};
         Axis axis = Axis::VERTICAL;
-        Spacing vertical_spacing = Spacing::START;
-        Spacing horizontal_spacing = Spacing::START;
+        Alignment vertical_alignment = Alignment::START;
+        Alignment horizontal_alignment = Alignment::START;
         bool wrap = false;
     };
 
@@ -57,8 +58,15 @@ namespace UI
         unsigned char row_max = 0, column_max = 0;
         unsigned char row_start = 0, column_start = 0; 
         unsigned char row_end = 0, column_end = 0; 
-        Unit column_height;
-        Unit row_width;
+        Unit cell_width;
+        Unit cell_height;
+    };
+    struct Spacing
+    {
+        unsigned char left = 0;
+        unsigned char right = 0;
+        unsigned char top = 0;
+        unsigned char bottom = 0;
     };
     struct StyleSheet
     {
@@ -82,8 +90,12 @@ namespace UI
         Unit x = Unit{0, Unit::Type::PIXEL};
         Unit y = Unit{0, Unit::Type::PIXEL};
 
+
         Color background_color = UI::Color{0, 0, 0, 0};
         Color border_color = UI::Color{0, 0, 0, 0};
+
+        Spacing padding;
+        Spacing margin;
 
         //Potentially performance heavy
         bool scissor = false;
@@ -92,17 +104,6 @@ namespace UI
         //PIXEL VALUES
         unsigned char corner_radius = 0; //255 sets to circle
         unsigned char border_width = 0;  
-        unsigned char padding_top = 0;
-        unsigned char padding_right = 0;
-        unsigned char padding_bottom = 0;
-        unsigned char padding_left = 0;
-        unsigned char margin_top = 0;
-        unsigned char margin_right = 0;
-        unsigned char margin_bottom = 0;
-        unsigned char margin_left = 0;
-
-        inline void set_padding(unsigned char value) {padding_top = padding_right = padding_bottom = padding_left = value;}
-        inline void set_margin(unsigned char value){margin_top = margin_right = margin_bottom = margin_left = value;}
     };
 }
 
@@ -112,15 +113,15 @@ namespace UI
 //Main UI Functions
 namespace UI
 {
-    struct DivMouseInfo
+    struct MouseInfo
     {
         bool on_mouse_hover = 0;
         bool on_mouse_down = 0;
         bool on_mouse_click = 0;
         bool on_mouse_release = 0;
     };
-    void BeginDiv(const UI::StyleSheet* div_style_sheet, const char* label = nullptr, UI::DivMouseInfo* get_info = nullptr);
-    void EndDiv();
+    void BeginBox(const UI::StyleSheet* div_style_sheet, const char* label = nullptr, UI::MouseInfo* get_info = nullptr);
+    void EndBox();
     void Draw();
 }
 
@@ -128,15 +129,6 @@ namespace UI
 //IMPLEMENT THESE FUNCTIONS
 namespace UI
 {
-    struct RectanglePrimitive
-    {
-        float x, y;
-        float width, height;
-        float border_width;
-        float corner_radius;
-        Color background_color;
-        Color border_color;
-    };
     struct TextPrimitive
     {
         float x, y;
@@ -150,7 +142,7 @@ namespace UI
 
     //Rendering
     void DrawText_impl(const char* text, const TextPrimitive& p);
-    void DrawRectangle_impl(const RectanglePrimitive& p);
+    void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color border_color, Color background_color);
     float MeasureText_impl(const char* text, const TextPrimitive& p);
     void BeginScissorMode_impl(float x, float y, float width, float height);
     void EndScissorMode_impl();

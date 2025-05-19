@@ -4,27 +4,93 @@
 
 namespace UI
 {
-    struct Div
+    struct Box
     {
-        const StyleSheet* style_sheet = nullptr;
+        //container
+        //Turned into pixel format
+        Color background_color = UI::Color{0, 0, 0, 0};
+        Color border_color = UI::Color{0, 0, 0, 0};
 
-        //self
-        float width = 0, height = 0;
-        float min_width = 0, max_width = 0;
-        float min_height = 0, max_height = 0;
-        float x = 0, y = 0;
+        //type 3
+        uint16_t width = 0;
+        uint16_t height = 0;
 
+        uint16_t gap_row = 0;
+        uint16_t gap_column = 0;
+        uint16_t min_width = 0;
+        uint16_t max_width = 0;
+        uint16_t min_height = 0;
+        uint16_t max_height = 0;
+        int16_t x = 0;
+        int16_t y = 0;
+        uint16_t grid_cell_width;
+        uint16_t grid_cell_height;
 
-        //Flow layout
-        float cursor_x = 0, cursor_y = 0;
-        float gap_row = 0, gap_column = 0;
+        Unit::Type width_unit = Unit::Type::PIXEL;
+        Unit::Type height_unit = Unit::Type::PIXEL;
 
-        //Grid layout
-        float grid_column_height = 0;
-        float grid_row_width = 0;
+        uint8_t grid_row_max = 0, grid_column_max = 0;
+        uint8_t grid_row_start = 0, grid_column_start = 0; 
+        uint8_t grid_row_end = 0, grid_column_end = 0; 
 
-        //The positioned used for rendering
-        float final_x = 0, final_y = 0;
+        Flow::Alignment flow_vertical_alignment = Flow::Alignment::START;
+        Flow::Alignment flow_horizontal_alignment = Flow::Alignment::START;
+        //PIXEL VALUES
+        uint8_t corner_radius = 0; //255 sets to circle
+        uint8_t border_width = 0;  
+        Spacing padding;
+        Spacing margin;
+        Layout layout = Layout::FLOW;
+    private:
+        //Values that can potentially use bit array
+        Positioning positioning = Positioning::RELATIVE;
+        Flow::Axis flow_axis = Flow::Axis::VERTICAL;
+        bool flow_wrap = false;
+        bool scissor = false;
+    public:
+        void SetPositioning(Positioning p){positioning = p;}
+        void SetFlowAxis(Flow::Axis axis){flow_axis = axis;}
+        void SetScissor(bool flag){scissor = flag;}
+        void SetFlowWrap(bool flag){flow_wrap = flag;}
+        Layout GetLayout() const
+        {
+            return layout;
+        }
+        Flow::Axis GetFlowAxis() const
+        {
+            return flow_axis;
+        }
+        Positioning GetPositioning() const
+        {
+            return positioning;
+        }
+        bool IsScissor() const
+        {
+            return scissor;
+        }
+        bool IsFlowWrap() const
+        {
+            return flow_wrap;
+        }
+
+        float GetBoxModelWidth() const
+        {
+            //internal box model
+            return (float)(margin.left + padding.left + width + padding.right + margin.right);
+        }
+        float GetBoxModelHeight() const
+        {
+            return (float)(margin.top + padding.top + height + padding.bottom + margin.bottom);
+        }
+        float GetRenderingWidth() const
+        {
+            return (float)(padding.left + width + padding.right);
+        }
+        float GetRenderingHeight() const
+        {
+            return (float)(padding.top + height + padding.bottom);
+        }
+
     };
 
     template<typename T>
@@ -36,7 +102,7 @@ namespace UI
 }
 
 
-//Helpers
+//Error checking and conversions
 namespace UI
 {
     struct Error
@@ -45,8 +111,7 @@ namespace UI
         {
             NO_ERROR,
             INCORRENT_UNIT_TYPE,
-            NODE_CONFLICT_0,
-            NODE_CONFLICT_1,
+            NODE_CONFLICT,
             LEAF_NODE_CONFLICT,
             ROOT_NODE_CONFLICT,
             MISSING_END,
@@ -71,105 +136,96 @@ namespace UI
 
     //Used during tree descending
     float DescendFixedUnitToPx(Unit unit, float parent_pixels, float root_pixels);
-    Div ComputeFixedValues(const StyleSheet& child_style, const Div& parent_div, const Div& root_div);
+    Box ComputeStyleSheet(const StyleSheet& style, const Box& parent, const Box& root);
 
-    //Used when ascending from the tree, as c% is based on the sum of the childrens sizes
-    //Each function call adds the childs units to the total content size that should be calculated
-    void ComputeAllParentContentPercentUnits(Div& parent, const StyleSheet& parent_style, const Div& child_to_add);
 
     float MillimeterToPixels(float mm);
     float CentimeterToPixels(float cm);
     float InchToPixels(float inches);
-    float min(float a, float b);
-    float max(float a, float b);
+    template<typename T>
+    T min(T a, T b);
+    template<typename T>
+    T max(T a, T b);
     float clamp(float minimum, float maximum, float value);
-    
-    void DrawPass(TreeNode<Div>* node);
-    void AvailablePass(TreeNode<Div>* node);
-    void PositionPass(TreeNode<Div>* node);
+}
+
+//UI passes
+namespace UI
+{
+    void AvailablePass(TreeNode<Box>* node);
+    void PositionPass(TreeNode<Box>* node);
+    void DrawPass(TreeNode<Box>* node, float x, float y);
 }
 
 
 //GLOBALS
 namespace UI
 {
-    Error internal_error;
+    StyleSheet default_style_sheet;
+
     float dpi = 96.0f;
     MemoryArena arena(8192);
-    StyleSheet default_style_sheet;
-    TreeNode<Div>* root_node = nullptr;
-    FixedStack<TreeNode<Div>*, 100> stack; //elements should never nest over 100 layers deep
+    TreeNode<Box>* root_node = nullptr;
+    FixedStack<TreeNode<Box>*, 100> stack; //elements should never nest over 100 layers deep
 }
 
 namespace UI
 {
-    void BeginDiv(const UI::StyleSheet* div_style_sheet, const char* label, UI::DivMouseInfo* get_info)
+    void BeginBox(const UI::StyleSheet* style_sheet, const char* label, UI::MouseInfo* get_info)
     {
         if(HasGlobalError())
             return;
-        const StyleSheet* style_sheet_ptr = div_style_sheet? div_style_sheet: &default_style_sheet;
-        StyleSheet div_style = *style_sheet_ptr;
+        StyleSheet style = style_sheet? *style_sheet: default_style_sheet;
 
         //Check for unit type errors
         //Could be moved into creating style sheets for more performance, but this is good enough for now
-        if(HandleGlobalError(CheckUnitErrors(div_style)))
+        if(HandleGlobalError(CheckUnitErrors(style)))
             return;
 
         if(stack.IsEmpty())//Root Node
         {
-            if(HandleGlobalError(CheckRootNodeConflicts(div_style)))
+            //Checking errors unique to root node
+            if(HandleGlobalError(CheckRootNodeConflicts(style)))
                 return;
+            root_node = arena.New<TreeNode<Box>>();
+            assert(root_node && "Arena out of space");
 
-            //Creating the new div based on style sheet
-            Div new_div = ComputeFixedValues(div_style, Div(), Div());
-
-            //Make sure the style sheet is attached to new div
-            new_div.style_sheet = style_sheet_ptr;
-
-            //Initialize root_node
-            root_node = arena.New<TreeNode<Div>>();
-            assert(root_node && "Arena out of memory");
-
-            //Set new_div inside root_node
-            root_node->val = new_div;
+            //compute 
+            root_node->val = ComputeStyleSheet(style, Box(), Box());
             stack.Push(root_node);
         }
         else  // should add to parent
         {
-            TreeNode<Div>* parent = stack.Peek();
-            assert(parent);
+            TreeNode<Box>* parent_node = stack.Peek();
+            assert(parent_node);
             assert(root_node);
-            Div parent_div = parent->val;    
-            Div root_div = root_node->val;
 
-            //Creating the new div based on style sheet and parent divs
-            Div new_div = ComputeFixedValues(div_style, parent_div, root_div);
-            new_div.style_sheet = style_sheet_ptr;
-
-            //inserting new node
-            TreeNode<Div> new_node;
-            new_node.val = new_div;
-            TreeNode<Div>* node_ptr = parent->children.Add(new_node, &arena);
-            assert(node_ptr && "Arena out of memory");
-            stack.Push(node_ptr);
+            TreeNode<Box> child_node;
+            child_node.val = ComputeStyleSheet(style, parent_node->val, root_node->val);
+            TreeNode<Box>* child_ptr = parent_node->children.Add(child_node, &arena); 
+            assert(child_ptr && "Arena out of memory");
+            stack.Push(child_ptr);
         }
     }
 
-    void EndDiv()
+    void EndBox()
     {
         if(HasGlobalError())
             return;
-
-        //Remember to catch all the node conflicts here
+        if(stack.IsEmpty())
+        {
+            HandleGlobalError(Error{Error::Type::MISSING_BEGIN, "There are more EndBox() than BeginBox()"});
+            return;
+        }
         stack.Pop();
+
     }
     void Draw()
     {
         if(HasGlobalError())
             return;
-
-        PositionPass(root_node);
-        DrawPass(root_node);
+        
+        DrawPass(root_node, 0, 0);
 
         arena.Reset(); 
         stack.Clear();
@@ -179,69 +235,9 @@ namespace UI
 }
 
 
-namespace UI
-{
-    void DrawPass(TreeNode<Div>* node)
-    {
-        if(!node)
-            return;
-        Div div = node->val;
-        StyleSheet sheet = *div.style_sheet;
-        RectanglePrimitive rect;
-        rect.x = div.final_x;
-        rect.y = div.final_y;
-        rect.width = div.width;
-        rect.height = div.height;
-        rect.border_width = 0;
-        rect.corner_radius = 0;
-        rect.background_color = sheet.background_color;
-        rect.border_color = sheet.border_color;
-        DrawRectangle_impl(rect);
-        ArenaLL<TreeNode<Div>>::Node* temp = node->children.GetHead();
-        while(temp!=nullptr)
-        {
-            DrawPass(&temp->value);
-            temp = temp->next;
-        }
-    }
 
-    void AvailablePass(TreeNode<Div>* node)
-    {
-        if(!node)
-            return;
-        float available_x = 0; 
-        float available_y = 0; 
-        ArenaLL<TreeNode<Div>>::Node* first_child = node->children.GetHead();
-    }
-    //Sets the layout_x, and layout_y for all nodes
-    void PositionPass(TreeNode<Div>* node)
-    {
-        if(!node)
-            return;
 
-        Div& parent_div = node->val;
-        const StyleSheet& style = *parent_div.style_sheet; 
-        ArenaLL<TreeNode<Div>>::Node* first_child = node->children.GetHead();
-
-        if(style.layout == Layout::FLOW)
-        {
-            if(style.flow.axis == Flow::Axis::HORIZONTAL)
-            {
-                
-            }
-            else //Vertical
-            {
-
-            }
-        }
-        else //Grid
-        {
-
-        }
-        
-    }
-}
-
+//Error checking and conversions
 namespace UI
 {
     void DisplayError(const Error& error)
@@ -258,11 +254,8 @@ namespace UI
             case Error::Type::INCORRENT_UNIT_TYPE:
                 LogError_impl("ERROR: incorrect unit type\n");
                 break;
-            case Error::Type::NODE_CONFLICT_0:
-                LogError_impl("ERROR: node conflict 0\n");
-                break;
-            case Error::Type::NODE_CONFLICT_1:
-                LogError_impl("ERROR: node conflict 1\n");
+            case Error::Type::NODE_CONFLICT:
+                LogError_impl("ERROR: node conflict\n");
                 break;
             case Error::Type::LEAF_NODE_CONFLICT:
                 LogError_impl("ERROR: leaf node confict\n");
@@ -271,15 +264,15 @@ namespace UI
                 LogError_impl("ERROR: root node conflict\n");
                 break;
             case Error::Type::MISSING_END:
-                LogError_impl("ERROR: missing EndDiv()\n");
+                LogError_impl("ERROR: missing End()\n");
                 break;
             case Error::Type::MISSING_BEGIN:
-                LogError_impl("ERROR: missing BeginDiv()\n");
+                LogError_impl("ERROR: missing Begin()\n");
                 break;
             default:
                 return;
         }
-        LogError_impl("Div #");
+        LogError_impl("Begin #");
         LogError_impl(error.div_number);
         LogError_impl("\n");
 
@@ -290,28 +283,33 @@ namespace UI
 
 
     #define UNIT_CONFLICT(value, unit_type, error_type)\
-        if(value == unit_type) return Error{error_type, #value "=" #unit_type}
+        if(value == unit_type) return Error{error_type, #value " = " #unit_type}
 
     Error CheckUnitErrors(const StyleSheet& style)
     {
+        //The following units cannot equal the specified Unit Types 
+
+        //Content%
         UNIT_CONFLICT(style.x.unit,                     Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.y.unit,                     Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.gap_row.unit,               Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.gap_column.unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.grid.row_width.unit,        Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.grid.column_height.unit,    Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+        UNIT_CONFLICT(style.grid.cell_width.unit,       Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+        UNIT_CONFLICT(style.grid.cell_height.unit,      Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
 
         UNIT_CONFLICT(style.min_width.unit,             Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.min_height.unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.max_width.unit,             Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.max_height.unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
 
+        //Available%
         UNIT_CONFLICT(style.x.unit,                     Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.y.unit,                     Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.gap_row.unit,               Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.gap_column.unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.grid.row_width.unit,        Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.grid.column_height.unit,    Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+        UNIT_CONFLICT(style.grid.cell_width.unit,       Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+        UNIT_CONFLICT(style.grid.cell_height.unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+
         UNIT_CONFLICT(style.min_width.unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.min_height.unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.max_width.unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
@@ -321,17 +319,21 @@ namespace UI
 
 
 
-    Error CheckLeafNodeConflicts(const StyleSheet& child, bool is_child_empty)
+    Error CheckLeafNodeConflicts(const Box& child, bool is_child_empty)
     {
-        if(is_child_empty && child.width.unit == Unit::Type::CONTENT_PERCENT)
+        //The Following erros are contradictions
+        if(is_child_empty && child.width_unit == Unit::Type::CONTENT_PERCENT)
             return Error{Error::Type::LEAF_NODE_CONFLICT, "width.unit = Unit::Type::CONTENT_PERCENT with 0 children"};
-        if(is_child_empty && child.height.unit == Unit::Type::CONTENT_PERCENT)
+        if(is_child_empty && child.height_unit == Unit::Type::CONTENT_PERCENT)
             return Error{Error::Type::LEAF_NODE_CONFLICT, "height.unit = Unit::Type::CONTENT_PERCENT with 0 children"};
         return Error();
     }
 
     Error CheckRootNodeConflicts(const StyleSheet& root)
     {
+        //Root node style sheet cannot equal any of these Unit types
+        //The following errors are contradictions
+        //Parent%
         UNIT_CONFLICT(root.width.unit,      Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.height.unit,     Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.min_width.unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
@@ -340,7 +342,10 @@ namespace UI
         UNIT_CONFLICT(root.max_height.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.x.unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.y.unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
 
+        //Available%
         UNIT_CONFLICT(root.width.unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.height.unit,     Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.min_width.unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
@@ -349,7 +354,10 @@ namespace UI
         UNIT_CONFLICT(root.max_height.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.x.unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.y.unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
 
+        //Root%
         UNIT_CONFLICT(root.width.unit,      Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.height.unit,     Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.min_width.unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
@@ -358,25 +366,29 @@ namespace UI
         UNIT_CONFLICT(root.max_height.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.x.unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         UNIT_CONFLICT(root.y.unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         return Error();
     }
-    Error CheckNodeConflicts(const StyleSheet& child, const StyleSheet& parent)
+    Error CheckNodeConflicts(const Box& child, const Box& parent)
     {
+        //The following errors are contradictions between parent and child
+
         //just checking with and height
-        bool p_width = parent.width.unit == Unit::Type::CONTENT_PERCENT;
-        bool p_height = parent.height.unit == Unit::Type::CONTENT_PERCENT;
+        bool p_width = parent.width_unit == Unit::Type::CONTENT_PERCENT;
+        bool p_height = parent.height_unit == Unit::Type::CONTENT_PERCENT;
 
         //width
-        if(child.width.unit == Unit::Type::PARENT_PERCENT && p_width)
-            return Error{Error::Type::NODE_CONFLICT_0, "width.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.width.unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
-            return Error{Error::Type::NODE_CONFLICT_1, "width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.width_unit == Unit::Type::PARENT_PERCENT && p_width)
+            return Error{Error::Type::NODE_CONFLICT, "width.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
+            return Error{Error::Type::NODE_CONFLICT, "width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
 
         //height
-        if(child.height.unit == Unit::Type::PARENT_PERCENT && p_height)
-            return Error{Error::Type::NODE_CONFLICT_0, "height.unit = Unit::Type::PARENT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.height.unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
-            return Error{Error::Type::NODE_CONFLICT_1, "height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.height_unit == Unit::Type::PARENT_PERCENT && p_height)
+            return Error{Error::Type::NODE_CONFLICT, "height.unit = Unit::Type::PARENT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.height_unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
+            return Error{Error::Type::NODE_CONFLICT, "height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
 
         //no error
         return Error();
@@ -414,9 +426,12 @@ namespace UI
     {
         return inches * dpi;
     }
-    inline float min(float a, float b) {return a < b? a: b;}
-    inline float max(float a, float b) {return a >= b? a: b;}
-    inline float clamp(float minimum, float maximum, float value)
+    template<typename T>
+    inline T min(T a, T b) {return a < b? a: b;}
+    template<typename T>
+    inline T max(T a, T b) {return a >= b? a: b;}
+    template<typename T>
+    inline T clamp(T minimum, T maximum, T value)
     {
         return max(min(value, maximum), minimum);
     }
@@ -436,37 +451,100 @@ namespace UI
             case Unit::Type::ROOT_PERCENT: 
                 return (float)unit.value / 100.0f * root_pixels;
             default:
-                return 0; //Wont happen
+                return unit.value; //Only meant for width/height
         }
     }
-    Div ComputeFixedValues(const StyleSheet& child_style, const Div& parent_div, const Div& root_div)
+    Box ComputeStyleSheet(const StyleSheet& style, const Box& parent, const Box& root)
     {
-        Div child_div;
-        //unit type 2
-        child_div.width = DescendFixedUnitToPx(child_style.width, parent_div.width, root_div.width);
-        child_div.height =DescendFixedUnitToPx(child_style.height, parent_div.height, root_div.height);
-        child_div.x = DescendFixedUnitToPx(child_style.x, parent_div.width, root_div.width);
-        child_div.y = DescendFixedUnitToPx(child_style.y, parent_div.height, root_div.height);
-        child_div.max_width = DescendFixedUnitToPx(child_style.max_width, parent_div.width, root_div.width);
-        child_div.max_height = DescendFixedUnitToPx(child_style.max_height, parent_div.height, root_div.height);
-        child_div.min_width = DescendFixedUnitToPx(child_style.min_width, parent_div.width, root_div.width);
-        child_div.min_height = DescendFixedUnitToPx(child_style.min_height, parent_div.height, root_div.height);
+        Box box;
+        box.background_color =                  style.background_color;
+        box.border_color =                      style.border_color;
+        box.width =                             (uint16_t)DescendFixedUnitToPx(style.width, parent.width, root.width);
+        box.height =                            (uint16_t)DescendFixedUnitToPx(style.height, parent.height, root.height);
+        box.gap_row =                           (uint16_t)DescendFixedUnitToPx(style.gap_row, 0, 0);
+        box.gap_column =                        (uint16_t)DescendFixedUnitToPx(style.gap_column, 0, 0);
+        box.min_width =                         (uint16_t)DescendFixedUnitToPx(style.min_width, parent.width, root.width);
+        box.max_width =                         (uint16_t)DescendFixedUnitToPx(style.max_width, parent.width, root.width);
+        box.min_height =                        (uint16_t)DescendFixedUnitToPx(style.min_height, parent.height, root.height);
+        box.max_height =                        (uint16_t)DescendFixedUnitToPx(style.max_height, parent.height, root.height);
+        box.x =                                 (int16_t)DescendFixedUnitToPx(style.x, parent.width, root.width);
+        box.y =                                 (int16_t)DescendFixedUnitToPx(style.y, parent.height, root.height);
+        box.grid_cell_width =                   (uint16_t)DescendFixedUnitToPx(style.grid.cell_width, parent.width, root.width);
+        box.grid_cell_height =                  (uint16_t)DescendFixedUnitToPx(style.grid.cell_height, parent.height, root.height);
+        box.width_unit =                        style.width.unit;
+        box.height_unit =                       style.height.unit;
+        box.grid_row_max =                      style.grid.row_max; 
+        box.grid_column_max =                   style.grid.column_max;
+        box.grid_row_start =                    style.grid.row_start; 
+        box.grid_column_start =                 style.grid.column_start; 
+        box.grid_row_end =                      style.grid.row_end; 
+        box.grid_column_end =                   style.grid.column_end; 
+        box.flow_vertical_alignment =           style.flow.vertical_alignment;
+        box.flow_horizontal_alignment =         style.flow.horizontal_alignment;
 
-        //unit type 1
-        child_div.gap_column = DescendFixedUnitToPx(child_style.gap_column, 0, 0);
-        child_div.gap_row = DescendFixedUnitToPx(child_style.gap_row, 0, 0);
-        child_div.grid_column_height = DescendFixedUnitToPx(child_style.grid.column_height, 0, 0);
-        child_div.grid_row_width = DescendFixedUnitToPx(child_style.grid.row_width, 0, 0);
+        box.corner_radius =                     style.corner_radius;
+        box.border_width =                      style.border_width;  
+        box.padding =                           style.padding;
+        box.margin =                            style.margin;
+        box.layout =                            style.layout;
 
-        //child_div.width = clamp(child_div.min_width, child_div.max_width , DescendFixedUnitToPx(child_style.width, parent_div.width, root_div.width));
-        //child_div.height = clamp(child_div.min_height, child_div.max_height, DescendFixedUnitToPx(child_style.height, parent_div.height, root_div.height));
-        child_div.width = clamp(child_div.min_width, child_div.max_width , child_div.width);
-        child_div.height = clamp(child_div.min_height, child_div.max_height, child_div.height);
-        return child_div;
+        box.width = clamp(box.min_width, box.max_width, box.width);        
+        box.height = clamp(box.min_height, box.max_height, box.height);        
+
+        box.SetPositioning(style.positioning);
+        box.SetFlowAxis(style.flow.axis);
+        box.SetScissor(style.scissor);
+        box.SetFlowWrap(style.flow.wrap);
+        return box;
     }
+}
 
-    void ComputeAllParentContentPercentUnits(Div& parent, const StyleSheet& parent_style, const Div& child_to_add)
+
+
+
+
+//DRAW PASSS
+namespace UI
+{
+    void GenerateHorizontalFlowLayout_h(TreeNode<Box>* node, float x, float y);
+    void DrawPass(TreeNode<Box>* node, float x, float y)
+    {
+        if(!node)
+            return;
+        const Box& box = node->val;
+        if(box.GetLayout() == Layout::FLOW)
+        {
+            if(box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
+                GenerateHorizontalFlowLayout_h(node, x, y);
+            else; //Vertical flow here
+        }
+    }
+    void GenerateHorizontalFlowLayout_h(TreeNode<Box>* node, float x, float y)
     {
 
+        ArenaLL<TreeNode<Box>>::Node* head = node->children.GetHead();
+        if(node->children.IsEmpty())
+            return;
+        assert(head);
+        const Box& parent_box = node->val;
+        float cursor_x = 0;
+        float cursor_y = 0;
+        float largest_height = 0;
+        while(head!=nullptr) 
+        {
+            const Box& box = head->value.val;
+            float render_width =    box.GetRenderingWidth();
+            float render_height =   box.GetRenderingHeight();
+            float render_x =        x + (float)(cursor_x + box.margin.left + parent_box.padding.left);
+            float render_y =        y + (float)(cursor_y + box.margin.top + parent_box.padding.top);
+            float corner_radius =   box.corner_radius;
+            float border_size =     box.border_width;
+            Color border_c =        box.border_color;
+            Color bg_c =            box.background_color;
+            DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
+            DrawPass(&head->value, render_x, render_y);
+            head = head->next;
+            cursor_x += box.GetBoxModelWidth() + parent_box.gap_column;
+        }
     }
 }

@@ -6,9 +6,10 @@
 //Drawing functions
 namespace UI
 {
-    void DrawRectangle_impl(const RectanglePrimitive& p)
+    void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color brdr, Color bg)
     {
-        DrawRectangle(p.x, p.y, p.width, p.height, {p.background_color.r, p.background_color.g, p.background_color.b, p.background_color.a});
+        DrawRectangle(x, y, width, height, {brdr.r, brdr.g, brdr.b, brdr.a});
+        DrawRectangle(x + border_size, y + border_size, width-border_size * 2, height-border_size * 2, {bg.r, bg.g, bg.b, bg.a});
     }
     void DrawText_impl(const char* text, const TextPrimitive& p)
     {

@@ -28,44 +28,57 @@ int main(void)
     base.layout = UI::Layout::FLOW;  
     base.flow.axis = UI::Flow::Axis::HORIZONTAL;
     base.background_color = UI::Color{59, 58, 60, 255};
+    base.gap_column = UI::Unit{10, UI::Unit::Type::MM};
+    base.padding = {10,10,10,10};
 
 
     UI::StyleSheet red_div;
-    red_div.width = UI::Unit{200, UI::Unit::Type::PIXEL};
-    red_div.height = UI::Unit{200, UI::Unit::Type::PIXEL};
+    red_div.border_color = {0, 0, 0, 255};
+    red_div.border_width = 4;
+    red_div.padding = {50, 50, 50, 50};
+    red_div.flow.axis = UI::Flow::Axis::HORIZONTAL;
+    red_div.width = UI::Unit{30, UI::Unit::Type::PARENT_PERCENT};
+    red_div.height = UI::Unit{100, UI::Unit::Type::PARENT_PERCENT};
     red_div.background_color = UI::Color{255, 0, 0, 255};
     red_div.flow.wrap = true;
+    red_div.gap_column = UI::Unit{5, UI::Unit::Type::MM};
 
-    UI::StyleSheet green_div;
-    green_div.background_color = UI::Color{0, 255, 0, 255};
-    green_div.width = UI::Unit{250, UI::Unit::Type::PIXEL};
-    green_div.height = UI::Unit{50, UI::Unit::Type::PARENT_PERCENT};
+    UI::StyleSheet gray_div;
+    gray_div.flow.axis = UI::Flow::Axis::HORIZONTAL;
+    gray_div.padding = {20,20,20,20};
+    gray_div.background_color = UI::Color{100, 100, 100, 255};
+    gray_div.width = UI::Unit{90, UI::Unit::Type::PARENT_PERCENT};
+    gray_div.height = UI::Unit{90, UI::Unit::Type::PARENT_PERCENT};
+    gray_div.border_color = UI::Color{0, 0, 0, 255};
+    gray_div.border_width = 5;
 
 
     UI::StyleSheet blue_div;
     blue_div.background_color = UI::Color{0, 0, 255, 255};
-    blue_div.width = UI::Unit{100, UI::Unit::Type::PIXEL};
-    blue_div.height = UI::Unit{100, UI::Unit::Type::AVAILABLE_PERCENT};
+    blue_div.border_color = {0, 0, 0, 255};
+    blue_div.border_width = 4;
+    blue_div.width = UI::Unit{10, UI::Unit::Type::PARENT_PERCENT};
+    blue_div.height = UI::Unit{50, UI::Unit::Type::PARENT_PERCENT};
 
 
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
-        base.width = UI::Unit{(short)GetScreenWidth(), UI::Unit::Type::PIXEL};
-        base.height = UI::Unit{(short)GetScreenHeight(), UI::Unit::Type::PIXEL};
+        base.width = UI::Unit{(float)GetScreenWidth(), UI::Unit::Type::PIXEL};
+        base.height = UI::Unit{(float)GetScreenHeight(), UI::Unit::Type::PIXEL};
 
 
         BeginDrawing();
-        ClearBackground(Color{43, 41, 51, 255});
+        ClearBackground(Color{83, 81, 100, 255});
 
         //UI LIBRARY TEST
-        UI::BeginDiv(&base);
-            UI::BeginDiv(&red_div);
-            UI::EndDiv();
-            UI::BeginDiv(&green_div);
-                UI::BeginDiv(&blue_div);
-                UI::EndDiv();
-            UI::EndDiv();
-        UI::EndDiv();
+        UI::BeginBox(&base);
+            UI::BeginBox(&red_div);
+                UI::BeginBox(&gray_div);
+                    UI::BeginBox(&gray_div);
+                    UI::EndBox();
+                UI::EndBox();
+            UI::EndBox();
+        UI::EndBox();
 
 
         UI::Draw();
