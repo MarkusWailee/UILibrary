@@ -102,7 +102,7 @@ namespace UI
 }
 
 
-//Error checking and conversions
+//Common helpers and error handling
 namespace UI
 {
     struct Error
@@ -119,13 +119,13 @@ namespace UI
         };
         Type type = Type::NO_ERROR;
         char msg[96] = "\0";
-        int div_number = 0;
+        inline static int div_number = 0;
     };
     void DisplayError(const Error& error);
     Error CheckUnitErrors(const StyleSheet& style);
-    Error CheckLeafNodeConflicts(const StyleSheet& child, bool is_child_empty);
+    Error CheckLeafNodeConflicts(const Box& leaf);
     Error CheckRootNodeConflicts(const StyleSheet& root);
-    Error CheckNodeConflicts(const StyleSheet& child, const StyleSheet& parent);
+    Error CheckNodeConflicts(const Box& child, const Box& parent);
 
     Error& GetGlobalError();
     bool HasGlobalError();
@@ -134,11 +134,7 @@ namespace UI
     //Returns true, sets internal error, and displays error if true
     bool HandleGlobalError(const Error& error);
 
-    //Used during tree descending
-    float DescendFixedUnitToPx(Unit unit, float parent_pixels, float root_pixels);
-    Box ComputeStyleSheet(const StyleSheet& style, const Box& parent, const Box& root);
-
-
+    //Math helpers
     float MillimeterToPixels(float mm);
     float CentimeterToPixels(float cm);
     float InchToPixels(float inches);
@@ -147,6 +143,15 @@ namespace UI
     template<typename T>
     T max(T a, T b);
     float clamp(float minimum, float maximum, float value);
+
+
+
+    //Used during tree descending
+    float DescendFixedUnitToPx(Unit unit, float parent_pixels, float root_pixels);
+    Box ComputeStyleSheet(const StyleSheet& style, const Box& parent, const Box& root);
+    float MeasureLinearStack(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float gap_column, float gap_row);
+    float MeasureLinearStack(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float max_width, float max_height, float gap_column, float gap_row);
+    void ComputeFlowAvailablePercent(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float parent_width, float parent_height);
 }
 
 //UI passes
@@ -175,6 +180,7 @@ namespace UI
     {
         if(HasGlobalError())
             return;
+        Error::div_number++;
         StyleSheet style = style_sheet? *style_sheet: default_style_sheet;
 
         //Check for unit type errors
@@ -217,9 +223,30 @@ namespace UI
             HandleGlobalError(Error{Error::Type::MISSING_BEGIN, "There are more EndBox() than BeginBox()"});
             return;
         }
+
+        TreeNode<Box>* node = stack.Peek();
+        assert(node);
+        Box& node_box = node->val;
+        if(node->children.IsEmpty())
+        {
+            if(HandleGlobalError(CheckLeafNodeConflicts(node_box)))
+                return;
+        }
+        else 
+        {
+            ArenaLL<TreeNode<Box>>::Node* head = node->children.GetHead();  
+            //Not taking into account that node might have a content percent. I will do that later
+            ComputeFlowAvailablePercent(head, node_box.GetFlowAxis(), node_box.width, node_box.height);
+        }
+         
+
         stack.Pop();
 
     }
+
+
+
+
     void Draw()
     {
         if(HasGlobalError())
@@ -227,9 +254,12 @@ namespace UI
         
         DrawPass(root_node, 0, 0);
 
+        
+        //Resetting everything
         arena.Reset(); 
         stack.Clear();
         root_node = nullptr;
+        Error::div_number = 0;
     }
 
 }
@@ -237,7 +267,7 @@ namespace UI
 
 
 
-//Error checking and conversions
+//Common helpers and error checking
 namespace UI
 {
     void DisplayError(const Error& error)
@@ -319,12 +349,12 @@ namespace UI
 
 
 
-    Error CheckLeafNodeConflicts(const Box& child, bool is_child_empty)
+    Error CheckLeafNodeConflicts(const Box& leaf)
     {
         //The Following erros are contradictions
-        if(is_child_empty && child.width_unit == Unit::Type::CONTENT_PERCENT)
+        if(leaf.width_unit == Unit::Type::CONTENT_PERCENT)
             return Error{Error::Type::LEAF_NODE_CONFLICT, "width.unit = Unit::Type::CONTENT_PERCENT with 0 children"};
-        if(is_child_empty && child.height_unit == Unit::Type::CONTENT_PERCENT)
+        if(leaf.height_unit == Unit::Type::CONTENT_PERCENT)
             return Error{Error::Type::LEAF_NODE_CONFLICT, "height.unit = Unit::Type::CONTENT_PERCENT with 0 children"};
         return Error();
     }
@@ -456,21 +486,23 @@ namespace UI
     }
     Box ComputeStyleSheet(const StyleSheet& style, const Box& parent, const Box& root)
     {
+        float parent_width = parent.width - style.margin.left - style.margin.right - style.padding.left - style.padding.right;
+        float parent_height = parent.height - style.margin.top - style.margin.bottom - style.padding.top - style.padding.bottom;
         Box box;
         box.background_color =                  style.background_color;
         box.border_color =                      style.border_color;
-        box.width =                             (uint16_t)DescendFixedUnitToPx(style.width, parent.width, root.width);
-        box.height =                            (uint16_t)DescendFixedUnitToPx(style.height, parent.height, root.height);
+        box.width =                             (uint16_t)DescendFixedUnitToPx(style.width, parent_width, root.width);
+        box.height =                            (uint16_t)DescendFixedUnitToPx(style.height, parent_height, root.height);
         box.gap_row =                           (uint16_t)DescendFixedUnitToPx(style.gap_row, 0, 0);
         box.gap_column =                        (uint16_t)DescendFixedUnitToPx(style.gap_column, 0, 0);
-        box.min_width =                         (uint16_t)DescendFixedUnitToPx(style.min_width, parent.width, root.width);
-        box.max_width =                         (uint16_t)DescendFixedUnitToPx(style.max_width, parent.width, root.width);
-        box.min_height =                        (uint16_t)DescendFixedUnitToPx(style.min_height, parent.height, root.height);
-        box.max_height =                        (uint16_t)DescendFixedUnitToPx(style.max_height, parent.height, root.height);
-        box.x =                                 (int16_t)DescendFixedUnitToPx(style.x, parent.width, root.width);
-        box.y =                                 (int16_t)DescendFixedUnitToPx(style.y, parent.height, root.height);
-        box.grid_cell_width =                   (uint16_t)DescendFixedUnitToPx(style.grid.cell_width, parent.width, root.width);
-        box.grid_cell_height =                  (uint16_t)DescendFixedUnitToPx(style.grid.cell_height, parent.height, root.height);
+        box.min_width =                         (uint16_t)DescendFixedUnitToPx(style.min_width, parent_width, root.width);
+        box.max_width =                         (uint16_t)DescendFixedUnitToPx(style.max_width, parent_width, root.width);
+        box.min_height =                        (uint16_t)DescendFixedUnitToPx(style.min_height, parent_height, root.height);
+        box.max_height =                        (uint16_t)DescendFixedUnitToPx(style.max_height, parent_height, root.height);
+        box.x =                                 (int16_t)DescendFixedUnitToPx(style.x, parent_width, root.width);
+        box.y =                                 (int16_t)DescendFixedUnitToPx(style.y, parent_height, root.height);
+        box.grid_cell_width =                   (uint16_t)DescendFixedUnitToPx(style.grid.cell_width, parent_width, root.width);
+        box.grid_cell_height =                  (uint16_t)DescendFixedUnitToPx(style.grid.cell_height, parent_height, root.height);
         box.width_unit =                        style.width.unit;
         box.height_unit =                       style.height.unit;
         box.grid_row_max =                      style.grid.row_max; 
@@ -497,34 +529,122 @@ namespace UI
         box.SetFlowWrap(style.flow.wrap);
         return box;
     }
+
+
+
+    inline float MeasureLinearStack(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float gap_column, float gap_row)
+    {
+        MeasureLinearStack(start_node, axis, 0, 0, gap_column, gap_row);
+    }
+    inline float MeasureLinearStack(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float max_width, float max_height, float gap_column, float gap_row)
+    {
+        assert(start_node);
+        float distance = 0;
+        if(axis == Flow::Axis::HORIZONTAL)
+        {
+            while(start_node!=nullptr)
+            {
+                const Box& box = start_node->value.val;
+                float new_distance = distance + box.GetBoxModelWidth() + gap_column;
+                if(max_width > 0 && new_distance >= max_width)
+                    return distance;
+                distance = new_distance;
+                start_node = start_node->next;
+            }
+        }
+        else
+        {
+            while(start_node!=nullptr)
+            {
+                const Box& box = start_node->value.val;
+                float new_distance = distance + box.GetBoxModelHeight() + gap_column;
+                if(max_height > 0 && new_distance >= max_height)
+                    return distance;
+                distance = new_distance;
+                start_node = start_node->next;
+            }
+        }
+        return distance;
+    }
+    //void MeasureContent(float* total_width, float* total_height, float)
 }
 
 
+
+
+//AVAILABLE PERCENT PASSS
+namespace UI
+{
+    void AvailablePass(TreeNode<Box>* node)
+    {
+        if(node == nullptr || node->children.IsEmpty()) 
+            return;
+        ArenaLL<TreeNode<Box>>::Node* head = node->children.GetHead();
+        
+    }
+    void ComputeFlowAvailablePercent(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float parent_width, float parent_height)
+    {
+        assert(start_node);
+        ArenaLL<TreeNode<Box>>::Node* temp = start_node;
+        if(axis == Flow::Axis::HORIZONTAL)
+        {
+            float total_percent = 0;
+            float available_width = parent_width;
+            while(temp != nullptr)
+            {
+                const Box& box = temp->value.val;
+                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+                {
+                    total_percent += box.width;
+                    available_width -= box.padding.left + box.padding.right + box.margin.left + box.margin.right;
+                }
+                else 
+                    available_width -= box.GetBoxModelWidth();
+                temp = temp->next;
+            }
+
+            temp = start_node;
+            while(temp != nullptr)
+            {
+                Box& box = temp->value.val;
+                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+                    box.width = available_width * box.width / total_percent;
+                temp = temp->next;
+            }
+        }
+        else
+        {
+
+        }
+    }
+}
 
 
 
 //DRAW PASSS
 namespace UI
 {
-    void GenerateHorizontalFlowLayout_h(TreeNode<Box>* node, float x, float y);
+
+
+
+
+
+    void DrawLayout_FlowHorizontal_h(TreeNode<Box>* node, float x, float y);
     void DrawPass(TreeNode<Box>* node, float x, float y)
     {
-        if(!node)
+        if(node == nullptr || node->children.IsEmpty())
             return;
         const Box& box = node->val;
         if(box.GetLayout() == Layout::FLOW)
         {
             if(box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
-                GenerateHorizontalFlowLayout_h(node, x, y);
-            else; //Vertical flow here
+                DrawLayout_FlowHorizontal_h(node, x, y);
         }
     }
-    void GenerateHorizontalFlowLayout_h(TreeNode<Box>* node, float x, float y)
+    void DrawLayout_FlowHorizontal_h(TreeNode<Box>* node, float x, float y)
     {
-
+        //No wrapping
         ArenaLL<TreeNode<Box>>::Node* head = node->children.GetHead();
-        if(node->children.IsEmpty())
-            return;
         assert(head);
         const Box& parent_box = node->val;
         float cursor_x = 0;
@@ -532,6 +652,7 @@ namespace UI
         float largest_height = 0;
         while(head!=nullptr) 
         {
+            //Draw parameters
             const Box& box = head->value.val;
             float render_width =    box.GetRenderingWidth();
             float render_height =   box.GetRenderingHeight();
@@ -542,9 +663,17 @@ namespace UI
             Color border_c =        box.border_color;
             Color bg_c =            box.background_color;
             DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
+
             DrawPass(&head->value, render_x, render_y);
             head = head->next;
-            cursor_x += box.GetBoxModelWidth() + parent_box.gap_column;
+            float linear_stack_x = box.GetBoxModelWidth() + (float)parent_box.gap_column;
+            float linear_stack_y = box.GetBoxModelHeight() + (float)parent_box.gap_row;
+            float increment_x;
+            float increment_y;
+            cursor_x+=linear_stack_x;
+
+            //if(cursor_x >= parent_box.width) // avoid rendering anything outside of its parent
+            //    return;
         }
     }
 }
