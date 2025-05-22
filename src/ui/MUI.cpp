@@ -82,7 +82,14 @@ namespace UI
         {
             return flow_wrap;
         }
-
+        float GetBoxExpansionWidth() const
+        {
+            return (float)(margin.left + margin.right + padding.left + padding.right);
+        }
+        float GetBoxExpansionHeight() const
+        {
+            return (float)(margin.top + margin.bottom + padding.top + padding.bottom);
+        }
         float GetBoxModelWidth() const
         {
             //internal box model
@@ -506,6 +513,8 @@ namespace UI
     {
         float root_width = root.width - style.margin.left - style.margin.right - style.padding.left - style.padding.right;
         float root_height = root.height - style.margin.top - style.margin.bottom - style.padding.top - style.padding.bottom;
+        root_width = max(0.0f, root_width);
+        root_height = max(0.0f, root_height);
 
         Box box;
         box.background_color =          style.background_color;
@@ -558,71 +567,20 @@ namespace UI
         box.SetFlowAxis(style.flow.axis);
         box.SetScissor(style.scissor);
         box.SetFlowWrap(style.flow.wrap);
-
         return box;
     }
 
 }
 
 
-//Will probably merg with pass 4
-//Pass 3
-//Computes AVAILABLE_PERCENT and PARENT_PERCENT
+//Unit Helpers
+//Computes AVAILABLE_PERCENT and PARENT_PERCENT 
 namespace UI
 {
     float DescendParentPercent(float value, Unit::Type unit_type, float parent_pixels);
     void ComputeParentPercentForBox(Box& box, float parent_width, float parent_height);
     //Traverses children, computing possible parent% and available%
     void AvailablePass_FlowHelper(ArenaLL<TreeNode<Box>>::Node* child_node, const Box& parent_box);
-
-
-    void AvailablePass(TreeNode<Box>* node)
-    {
-        if(node == nullptr || node->children.IsEmpty()) 
-            return;
-        Box& parent_box = node->val;
-        ArenaLL<TreeNode<Box>>::Node* head = node->children.GetHead(); 
-        if(parent_box.GetLayout() == Layout::FLOW)
-        {
-            AvailablePass_FlowHelper(head, parent_box);
-        }
-        else
-        {
-            assert("Have not added grid yet");
-        }
-    }
-
-    void AvailablePass_FlowHelper(ArenaLL<TreeNode<Box>>::Node* child_node, const Box& parent_box)
-    {
-        ArenaLL<TreeNode<Box>>::Node* temp = child_node;
-        float total_percent = 0;
-        float available_width = parent_box.width;
-        while(temp != nullptr)
-        {
-            Box& box = temp->value.val;
-            ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
-            if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-            {
-                total_percent += box.width; 
-            }
-            else
-            {
-                available_width -= box.GetBoxModelWidth() - parent_box.gap_column;
-            }
-            temp = temp->next;
-        }
-        temp = child_node;
-        while(temp != nullptr)
-        {
-            Box& box = temp->value.val;
-            if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-            {
-                box.width = (uint16_t)(available_width * (float)box.width / total_percent);
-            }
-            AvailablePass(&temp->value);
-            temp = temp->next;
-        }
-    }
     float DescendParentPercent(float value, Unit::Type unit_type, float parent_pixels)
     {
         return unit_type == Unit::Type::PARENT_PERCENT? value * parent_pixels / 100.0f: value;
@@ -631,6 +589,8 @@ namespace UI
     {
         parent_width -= box.padding.left + box.padding.right + box.margin.left + box.margin.right;
         parent_height -= box.padding.top + box.padding.bottom + box.margin.top + box.margin.bottom;
+        parent_width = max(0.0f, parent_width);
+        parent_height = max(0.0f, parent_height);
         box.width =                     (uint16_t)max(0.0f, DescendParentPercent(box.width,            box.width_unit,             parent_width)); 
         box.height =                    (uint16_t)max(0.0f, DescendParentPercent(box.height,           box.height_unit,            parent_height)); 
         box.gap_row =                   (uint16_t)max(0.0f, DescendParentPercent(box.gap_row,          box.gap_row_unit,           parent_height)); 
@@ -667,9 +627,20 @@ namespace UI
             return;
         const Box& box = node->val;
         if(box.GetLayout() == Layout::FLOW)
-            DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y);
+        {
+            if(box.IsFlowWrap())
+            {
+                assert("Have not added wrapping");
+            }
+            else
+            {
+                DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y);
+            }
+        }
         else
+        {
             assert("Grid has not been added yet");
+        }
     }
 
     void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, float x, float y)
@@ -692,7 +663,8 @@ namespace UI
             }
             available_width -= parent_box.gap_column;//off by 1 error
             temp = child;
-            total_percent = 1/total_percent;
+            assert(!total_percent);
+            total_percent = total_percent? 1.0f/total_percent: 0;
             float content_width = 0;
             int child_count = 0;
             while(temp != nullptr)
@@ -702,7 +674,7 @@ namespace UI
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.width = available_width * box.width * total_percent;
                 if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.height = max(0 ,parent_box.height - box.margin.top - box.margin.bottom - box.padding.top - box.padding.bottom) * (float)box.height/100.0f;
+                    box.height = max(0.0f ,parent_box.height - box.GetBoxExpansionHeight()) * (float)box.height/100.0f;
                 content_width += box.GetBoxModelWidth() + parent_box.gap_column;
                 temp = temp->next;
             }
@@ -727,7 +699,8 @@ namespace UI
                     cursor_x = offset_x;
                     break;
                 case Flow::Alignment::SPACE_BETWEEN:
-                    offset_x = available_width/(child_count - 1);
+                    if(child_count > 1)
+                        offset_x = available_width/(child_count - 1);
                     break;
             }
             while(temp != nullptr)
