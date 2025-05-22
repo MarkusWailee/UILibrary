@@ -81,8 +81,8 @@ namespace UI
         Unit gap_row;
         Unit gap_column;
 
-        Unit width  = Unit{0, Unit::Type::PIXEL};
-        Unit height = Unit{0, Unit::Type::PIXEL};
+        Unit width  = Unit{50, Unit::Type::PIXEL};
+        Unit height = Unit{50, Unit::Type::PIXEL};
 
         Unit min_width;
         Unit max_width = Unit{9999, Unit::Type::PIXEL};
@@ -122,7 +122,10 @@ namespace UI
         bool on_mouse_click = 0;
         bool on_mouse_release = 0;
     };
+    void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
+    void EndRoot();
     void BeginBox(const UI::StyleSheet* div_style_sheet, const char* label = nullptr, UI::MouseInfo* get_info = nullptr);
+    void InsertText(const char* text, unsigned int font_size);
     void EndBox();
     void Draw();
 }

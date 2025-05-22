@@ -6,6 +6,8 @@ namespace UI
 {
     struct Box
     {
+        const char* label = nullptr;
+        const char* text = nullptr;
         Color background_color = UI::Color{0, 0, 0, 0};
         Color border_color = UI::Color{0, 0, 0, 0};
 
@@ -181,13 +183,64 @@ namespace UI
     StyleSheet default_style_sheet;
 
     float dpi = 96.0f;
-    MemoryArena arena(8192);
+    MemoryArena arena(32768);
     TreeNode<Box>* root_node = nullptr;
     FixedStack<TreeNode<Box>*, 100> stack; //elements should never nest over 100 layers deep
 }
 
 namespace UI
 {
+    void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
+    {
+        if(HasGlobalError())
+            return;
+
+        arena.Reset(); 
+        stack.Clear();
+        root_node = nullptr;
+        Error::div_number = 0;
+
+        assert(stack.IsEmpty());
+        Box root_box;
+        root_box.width = screen_width;
+        root_box.height = screen_height;
+
+        if(stack.IsEmpty())//Root Node
+        {
+            //Checking errors unique to root node
+            root_node = arena.New<TreeNode<Box>>();
+            assert(root_node && "Arena out of space");
+
+            //compute 
+            root_node->val = root_box;
+            stack.Push(root_node);
+        }
+        else
+        {
+            assert(0);
+            HandleGlobalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "There can only be 1 Root node"});
+            return;
+        }
+    }
+    void EndRoot()
+    {
+        if(HasGlobalError())
+            return;
+        if(stack.Size() == 1)
+        {
+            stack.Pop();
+        }
+        else if(stack.Size() < 1)
+        {
+            HandleGlobalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "More than one RootEnd() function"});
+            return;
+        }
+        else
+        {
+            HandleGlobalError(Error{Error::Type::MISSING_END, "Missing EndBox()"});
+            return;
+        }
+    }
     void BeginBox(const UI::StyleSheet* style_sheet, const char* label, UI::MouseInfo* get_info)
     {
         if(HasGlobalError())
@@ -200,19 +253,7 @@ namespace UI
         if(HandleGlobalError(CheckUnitErrors(style)))
             return;
 
-        if(stack.IsEmpty())//Root Node
-        {
-            //Checking errors unique to root node
-            if(HandleGlobalError(CheckRootNodeConflicts(style)))
-                return;
-            root_node = arena.New<TreeNode<Box>>();
-            assert(root_node && "Arena out of space");
-
-            //compute 
-            root_node->val = ComputeStyleSheet(style, Box());
-            stack.Push(root_node);
-        }
-        else  // should add to parent
+        if(!stack.IsEmpty())  // should add to parent
         {
             TreeNode<Box>* parent_node = stack.Peek();
             assert(parent_node);
@@ -224,18 +265,22 @@ namespace UI
             assert(child_ptr && "Arena out of memory");
             stack.Push(child_ptr);
         }
+        else
+        {
+            if(HandleGlobalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing BeginRoot()"}))
+                return;
+        }
     }
 
     void EndBox()
     {
         if(HasGlobalError())
             return;
-        if(stack.IsEmpty())
+        if(stack.Size() <= 1)
         {
-            HandleGlobalError(Error{Error::Type::MISSING_BEGIN, "There are more EndBox() than BeginBox()"});
+            HandleGlobalError(Error{Error::Type::MISSING_BEGIN, "Missing BeginBox()"});
             return;
         }
-
         TreeNode<Box>* node = stack.Peek();
         assert(node);
         Box& node_box = node->val;
@@ -254,6 +299,10 @@ namespace UI
 
     }
 
+    void InsertText(const char* text, unsigned int font_size)
+    {
+
+    }
 
 
 
@@ -262,15 +311,15 @@ namespace UI
         if(HasGlobalError())
             return;
         
-        //AvailablePass(root_node);
+        if(!stack.IsEmpty())
+        {
+            HandleGlobalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing EndRoot()"});
+            return;
+        }
         DrawPass(root_node, 0, 0);
 
         
         //Resetting everything
-        arena.Reset(); 
-        stack.Clear();
-        root_node = nullptr;
-        Error::div_number = 0;
     }
 
 }
@@ -681,6 +730,7 @@ namespace UI
                 temp = temp->next;
             }
             available_width -= parent_box.gap_column;//off by 1 error
+            available_width = max(0.0f, available_width);
             temp = child;
             total_percent = total_percent? 1.0f/total_percent: 0;
             float content_width = 0;
@@ -758,6 +808,7 @@ namespace UI
         //VERTICAL LAYOUT
         else
         {
+
             ArenaLL<TreeNode<Box>>::Node* temp = child;
             float available_height = parent_box.height;
             float total_percent = 0;
@@ -777,6 +828,7 @@ namespace UI
                 temp = temp->next;
             }
             available_height -= parent_box.gap_row;//off by 1 error
+            available_height = max(0.0f, available_height);
             temp = child;
             total_percent = total_percent? 1.0f/total_percent: 0;
             float content_height = 0;
@@ -789,12 +841,13 @@ namespace UI
                     box.height = available_height * box.height * total_percent;
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.width = max(0.0f ,parent_box.width - box.GetBoxExpansionWidth()) * (float)box.width/100.0f;
+                
                 box.width = clamp(box.min_width, box.max_width, box.width);
                 box.height = clamp(box.min_height, box.max_height, box.height);
                 content_height += box.GetBoxModelHeight() + parent_box.gap_row;
                 temp = temp->next;
             }
-            content_height -= parent_box.gap_row; //off by 1
+            content_height-=parent_box.gap_column; //off by 1
             available_height = parent_box.height - content_height;
             temp = child;
             float cursor_y = 0;
@@ -849,7 +902,6 @@ namespace UI
                 temp = temp->next;
                 cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;
             }
-
         }
     }
 
