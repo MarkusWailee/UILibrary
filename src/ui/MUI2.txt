@@ -6,6 +6,8 @@ namespace UI
 {
     struct Box
     {
+        //container
+        //Turned into pixel format
         Color background_color = UI::Color{0, 0, 0, 0};
         Color border_color = UI::Color{0, 0, 0, 0};
 
@@ -121,9 +123,9 @@ namespace UI
         {
             NO_ERROR,
             INCORRENT_UNIT_TYPE,
-            NODE_CONTRADICTION,
-            LEAF_NODE_CONTRADICTION,
-            ROOT_NODE_CONTRADICTION,
+            NODE_CONFLICT,
+            LEAF_NODE_CONFLICT,
+            ROOT_NODE_CONFLICT,
             MISSING_END,
             MISSING_BEGIN
         };
@@ -133,9 +135,9 @@ namespace UI
     };
     void DisplayError(const Error& error);
     Error CheckUnitErrors(const StyleSheet& style);
-    Error CheckLeafNodeContradictions(const Box& leaf);
+    Error CheckLeafNodeConflicts(const Box& leaf);
     Error CheckRootNodeConflicts(const StyleSheet& root);
-    Error CheckNodeContradictions(const Box& child, const Box& parent);
+    Error CheckNodeConflicts(const Box& child, const Box& parent);
 
     Error& GetGlobalError();
     bool HasGlobalError();
@@ -158,12 +160,15 @@ namespace UI
 
     //Used during tree descending
     Box ComputeStyleSheet(const StyleSheet& style, const Box& root);
+    float MeasureLinearStack(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float gap_column, float gap_row);
+    float MeasureLinearStack(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float max_width, float max_height, float gap_column, float gap_row);
 }
 
 //UI passes
 namespace UI
 {
-    void AvailablePass(TreeNode<Box>* node);
+    void AvailableAndParentPercentPass(TreeNode<Box>* node);
+    void PositionPass(TreeNode<Box>* node);
     void DrawPass(TreeNode<Box>* node, float x, float y);
 }
 
@@ -234,12 +239,12 @@ namespace UI
         Box& node_box = node->val;
         if(node->children.IsEmpty())
         {
-            if(HandleGlobalError(CheckLeafNodeContradictions(node_box)))
+            if(HandleGlobalError(CheckLeafNodeConflicts(node_box)))
                 return;
         }
         else 
         {
-            ArenaLL<TreeNode<Box>>::Node* head = node->children.GetHead();  
+
         }
          
 
@@ -255,7 +260,7 @@ namespace UI
         if(HasGlobalError())
             return;
         
-        //AvailablePass(root_node);
+        AvailableAndParentPercentPass(root_node);
         DrawPass(root_node, 0, 0);
 
         
@@ -288,14 +293,14 @@ namespace UI
             case Error::Type::INCORRENT_UNIT_TYPE:
                 LogError_impl("ERROR: incorrect unit type\n");
                 break;
-            case Error::Type::NODE_CONTRADICTION:
-                LogError_impl("ERROR: node contradiction\n");
+            case Error::Type::NODE_CONFLICT:
+                LogError_impl("ERROR: node conflict\n");
                 break;
-            case Error::Type::LEAF_NODE_CONTRADICTION:
-                LogError_impl("ERROR: leaf node contradiction\n");
+            case Error::Type::LEAF_NODE_CONFLICT:
+                LogError_impl("ERROR: leaf node confict\n");
                 break;
-            case Error::Type::ROOT_NODE_CONTRADICTION:
-                LogError_impl("ERROR: root node contradiction\n");
+            case Error::Type::ROOT_NODE_CONFLICT:
+                LogError_impl("ERROR: root node conflict\n");
                 break;
             case Error::Type::MISSING_END:
                 LogError_impl("ERROR: missing End()\n");
@@ -353,13 +358,13 @@ namespace UI
 
 
 
-    Error CheckLeafNodeContradictions(const Box& leaf)
+    Error CheckLeafNodeConflicts(const Box& leaf)
     {
         //The Following erros are contradictions
         if(leaf.width_unit == Unit::Type::CONTENT_PERCENT)
-            return Error{Error::Type::LEAF_NODE_CONTRADICTION, "width.unit = Unit::Type::CONTENT_PERCENT with 0 children"};
+            return Error{Error::Type::LEAF_NODE_CONFLICT, "width.unit = Unit::Type::CONTENT_PERCENT with 0 children"};
         if(leaf.height_unit == Unit::Type::CONTENT_PERCENT)
-            return Error{Error::Type::LEAF_NODE_CONTRADICTION, "height.unit = Unit::Type::CONTENT_PERCENT with 0 children"};
+            return Error{Error::Type::LEAF_NODE_CONFLICT, "height.unit = Unit::Type::CONTENT_PERCENT with 0 children"};
         return Error();
     }
 
@@ -368,43 +373,43 @@ namespace UI
         //Root node style sheet cannot equal any of these Unit types
         //The following errors are contradictions
         //Parent%
-        UNIT_CONFLICT(root.width.unit,      Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.height.unit,     Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_height.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_height.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.x.unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.y.unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.width.unit,      Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.height.unit,     Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.min_height.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.max_height.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.x.unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.y.unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
 
         //Available%
-        UNIT_CONFLICT(root.width.unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.height.unit,     Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_height.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_height.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.x.unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.y.unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.width.unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.height.unit,     Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.min_height.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.max_height.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.x.unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.y.unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
 
         //Root%
-        UNIT_CONFLICT(root.width.unit,      Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.height.unit,     Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_height.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_height.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.x.unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.y.unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.width.unit,      Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.height.unit,     Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.min_height.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.max_height.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.x.unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.y.unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
+        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONFLICT);
         return Error();
     }
-    Error CheckNodeContradictions(const Box& child, const Box& parent)
+    Error CheckNodeConflicts(const Box& child, const Box& parent)
     {
         //The following errors are contradictions between parent and child
 
@@ -414,26 +419,16 @@ namespace UI
 
         //width
         if(child.width_unit == Unit::Type::PARENT_PERCENT && p_width)
-            return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+            return Error{Error::Type::NODE_CONFLICT, "width.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
         if(child.width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
-            return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+            return Error{Error::Type::NODE_CONFLICT, "width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
 
         //height
         if(child.height_unit == Unit::Type::PARENT_PERCENT && p_height)
-            return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::PARENT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+            return Error{Error::Type::NODE_CONFLICT, "height.unit = Unit::Type::PARENT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
         if(child.height_unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
-            return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+            return Error{Error::Type::NODE_CONFLICT, "height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
 
-        if(parent.GetLayout() == Layout::FLOW)
-        {
-            if(parent.IsFlowWrap())
-            {
-                if(parent.GetFlowAxis() == Flow::Axis::HORIZONTAL && child.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                    return Error{Error::Type::NODE_CONTRADICTION, "parent.flow.axis = Flow::Axis::HORIZONTAL && child.width.unit = Unit::Type::AVAILABLE_PERCENT"};
-                else if(parent.GetFlowAxis() == Flow::Axis::VERTICAL && child.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                    return Error{Error::Type::NODE_CONTRADICTION, "parent.flow.axis = Flow::Axis::VERTICAL && child.height.unit = Unit::Type::AVAILABLE_PERCENT"};
-            }
-        }
         //no error
         return Error();
     }
@@ -461,7 +456,8 @@ namespace UI
     inline float MillimeterToPixels(float mm)
     {
         return mm * dpi / 25.4f;
-    } inline float CentimeterToPixels(float cm)
+    }
+    inline float CentimeterToPixels(float cm)
     {
         return cm * dpi / 2.54f;
     }
@@ -478,14 +474,7 @@ namespace UI
     {
         return max(min(value, maximum), minimum);
     }
-}
 
-
-
-//Pass 1
-//Compute unit CM, MM, INCH, ROOT_PERCENT
-namespace UI
-{
     float DescendFixedUnitToPx(Unit unit, float root_pixels)
     {
         switch(unit.unit)
@@ -506,25 +495,23 @@ namespace UI
     {
         float root_width = root.width - style.margin.left - style.margin.right - style.padding.left - style.padding.right;
         float root_height = root.height - style.margin.top - style.margin.bottom - style.padding.top - style.padding.bottom;
-
         Box box;
-        box.background_color =          style.background_color;
-        box.border_color =              style.border_color;
-        //type 3
-        
-        box.width =                     (uint16_t)max(0.0f, DescendFixedUnitToPx(style.width, root_width));
-        box.height =                    (uint16_t)max(0.0f, DescendFixedUnitToPx(style.height, root_height));
-        box.gap_row =                   (uint16_t)max(0.0f, DescendFixedUnitToPx(style.gap_row, root_height));
-        box.gap_column =                (uint16_t)max(0.0f, DescendFixedUnitToPx(style.gap_column, root_width));
-        box.min_width =                 (uint16_t)max(0.0f, DescendFixedUnitToPx(style.min_width, root_width));
-        box.max_width =                 (uint16_t)max(0.0f, DescendFixedUnitToPx(style.max_width, root_width));
-        box.min_height =                (uint16_t)max(0.0f, DescendFixedUnitToPx(style.min_height, root_height));
-        box.max_height =                (uint16_t)max(0.0f, DescendFixedUnitToPx(style.max_height, root_height));
-        box.x =                         (int16_t)DescendFixedUnitToPx(style.x, root_width);
-        box.y =                         (int16_t)DescendFixedUnitToPx(style.y, root_height);
-        box.grid_cell_width =           (uint16_t)max(0.0f, DescendFixedUnitToPx(style.grid.cell_width, root_width));
-        box.grid_cell_height =          (uint16_t)max(0.0f, DescendFixedUnitToPx(style.grid.cell_height, root_height));
-
+        box.background_color =  style.background_color;
+        box.border_color =      style.border_color; 
+        //units
+        box.width =                 (uint16_t)max(0.0f, DescendFixedUnitToPx(style.width, root_width));
+        box.height =                (uint16_t)max(0.0f, DescendFixedUnitToPx(style.height, root_height));
+        box.gap_row =               (uint16_t)max(0.0f, DescendFixedUnitToPx(style.width, root_width));
+        box.gap_column =            (uint16_t)max(0.0f, DescendFixedUnitToPx(style.height, root_height));
+        box.min_width =             (uint16_t)max(0.0f, DescendFixedUnitToPx(style.width, root_width));
+        box.max_width =             (uint16_t)max(0.0f, DescendFixedUnitToPx(style.width, root_width));
+        box.min_height =            (uint16_t)max(0.0f, DescendFixedUnitToPx(style.height, root_height));
+        box.max_height =            (uint16_t)max(0.0f, DescendFixedUnitToPx(style.height, root_height));
+        box.x =                     (uint16_t)max(0.0f, DescendFixedUnitToPx(style.width, root_width));
+        box.y =                     (uint16_t)max(0.0f, DescendFixedUnitToPx(style.height, root_height));
+        box.grid_cell_width =       (uint16_t)max(0.0f, DescendFixedUnitToPx(style.width, root_width));
+        box.grid_cell_height =      (uint16_t)max(0.0f, DescendFixedUnitToPx(style.height, root_height));
+        //unit types
         box.width_unit =                style.width.unit;
         box.height_unit =               style.height.unit;
         box.gap_row_unit =              style.gap_row.unit; //might not need
@@ -537,18 +524,16 @@ namespace UI
         box.y_unit =                    style.y.unit;
         box.grid_cell_width_unit =      style.grid.cell_width.unit;
         box.grid_cell_height_unit =     style.grid.cell_height.unit;
-
+        //Pixel values
         box.grid_row_max =              style.grid.row_max;
         box.grid_column_max =           style.grid.column_max;
         box.grid_row_start =            style.grid.row_start;
         box.grid_column_start =         style.grid.column_start; 
         box.grid_row_end =              style.grid.row_end;
         box.grid_column_end =           style.grid.column_end; 
-
         box.flow_vertical_alignment =   style.flow.vertical_alignment;
         box.flow_horizontal_alignment = style.flow.horizontal_alignment;
-        //PIXEL VALUES
-        box.corner_radius =             style.corner_radius; //255 sets to circle
+        box.corner_radius =             style.corner_radius; //255 sets to circl
         box.border_width =              style.border_width;  
         box.padding =                   style.padding;
         box.margin =                    style.margin;
@@ -562,215 +547,153 @@ namespace UI
         return box;
     }
 
-}
 
 
-//Will probably merg with pass 4
-//Pass 3
-//Computes AVAILABLE_PERCENT and PARENT_PERCENT
-namespace UI
-{
-    float DescendParentPercent(float value, Unit::Type unit_type, float parent_pixels);
-    void ComputeParentPercentForBox(Box& box, float parent_width, float parent_height);
-    //Traverses children, computing possible parent% and available%
-    void AvailablePass_FlowHelper(ArenaLL<TreeNode<Box>>::Node* child_node, const Box& parent_box);
-
-
-    void AvailablePass(TreeNode<Box>* node)
+    inline float MeasureLinearStack(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float gap_column, float gap_row)
     {
-        if(node == nullptr || node->children.IsEmpty()) 
-            return;
-        Box& parent_box = node->val;
-        ArenaLL<TreeNode<Box>>::Node* head = node->children.GetHead(); 
-        if(parent_box.GetLayout() == Layout::FLOW)
+        MeasureLinearStack(start_node, axis, 0, 0, gap_column, gap_row);
+    }
+    inline float MeasureLinearStack(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float max_width, float max_height, float gap_column, float gap_row)
+    {
+        assert(start_node);
+        float distance = 0;
+        if(axis == Flow::Axis::HORIZONTAL)
         {
-            AvailablePass_FlowHelper(head, parent_box);
+            while(start_node!=nullptr)
+            {
+                const Box& box = start_node->value.val;
+                float new_distance = distance + box.GetBoxModelWidth() + gap_column;
+                if(max_width > 0 && new_distance >= max_width)
+                    return distance;
+                distance = new_distance;
+                start_node = start_node->next;
+            }
         }
         else
         {
-            assert("Have not added grid yet");
-        }
-    }
-
-    void AvailablePass_FlowHelper(ArenaLL<TreeNode<Box>>::Node* child_node, const Box& parent_box)
-    {
-        ArenaLL<TreeNode<Box>>::Node* temp = child_node;
-        float total_percent = 0;
-        float available_width = parent_box.width;
-        while(temp != nullptr)
-        {
-            Box& box = temp->value.val;
-            ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
-            if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+            while(start_node!=nullptr)
             {
-                total_percent += box.width; 
+                const Box& box = start_node->value.val;
+                float new_distance = distance + box.GetBoxModelHeight() + gap_column;
+                if(max_height > 0 && new_distance >= max_height)
+                    return distance;
+                distance = new_distance;
+                start_node = start_node->next;
             }
-            else
-            {
-                available_width -= box.GetBoxModelWidth() - parent_box.gap_column;
-            }
-            temp = temp->next;
         }
-        temp = child_node;
-        while(temp != nullptr)
-        {
-            Box& box = temp->value.val;
-            if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-            {
-                box.width = (uint16_t)(available_width * (float)box.width / total_percent);
-            }
-            AvailablePass(&temp->value);
-            temp = temp->next;
-        }
+        return distance;
     }
-    float DescendParentPercent(float value, Unit::Type unit_type, float parent_pixels)
-    {
-        return unit_type == Unit::Type::PARENT_PERCENT? value * parent_pixels / 100.0f: value;
-    }
-    void ComputeParentPercentForBox(Box& box, float parent_width, float parent_height)
-    {
-        parent_width -= box.padding.left + box.padding.right + box.margin.left + box.margin.right;
-        parent_height -= box.padding.top + box.padding.bottom + box.margin.top + box.margin.bottom;
-        box.width =                     (uint16_t)max(0.0f, DescendParentPercent(box.width,            box.width_unit,             parent_width)); 
-        box.height =                    (uint16_t)max(0.0f, DescendParentPercent(box.height,           box.height_unit,            parent_height)); 
-        box.gap_row =                   (uint16_t)max(0.0f, DescendParentPercent(box.gap_row,          box.gap_row_unit,           parent_height)); 
-        box.gap_column =                (uint16_t)max(0.0f, DescendParentPercent(box.gap_column,       box.gap_column_unit,        parent_width)); 
-        box.min_width =                 (uint16_t)max(0.0f, DescendParentPercent(box.min_height,       box.min_width_unit,         parent_width)); 
-        box.max_width =                 (uint16_t)max(0.0f, DescendParentPercent(box.max_width,        box.max_width_unit,         parent_width)); 
-        box.min_height =                (uint16_t)max(0.0f, DescendParentPercent(box.min_height,       box.min_height_unit,        parent_height)); 
-        box.max_height =                (uint16_t)max(0.0f, DescendParentPercent(box.max_height,       box.max_height_unit,        parent_height)); 
-        box.x =                         (int16_t)DescendParentPercent(box.x,                box.x_unit,                 parent_width); 
-        box.y =                         (int16_t)DescendParentPercent(box.y,                box.y_unit,                 parent_height); 
-        box.grid_cell_width =           (uint16_t)max(0.0f, DescendParentPercent(box.grid_cell_width,  box.grid_cell_width_unit,   parent_width)); 
-        box.grid_cell_height =          (uint16_t)max(0.0f, DescendParentPercent(box.grid_cell_height, box.grid_cell_height_unit,  parent_height)); 
-    }
-
+    //void MeasureContent(float* total_width, float* total_height, float)
 }
 
 
 
-//Pass 4
-//Draw, position, and send user input data to next frame
+
+//AVAILABLE PERCENT PASSS
+namespace UI
+{
+    void TraverseAvailableAndParentPercent(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float parent_width, float parent_height);
+    void AvailableAndParentPercentPass(TreeNode<Box>* node)
+    {
+        if(node == nullptr || node->children.IsEmpty()) 
+            return;
+        ArenaLL<TreeNode<Box>>::Node* child_node = node->children.GetHead();
+        const Box& box = node->val;
+        if(box.layout == Layout::FLOW)
+        {
+            TraverseAvailableAndParentPercent(child_node, box.GetFlowAxis(), box.width, box.height);
+        }
+        else //Grid
+        {
+
+        }
+    }
+
+    float DescendParentPercentUnitToPx(float unit_value, Unit::Type unit_type, float parent_pixels);
+    void ComputeParentPercentForBox(Box& box, float parent_width, float parent_height);
+    void TraverseAvailableAndParentPercent(ArenaLL<TreeNode<Box>>::Node* start_node, Flow::Axis axis, float parent_width, float parent_height)
+    {
+        assert(start_node);
+        ArenaLL<TreeNode<Box>>::Node* temp = start_node;
+        if(axis == Flow::Axis::HORIZONTAL)
+        {
+            float total_percent = 0;
+            float available_width = parent_width;
+            while(temp != nullptr)
+            {
+                Box& box = temp->value.val;
+                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+                {
+                    total_percent += box.width;
+                    available_width -= box.padding.left + box.padding.right + box.margin.left + box.margin.right;
+                }
+                else 
+                {
+                    ComputeParentPercentForBox(box, parent_width, parent_height);
+                    available_width -= box.GetBoxModelWidth();
+                }
+                temp = temp->next;
+            }
+
+            temp = start_node;
+            while(temp != nullptr)
+            {
+                Box& box = temp->value.val;
+                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+                    box.width = available_width * box.width / total_percent;
+                AvailableAndParentPercentPass(&temp->value);
+                temp = temp->next;
+            }
+        }
+        else
+        {
+
+        }
+    }
+    float DescendParentPercentUnitToPx(float unit_value, Unit::Type unit_type, float parent_pixels)
+    {
+        return unit_type == Unit::Type::PARENT_PERCENT? parent_pixels * unit_value / 100.f: unit_value;
+    }
+    void ComputeParentPercentForBox(Box& box, float parent_width, float parent_height)
+    {
+        box.width =             (uint16_t)max(0.0f, DescendParentPercentUnitToPx(box.width,             box.width_unit,             parent_width));
+        box.height =            (uint16_t)max(0.0f, DescendParentPercentUnitToPx(box.height,            box.height_unit,            parent_height));
+        box.gap_row =           (uint16_t)max(0.0f, DescendParentPercentUnitToPx(box.gap_row,           box.gap_row_unit,           parent_height));
+        box.gap_column =        (uint16_t)max(0.0f, DescendParentPercentUnitToPx(box.gap_column,        box.gap_column_unit,        parent_height));
+        box.min_width =         (uint16_t)max(0.0f, DescendParentPercentUnitToPx(box.min_width,         box.min_width_unit,         parent_width));
+        box.max_width =         (uint16_t)max(0.0f, DescendParentPercentUnitToPx(box.max_width,         box.max_width_unit,         parent_width));
+        box.min_height =        (uint16_t)max(0.0f, DescendParentPercentUnitToPx(box.min_height,        box.min_height_unit,        parent_height));
+        box.max_height =        (uint16_t)max(0.0f, DescendParentPercentUnitToPx(box.max_height,        box.max_height_unit,        parent_height));
+        box.x =                 (int16_t)DescendParentPercentUnitToPx(box.x,                 box.x_unit,                 parent_width);
+        box.y =                 (int16_t)DescendParentPercentUnitToPx(box.y,                 box.y_unit,                 parent_height);
+        box.grid_cell_width =   (uint16_t)max(0.0f, DescendParentPercentUnitToPx(box.grid_cell_width,   box.grid_cell_width_unit,   parent_width));
+        box.grid_cell_height =  (uint16_t)max(0.0f, DescendParentPercentUnitToPx(box.grid_cell_height,  box.grid_cell_height_unit,  parent_height));
+    }
+}
+
+
+
+//DRAW PASSS
 namespace UI
 {
 
-    //This is a temporary function to test things
-    void DrawPass_FlowHorizontal_temp(TreeNode<Box>* node, float x, float y);
 
 
 
-    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, float x, float y);
 
+    void DrawLayout_FlowHorizontal_h(TreeNode<Box>* node, float x, float y);
     void DrawPass(TreeNode<Box>* node, float x, float y)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
         const Box& box = node->val;
         if(box.GetLayout() == Layout::FLOW)
-            DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y);
-        else
-            assert("Grid has not been added yet");
-    }
-
-    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, float x, float y)
-    {
-        assert(child);
-        if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
-            ArenaLL<TreeNode<Box>>::Node* temp = child;
-            float available_width = parent_box.width;
-            float total_percent = 0;
-            while(temp != nullptr)
-            {
-                Box& box = temp->value.val;
-                ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
-                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                    total_percent += box.width;
-                else
-                    available_width -= box.GetBoxModelWidth() + parent_box.gap_column;  
-                temp = temp->next;
-            }
-            available_width -= parent_box.gap_column;//off by 1 error
-            temp = child;
-            total_percent = 1/total_percent;
-            float content_width = 0;
-            int child_count = 0;
-            while(temp != nullptr)
-            {
-                child_count++;
-                Box& box = temp->value.val;
-                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.width = available_width * box.width * total_percent;
-                if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.height = max(0 ,parent_box.height - box.margin.top - box.margin.bottom - box.padding.top - box.padding.bottom) * (float)box.height/100.0f;
-                content_width += box.GetBoxModelWidth() + parent_box.gap_column;
-                temp = temp->next;
-            }
-            content_width-=parent_box.gap_column; //off by 1
-            available_width = parent_box.width - content_width;
-            temp = child;
-            float cursor_x = 0;
-            float offset_x = 0;
-            switch(parent_box.flow_horizontal_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
-            {
-                case Flow::Alignment::START:
-                    cursor_x = 0;
-                    break;
-                case Flow::Alignment::END:
-                    cursor_x = parent_box.width - content_width;
-                    break;
-                case Flow::Alignment::CENTERED:
-                    cursor_x = (parent_box.width - content_width)/2;
-                    break;
-                case Flow::Alignment::SPACE_AROUND:
-                    offset_x = available_width/(child_count + 1);
-                    cursor_x = offset_x;
-                    break;
-                case Flow::Alignment::SPACE_BETWEEN:
-                    offset_x = available_width/(child_count - 1);
-                    break;
-            }
-            while(temp != nullptr)
-            {
-                const Box& box = temp->value.val;
-                float cursor_y = 0;
-                switch(parent_box.flow_vertical_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
-                {
-                    case Flow::Alignment::START:
-                        cursor_y = 0;
-                        break;
-                    case Flow::Alignment::END:
-                        cursor_y = parent_box.height - box.GetBoxModelHeight();
-                        break;
-                    default:
-                        cursor_y = parent_box.height/2 - box.GetBoxModelHeight()/2;
-                        break;
-                }
-                float render_width =    box.GetRenderingWidth();
-                float render_height =   box.GetRenderingHeight();
-                float render_x =        x + (float)(cursor_x + box.margin.left + parent_box.padding.left);
-                float render_y =        y + (float)(cursor_y + box.margin.top + parent_box.padding.top);
-                float corner_radius =   box.corner_radius;
-                float border_size =     box.border_width;
-                Color border_c =        box.border_color;
-                Color bg_c =            box.background_color;
-                DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
-                DrawPass(&temp->value, render_x, render_y);
-                temp = temp->next;
-                cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
-            }
-        }
-        else //Flow::Axis::VERTICAL
-        {
-
+            if(box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
+                DrawLayout_FlowHorizontal_h(node, x, y);
         }
     }
-
-
-
-
-    //This is a temporary function to test things
-    void DrawPass_FlowHorizontal_temp(TreeNode<Box>* node, float x, float y)
+    void DrawLayout_FlowHorizontal_h(TreeNode<Box>* node, float x, float y)
     {
         //No wrapping
         ArenaLL<TreeNode<Box>>::Node* head = node->children.GetHead();
@@ -793,7 +716,7 @@ namespace UI
             Color bg_c =            box.background_color;
             DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
 
-            //DrawPass(&head->value, render_x, render_y);
+            DrawPass(&head->value, render_x, render_y);
             head = head->next;
             float linear_stack_x = box.GetBoxModelWidth() + (float)parent_box.gap_column;
             float linear_stack_y = box.GetBoxModelHeight() + (float)parent_box.gap_row;

@@ -47,7 +47,7 @@ namespace UI
     {
         enum class Axis : unsigned char {HORIZONTAL, VERTICAL};
         enum class Alignment: unsigned char {START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN};
-        Axis axis = Axis::VERTICAL;
+        Axis axis = Axis::HORIZONTAL;
         Alignment vertical_alignment = Alignment::START;
         Alignment horizontal_alignment = Alignment::START;
         bool wrap = false;
