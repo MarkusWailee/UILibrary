@@ -24,7 +24,9 @@ namespace UI
             INCH,
 
             //Unit Type 2
-            PARENT_PERCENT,     //Based on the size of the parent div
+            //Considering using PARENT_WIDTH_PERCENT/PARENT_HEIGHT_PERCENT instead
+            PARENT_WIDTH_PERCENT,     //Based on the size of the parent div
+            PARENT_HEIGHT_PERCENT,     //Based on the size of the parent div
             ROOT_PERCENT,       //Based on the root div size
 
             //Unit Type 3

@@ -25,48 +25,31 @@ int main(void)
     std::cout<<sizeof(UI::StyleSheet)<<'\n';
 
     UI::StyleSheet base;
-    base.layout = UI::Layout::FLOW;  
-    base.flow.axis = UI::Flow::Axis::HORIZONTAL;
     base.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
     base.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
-    base.background_color = UI::Color{59, 58, 60, 255};
-    base.gap_column = UI::Unit{10, UI::Unit::Type::MM};
-    //base.padding = {10,10,10,10};
 
 
-    UI::StyleSheet red_div;
-    //red_div.padding = {20, 20, 20, 20};
-    //red_div.margin = {50, 50, 50, 50};
-    red_div.layout = UI::Layout::FLOW;
-    red_div.border_color = {0, 0, 0, 255};
-    red_div.border_width = 4;
-    red_div.flow.axis = UI::Flow::Axis::HORIZONTAL;
-    red_div.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
-    red_div.flow.horizontal_alignment = UI::Flow::Alignment::SPACE_AROUND;
-    red_div.width = UI::Unit{75, UI::Unit::Type::PARENT_PERCENT};
-    red_div.height = UI::Unit{75, UI::Unit::Type::PARENT_PERCENT};
-    red_div.background_color = UI::Color{255, 0, 0, 255};
-    //red_div.gap_column = UI::Unit{10, UI::Unit::Type::MM};
+    UI::StyleSheet box1;
+    box1.flow.axis = UI::Flow::Axis::VERTICAL;
+    box1.flow.horizontal_alignment = UI::Flow::Alignment::START;
+    box1.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
+    box1.width = UI::Unit{80, UI::Unit::Type::PARENT_WIDTH_PERCENT};
+    box1.height = UI::Unit{80, UI::Unit::Type::PARENT_HEIGHT_PERCENT};
+    box1.background_color = UI::Color{43, 41, 50, 255};
+    box1.border_color = UI::Color{23, 21, 25, 255};
+    box1.border_width = 2;
+    box1.gap_row = UI::Unit{2, UI::Unit::Type::PIXEL};
+    //box1.gap_column = UI::Unit{2, UI::Unit::Type::PIXEL};
 
-    UI::StyleSheet gray_div;
-    gray_div.background_color = UI::Color{100, 100, 100, 255};
-    gray_div.border_color = {0, 0, 0, 255};
-    gray_div.border_width = 4;
-    gray_div.width = UI::Unit{50, UI::Unit::Type::PIXEL};
-    gray_div.height = UI::Unit{50, UI::Unit::Type::PARENT_PERCENT};
 
-    UI::StyleSheet blue_div;
-    blue_div.background_color = UI::Color{0, 0, 255, 255};
-    blue_div.border_color = {0, 0, 0, 255};
-    blue_div.border_width = 4;
-    blue_div.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
-    blue_div.width = UI::Unit{100, UI::Unit::Type::PIXEL};
-    blue_div.height = UI::Unit{100, UI::Unit::Type::AVAILABLE_PERCENT};
-
-    UI::StyleSheet filler_div;
-    filler_div.width = UI::Unit{100, UI::Unit::Type::PARENT_PERCENT};
-    filler_div.height = UI::Unit{100, UI::Unit::Type::PARENT_PERCENT};
-    filler_div.background_color = UI::Color{0, 0, 0, 50};
+    UI::StyleSheet box2;
+    box2.margin = {20,2,2,2};
+    box2.width = UI::Unit{100, UI::Unit::Type::PARENT_HEIGHT_PERCENT};
+    box2.max_width = UI::Unit{90, UI::Unit::Type::PARENT_WIDTH_PERCENT};
+    box2.height = UI::Unit{100, UI::Unit::Type::AVAILABLE_PERCENT};
+    box2.background_color = UI::Color{33, 31, 40, 255};
+    box2.border_color = UI::Color{23, 21, 25, 255};
+    box2.border_width = 2;
 
 
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -80,18 +63,14 @@ int main(void)
 
         //UI LIBRARY TEST
         UI::BeginBox(&base);
-            UI::BeginBox(&red_div);
-                UI::BeginBox(&red_div);
-                    UI::BeginBox(&gray_div);
-                    UI::EndBox();
-                    UI::BeginBox(&blue_div);
-                    UI::EndBox();
-                    UI::BeginBox(&blue_div);
-                        UI::BeginBox(&red_div);
-                        UI::EndBox();
-                    UI::EndBox();
+            UI::BeginBox(&box1);
+                UI::BeginBox(&box2);
                 UI::EndBox();
-                UI::BeginBox(&gray_div);
+                UI::BeginBox(&box2);
+                UI::EndBox();
+                UI::BeginBox(&box2);
+                UI::EndBox();
+                UI::BeginBox(&box2);
                 UI::EndBox();
             UI::EndBox();
         UI::EndBox();
