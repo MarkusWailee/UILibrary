@@ -84,30 +84,30 @@ namespace UI
         {
             return flow_wrap;
         }
-        float GetBoxExpansionWidth() const
+        int GetBoxExpansionWidth() const
         {
-            return (float)(margin.left + margin.right + padding.left + padding.right);
+            return margin.left + margin.right + padding.left + padding.right;
         }
-        float GetBoxExpansionHeight() const
+        int GetBoxExpansionHeight() const
         {
-            return (float)(margin.top + margin.bottom + padding.top + padding.bottom);
+            return margin.top + margin.bottom + padding.top + padding.bottom;
         }
-        float GetBoxModelWidth() const
+        int GetBoxModelWidth() const
         {
             //internal box model
-            return (float)(margin.left + padding.left + width + padding.right + margin.right);
+            return margin.left + padding.left + width + padding.right + margin.right;
         }
-        float GetBoxModelHeight() const
+        int GetBoxModelHeight() const
         {
-            return (float)(margin.top + padding.top + height + padding.bottom + margin.bottom);
+            return margin.top + padding.top + height + padding.bottom + margin.bottom;
         }
-        float GetRenderingWidth() const
+        int GetRenderingWidth() const
         {
-            return (float)(padding.left + width + padding.right);
+            return padding.left + width + padding.right;
         }
-        float GetRenderingHeight() const
+        int GetRenderingHeight() const
         {
-            return (float)(padding.top + height + padding.bottom);
+            return padding.top + height + padding.bottom;
         }
 
     };
@@ -161,7 +161,8 @@ namespace UI
     T min(T a, T b);
     template<typename T>
     T max(T a, T b);
-    float clamp(float minimum, float maximum, float value);
+    template<typename T>
+    T clamp(T minimum, T maximum, T value);
 
 
 
@@ -173,7 +174,7 @@ namespace UI
 namespace UI
 {
     void AvailablePass(TreeNode<Box>* node);
-    void DrawPass(TreeNode<Box>* node, float x, float y);
+    void DrawPass(TreeNode<Box>* node, int x, int y);
 }
 
 
@@ -557,46 +558,46 @@ namespace UI
 //Compute unit CM, MM, INCH, ROOT_PERCENT
 namespace UI
 {
-    float DescendFixedUnitToPx(Unit unit, float root_pixels)
+    int DescendFixedUnitToPx(Unit unit, int root_pixels)
     {
         switch(unit.unit)
         {
             case Unit::Type::PIXEL:
-                return (float)unit.value;
+                return unit.value;
             case Unit::Type::MM:
                 return MillimeterToPixels((float)unit.value);
             case Unit::Type::CM:
                 return CentimeterToPixels((float)unit.value);
             case Unit::Type::ROOT_PERCENT: 
-                return (float)unit.value / 100.0f * root_pixels;
+                return unit.value * root_pixels / 100;
             default:
                 return unit.value; //Only meant for width/height
         }
     }
     Box ComputeStyleSheet(const StyleSheet& style, const Box& root)
     {
-        float root_width = root.width - style.margin.left - style.margin.right - style.padding.left - style.padding.right;
-        float root_height = root.height - style.margin.top - style.margin.bottom - style.padding.top - style.padding.bottom;
-        root_width = max(0.0f, root_width);
-        root_height = max(0.0f, root_height);
+        int root_width = root.width - style.margin.left - style.margin.right - style.padding.left - style.padding.right;
+        int root_height = root.height - style.margin.top - style.margin.bottom - style.padding.top - style.padding.bottom;
+        root_width = max(0, root_width);
+        root_height = max(0, root_height);
 
         Box box;
         box.background_color =          style.background_color;
         box.border_color =              style.border_color;
         //type 3
         
-        box.width =                     (uint16_t)max(0.0f, DescendFixedUnitToPx(style.width, root_width));
-        box.height =                    (uint16_t)max(0.0f, DescendFixedUnitToPx(style.height, root_height));
-        box.gap_row =                   (uint16_t)max(0.0f, DescendFixedUnitToPx(style.gap_row, root_height));
-        box.gap_column =                (uint16_t)max(0.0f, DescendFixedUnitToPx(style.gap_column, root_width));
-        box.min_width =                 (uint16_t)max(0.0f, DescendFixedUnitToPx(style.min_width, root_width));
-        box.max_width =                 (uint16_t)max(0.0f, DescendFixedUnitToPx(style.max_width, root_width));
-        box.min_height =                (uint16_t)max(0.0f, DescendFixedUnitToPx(style.min_height, root_height));
-        box.max_height =                (uint16_t)max(0.0f, DescendFixedUnitToPx(style.max_height, root_height));
+        box.width =                     (uint16_t)max(0, DescendFixedUnitToPx(style.width, root_width));
+        box.height =                    (uint16_t)max(0, DescendFixedUnitToPx(style.height, root_height));
+        box.gap_row =                   (uint16_t)max(0, DescendFixedUnitToPx(style.gap_row, root_height));
+        box.gap_column =                (uint16_t)max(0, DescendFixedUnitToPx(style.gap_column, root_width));
+        box.min_width =                 (uint16_t)max(0, DescendFixedUnitToPx(style.min_width, root_width));
+        box.max_width =                 (uint16_t)max(0, DescendFixedUnitToPx(style.max_width, root_width));
+        box.min_height =                (uint16_t)max(0, DescendFixedUnitToPx(style.min_height, root_height));
+        box.max_height =                (uint16_t)max(0, DescendFixedUnitToPx(style.max_height, root_height));
         box.x =                         (int16_t)DescendFixedUnitToPx(style.x, root_width);
         box.y =                         (int16_t)DescendFixedUnitToPx(style.y, root_height);
-        box.grid_cell_width =           (uint16_t)max(0.0f, DescendFixedUnitToPx(style.grid.cell_width, root_width));
-        box.grid_cell_height =          (uint16_t)max(0.0f, DescendFixedUnitToPx(style.grid.cell_height, root_height));
+        box.grid_cell_width =           (uint16_t)max(0, DescendFixedUnitToPx(style.grid.cell_width, root_width));
+        box.grid_cell_height =          (uint16_t)max(0, DescendFixedUnitToPx(style.grid.cell_height, root_height));
 
         box.width_unit =                style.width.unit;
         box.height_unit =               style.height.unit;
@@ -641,34 +642,34 @@ namespace UI
 //Computes AVAILABLE_PERCENT and PARENT_PERCENT 
 namespace UI
 {
-    float DescendParentPercent(float value, Unit::Type unit_type, float parent_width, float parent_height);
-    void ComputeParentPercentForBox(Box& box, float parent_width, float parent_height);
+    int DescendParentPercent(int value, Unit::Type unit_type, int parent_width, int parent_height);
+    void ComputeParentPercentForBox(Box& box, int parent_width, int parent_height);
     //Traverses children, computing possible parent% and available%
     void AvailablePass_FlowHelper(ArenaLL<TreeNode<Box>>::Node* child_node, const Box& parent_box);
-    float DescendParentPercent(float value, Unit::Type unit_type, float parent_width, float parent_height)
+    int DescendParentPercent(int value, Unit::Type unit_type, int parent_width, int parent_height)
     {
-        value = unit_type == Unit::Type::PARENT_WIDTH_PERCENT? value * parent_width / 100.0f: value;
-        value = unit_type == Unit::Type::PARENT_HEIGHT_PERCENT? value * parent_height / 100.0f: value;
+        value = unit_type == Unit::Type::PARENT_WIDTH_PERCENT? value * parent_width / 100: value;
+        value = unit_type == Unit::Type::PARENT_HEIGHT_PERCENT? value * parent_height / 100: value;
         return value;
     }
-    void ComputeParentPercentForBox(Box& box, float parent_width, float parent_height)
+    void ComputeParentPercentForBox(Box& box, int parent_width, int parent_height)
     {
         parent_width -= box.padding.left + box.padding.right + box.margin.left + box.margin.right;
         parent_height -= box.padding.top + box.padding.bottom + box.margin.top + box.margin.bottom;
-        parent_width = max(0.0f, parent_width);
-        parent_height = max(0.0f, parent_height);
-        box.width =                     (uint16_t)max(0.0f, DescendParentPercent(box.width,            box.width_unit,             parent_width, parent_height)); 
-        box.height =                    (uint16_t)max(0.0f, DescendParentPercent(box.height,           box.height_unit,            parent_width, parent_height)); 
-        box.gap_row =                   (uint16_t)max(0.0f, DescendParentPercent(box.gap_row,          box.gap_row_unit,           parent_width, parent_height)); 
-        box.gap_column =                (uint16_t)max(0.0f, DescendParentPercent(box.gap_column,       box.gap_column_unit,        parent_width, parent_height)); 
-        box.min_width =                 (uint16_t)max(0.0f, DescendParentPercent(box.min_height,       box.min_width_unit,         parent_width, parent_height)); 
-        box.max_width =                 (uint16_t)max(0.0f, DescendParentPercent(box.max_width,        box.max_width_unit,         parent_width, parent_height)); 
-        box.min_height =                (uint16_t)max(0.0f, DescendParentPercent(box.min_height,       box.min_height_unit,        parent_width, parent_height)); 
-        box.max_height =                (uint16_t)max(0.0f, DescendParentPercent(box.max_height,       box.max_height_unit,        parent_width, parent_height)); 
+        parent_width = max(0, parent_width);
+        parent_height = max(0, parent_height);
+        box.width =                     (uint16_t)max(0, DescendParentPercent(box.width,            box.width_unit,             parent_width, parent_height)); 
+        box.height =                    (uint16_t)max(0, DescendParentPercent(box.height,           box.height_unit,            parent_width, parent_height)); 
+        box.gap_row =                   (uint16_t)max(0, DescendParentPercent(box.gap_row,          box.gap_row_unit,           parent_width, parent_height)); 
+        box.gap_column =                (uint16_t)max(0, DescendParentPercent(box.gap_column,       box.gap_column_unit,        parent_width, parent_height)); 
+        box.min_width =                 (uint16_t)max(0, DescendParentPercent(box.min_height,       box.min_width_unit,         parent_width, parent_height)); 
+        box.max_width =                 (uint16_t)max(0, DescendParentPercent(box.max_width,        box.max_width_unit,         parent_width, parent_height)); 
+        box.min_height =                (uint16_t)max(0, DescendParentPercent(box.min_height,       box.min_height_unit,        parent_width, parent_height)); 
+        box.max_height =                (uint16_t)max(0, DescendParentPercent(box.max_height,       box.max_height_unit,        parent_width, parent_height)); 
         box.x =                         (int16_t)DescendParentPercent(box.x,                box.x_unit,                 parent_width, parent_height); 
         box.y =                         (int16_t)DescendParentPercent(box.y,                box.y_unit,                 parent_width, parent_height); 
-        box.grid_cell_width =           (uint16_t)max(0.0f, DescendParentPercent(box.grid_cell_width,  box.grid_cell_width_unit,   parent_width, parent_height)); 
-        box.grid_cell_height =          (uint16_t)max(0.0f, DescendParentPercent(box.grid_cell_height, box.grid_cell_height_unit,  parent_width, parent_height)); 
+        box.grid_cell_width =           (uint16_t)max(0, DescendParentPercent(box.grid_cell_width,  box.grid_cell_width_unit,   parent_width, parent_height)); 
+        box.grid_cell_height =          (uint16_t)max(0, DescendParentPercent(box.grid_cell_height, box.grid_cell_height_unit,  parent_width, parent_height)); 
     }
 
 }
@@ -681,9 +682,9 @@ namespace UI
 {
 
     //This is a temporary function to test things
-    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, float x, float y);
+    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y);
 
-    void DrawPass(TreeNode<Box>* node, float x, float y)
+    void DrawPass(TreeNode<Box>* node, int x, int y)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
@@ -705,55 +706,53 @@ namespace UI
         }
     }
 
-    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, float x, float y)
+    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y)
     {
         assert(child);
         //HORIZONTAL LAYOUT 
         if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
             ArenaLL<TreeNode<Box>>::Node* temp = child;
-            float available_width = parent_box.width;
-            float total_percent = 0;
-            while(temp != nullptr)
-            {
-                Box& box = temp->value.val;
-                ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
-                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                {
-                    total_percent += box.width;
-                    available_width -= parent_box.gap_column + box.GetBoxExpansionWidth();
-                }
-                else
-                {
-                    available_width -= box.GetBoxModelWidth() + parent_box.gap_column;  
-                }
-                temp = temp->next;
-            }
-            available_width -= parent_box.gap_column;//off by 1 error
-            available_width = max(0.0f, available_width);
-            temp = child;
-            total_percent = total_percent? 1.0f/total_percent: 0;
-            float content_width = 0;
+            int available_width = parent_box.width;
+            int total_percent = 0;
             int child_count = 0;
             while(temp != nullptr)
             {
                 child_count++;
                 Box& box = temp->value.val;
+                ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.width = available_width * box.width * total_percent;
-                if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.height = max(0.0f ,parent_box.height - box.GetBoxExpansionHeight()) * (float)box.height/100.0f;
-                
-                box.width = clamp(box.min_width, box.max_width, box.width);
-                box.height = clamp(box.min_height, box.max_height, box.height);
-                content_width += box.GetBoxModelWidth() + parent_box.gap_column;
+                {
+                    total_percent += box.width;
+                    available_width -= box.GetBoxExpansionWidth();
+                }
+                else
+                {
+                    available_width -= box.GetBoxModelWidth();
+                }
                 temp = temp->next;
             }
-            content_width-=parent_box.gap_column; //off by 1
-            available_width = parent_box.width - content_width;
+            available_width = available_width - parent_box.gap_column * (child_count - 1);
             temp = child;
-            float cursor_x = 0;
-            float offset_x = 0;
+            int content_width = 0;
+            while(temp != nullptr)
+            {
+                Box& box = temp->value.val;
+                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+                {
+                    box.width = available_width * box.width / total_percent;
+                }
+                if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
+                {
+                    box.height = (parent_box.height - box.GetBoxExpansionHeight()) * box.height / 100;
+                }
+                content_width += box.GetBoxModelWidth();
+                temp = temp->next;
+            }
+            content_width += parent_box.gap_column * (child_count - 1);
+            temp = child;
+            int cursor_x = 0;
+            int offset_x = 0;
             switch(parent_box.flow_horizontal_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
             {
                 case Flow::Alignment::START:
@@ -777,8 +776,7 @@ namespace UI
             while(temp != nullptr)
             {
                 const Box& box = temp->value.val;
-                float cursor_y = 0;
-
+                int cursor_y = 0;
                 switch(parent_box.flow_vertical_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
                 {
                     case Flow::Alignment::START:
@@ -791,12 +789,12 @@ namespace UI
                         cursor_y = parent_box.height/2 - box.GetBoxModelHeight()/2;
                         break;
                 }
-                float render_width =    box.GetRenderingWidth();
-                float render_height =   box.GetRenderingHeight();
-                float render_x =        x + (float)(cursor_x + box.margin.left + parent_box.padding.left);
-                float render_y =        y + (float)(cursor_y + box.margin.top + parent_box.padding.top);
-                float corner_radius =   box.corner_radius;
-                float border_size =     box.border_width;
+                int render_width =    box.GetRenderingWidth();
+                int render_height =   box.GetRenderingHeight();
+                int render_x =        x + cursor_x + box.margin.left + parent_box.padding.left;
+                int render_y =        y + cursor_y + box.margin.top + parent_box.padding.top;
+                int corner_radius =   box.corner_radius;
+                int border_size =     box.border_width;
                 Color border_c =        box.border_color;
                 Color bg_c =            box.background_color;
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
@@ -808,7 +806,6 @@ namespace UI
         //VERTICAL LAYOUT
         else
         {
-
             ArenaLL<TreeNode<Box>>::Node* temp = child;
             float available_height = parent_box.height;
             float total_percent = 0;
@@ -840,7 +837,7 @@ namespace UI
                 if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.height = available_height * box.height * total_percent;
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.width = max(0.0f ,parent_box.width - box.GetBoxExpansionWidth()) * (float)box.width/100.0f;
+                    box.width = max(0 ,parent_box.width - box.GetBoxExpansionWidth()) * box.width/100;
                 
                 box.width = clamp(box.min_width, box.max_width, box.width);
                 box.height = clamp(box.min_height, box.max_height, box.height);
