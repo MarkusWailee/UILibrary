@@ -8,12 +8,12 @@ namespace UI
     {
         const char* label = nullptr;
         const char* text = nullptr;
-        Color background_color = UI::Color{0, 0, 0, 0};
+        Color background_color = UI::Color{0, 0, 0, 0}; //used for debugging
         Color border_color = UI::Color{0, 0, 0, 0};
 
         //type 3
-        uint16_t width =            0;
-        uint16_t height =           0;
+        uint16_t width =            0; //Used for debugging
+        uint16_t height =           0; //Used for debugging
         uint16_t gap_row =          0;
         uint16_t gap_column =       0;
         uint16_t min_width =        0;
@@ -134,11 +134,12 @@ namespace UI
             LEAF_NODE_CONTRADICTION,
             ROOT_NODE_CONTRADICTION,
             MISSING_END,
-            MISSING_BEGIN
+            MISSING_BEGIN,
+            TEXT_NODE_CONTRADICTION
         };
         Type type = Type::NO_ERROR;
         char msg[100] = "\0";
-        inline static int div_number = 0;
+        inline static int node_number = 0;
     };
     void DisplayError(const Error& error);
     Error CheckUnitErrors(const StyleSheet& style);
@@ -170,10 +171,18 @@ namespace UI
     Box ComputeStyleSheet(const StyleSheet& style, const Box& root);
 }
 
+
+//TEXT RENDERING
+namespace UI
+{
+    //Draws text based on custom markup
+    void DrawTextNode(const char* text, int parent_width, int parent_height, int x, int y);
+}
+
 //UI passes
 namespace UI
 {
-    void AvailablePass(TreeNode<Box>* node);
+    //computes layout and draws
     void DrawPass(TreeNode<Box>* node, int x, int y);
 }
 
@@ -195,11 +204,10 @@ namespace UI
     {
         if(HasGlobalError())
             return;
-
         arena.Reset(); 
         stack.Clear();
         root_node = nullptr;
-        Error::div_number = 0;
+        Error::node_number = 1;
 
         assert(stack.IsEmpty());
         Box root_box;
@@ -246,7 +254,7 @@ namespace UI
     {
         if(HasGlobalError())
             return;
-        Error::div_number++;
+        Error::node_number++;
         StyleSheet style = style_sheet? *style_sheet: default_style_sheet;
 
         //Check for unit type errors
@@ -294,15 +302,33 @@ namespace UI
         {
             ArenaLL<TreeNode<Box>>::Node* head = node->children.GetHead();  
         }
-         
-
         stack.Pop();
-
     }
 
-    void InsertText(const char* text, unsigned int font_size)
+    void InsertText(const char* text)
     {
+        if(HasGlobalError())
+            return;
+        Error::node_number++;
+        if(stack.IsEmpty())
+        {
+            HandleGlobalError(Error{Error::Type::TEXT_NODE_CONTRADICTION, "Text node needs a container"});
+            return;
+        }
+        TreeNode<Box>* parent_node = stack.Peek();
+        assert(parent_node);
+        TreeNode<Box> text_node;
+        Box box;
 
+        //DEBUGGING TEXT
+        box.width = 10;
+        box.height = 10;
+        box.background_color = {255, 0, 255, 255};
+
+        box.text = text;
+        text_node.val = box;
+        TreeNode<Box>* addr = parent_node->children.Add(text_node, &arena);
+        assert(addr);
     }
 
 
@@ -360,11 +386,14 @@ namespace UI
             case Error::Type::MISSING_BEGIN:
                 LogError_impl("ERROR: missing Begin()\n");
                 break;
+            case Error::Type::TEXT_NODE_CONTRADICTION:
+                LogError_impl("ERROR: Text node contradiction\n");
+                break;
             default:
                 return;
         }
-        LogError_impl("Begin #");
-        LogError_impl(error.div_number);
+        LogError_impl("Node #");
+        LogError_impl(error.node_number);
         LogError_impl("\n");
 
         LogError_impl("error.msg = '");
@@ -460,16 +489,27 @@ namespace UI
         UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
 
         //Root%
-        UNIT_CONFLICT(root.width.unit,      Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.height.unit,     Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_height.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_height.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.x.unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.y.unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.width.unit,      Unit::Type::ROOT_WIDTH_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.height.unit,     Unit::Type::ROOT_WIDTH_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::ROOT_WIDTH_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.min_height.unit, Unit::Type::ROOT_WIDTH_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::ROOT_WIDTH_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.max_height.unit, Unit::Type::ROOT_WIDTH_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.x.unit,          Unit::Type::ROOT_WIDTH_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.y.unit,          Unit::Type::ROOT_WIDTH_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::ROOT_WIDTH_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::ROOT_WIDTH_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+
+        UNIT_CONFLICT(root.width.unit,      Unit::Type::ROOT_HEIGHT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.height.unit,     Unit::Type::ROOT_HEIGHT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::ROOT_HEIGHT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.min_height.unit, Unit::Type::ROOT_HEIGHT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::ROOT_HEIGHT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.max_height.unit, Unit::Type::ROOT_HEIGHT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.x.unit,          Unit::Type::ROOT_HEIGHT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.y.unit,          Unit::Type::ROOT_HEIGHT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::ROOT_HEIGHT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::ROOT_HEIGHT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
         return Error();
     }
     Error CheckNodeContradictions(const Box& child, const Box& parent)
@@ -482,9 +522,9 @@ namespace UI
 
         //width
         if(child.width_unit == Unit::Type::PARENT_WIDTH_PERCENT && p_width)
-            return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+            return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::PARENT_WIDTH_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
         if(child.height_unit == Unit::Type::PARENT_WIDTH_PERCENT && p_width)
-            return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+            return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::PARENT_WIDTH_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
         if(child.width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
             return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
 
@@ -558,7 +598,7 @@ namespace UI
 //Compute unit CM, MM, INCH, ROOT_PERCENT
 namespace UI
 {
-    int DescendFixedUnitToPx(Unit unit, int root_pixels)
+    int DescendFixedUnitToPx(Unit unit, int root_width, int root_height)
     {
         switch(unit.unit)
         {
@@ -568,8 +608,10 @@ namespace UI
                 return MillimeterToPixels((float)unit.value);
             case Unit::Type::CM:
                 return CentimeterToPixels((float)unit.value);
-            case Unit::Type::ROOT_PERCENT: 
-                return unit.value * root_pixels / 100;
+            case Unit::Type::ROOT_HEIGHT_PERCENT: 
+                return unit.value * root_height / 100;
+            case Unit::Type::ROOT_WIDTH_PERCENT: 
+                return unit.value * root_width / 100;
             default:
                 return unit.value; //Only meant for width/height
         }
@@ -586,18 +628,18 @@ namespace UI
         box.border_color =              style.border_color;
         //type 3
         
-        box.width =                     (uint16_t)max(0, DescendFixedUnitToPx(style.width, root_width));
-        box.height =                    (uint16_t)max(0, DescendFixedUnitToPx(style.height, root_height));
-        box.gap_row =                   (uint16_t)max(0, DescendFixedUnitToPx(style.gap_row, root_height));
-        box.gap_column =                (uint16_t)max(0, DescendFixedUnitToPx(style.gap_column, root_width));
-        box.min_width =                 (uint16_t)max(0, DescendFixedUnitToPx(style.min_width, root_width));
-        box.max_width =                 (uint16_t)max(0, DescendFixedUnitToPx(style.max_width, root_width));
-        box.min_height =                (uint16_t)max(0, DescendFixedUnitToPx(style.min_height, root_height));
-        box.max_height =                (uint16_t)max(0, DescendFixedUnitToPx(style.max_height, root_height));
-        box.x =                         (int16_t)DescendFixedUnitToPx(style.x, root_width);
-        box.y =                         (int16_t)DescendFixedUnitToPx(style.y, root_height);
-        box.grid_cell_width =           (uint16_t)max(0, DescendFixedUnitToPx(style.grid.cell_width, root_width));
-        box.grid_cell_height =          (uint16_t)max(0, DescendFixedUnitToPx(style.grid.cell_height, root_height));
+        box.width =                     (uint16_t)max(0, DescendFixedUnitToPx(style.width, root_width, root_height));
+        box.height =                    (uint16_t)max(0, DescendFixedUnitToPx(style.height, root_width, root_height));
+        box.gap_row =                   (uint16_t)max(0, DescendFixedUnitToPx(style.gap_row, root_width, root_height));
+        box.gap_column =                (uint16_t)max(0, DescendFixedUnitToPx(style.gap_column, root_width, root_height));
+        box.min_width =                 (uint16_t)max(0, DescendFixedUnitToPx(style.min_width, root_width, root_height));
+        box.max_width =                 (uint16_t)max(0, DescendFixedUnitToPx(style.max_width, root_width, root_height));
+        box.min_height =                (uint16_t)max(0, DescendFixedUnitToPx(style.min_height, root_width, root_height));
+        box.max_height =                (uint16_t)max(0, DescendFixedUnitToPx(style.max_height, root_width, root_height));
+        box.x =                         (int16_t)DescendFixedUnitToPx(style.x, root_width, root_height);
+        box.y =                         (int16_t)DescendFixedUnitToPx(style.y, root_width, root_height);
+        box.grid_cell_width =           (uint16_t)max(0, DescendFixedUnitToPx(style.grid.cell_width, root_width, root_height));
+        box.grid_cell_height =          (uint16_t)max(0, DescendFixedUnitToPx(style.grid.cell_height, root_width, root_height));
 
         box.width_unit =                style.width.unit;
         box.height_unit =               style.height.unit;
@@ -674,6 +716,33 @@ namespace UI
 
 }
 
+
+//TEXT RENDERING
+namespace UI
+{
+    struct TextInfo
+    {
+        Color color = {255, 255, 255, 255};
+        int font_size = 32;
+        int spacing = 1;
+    };
+    void DrawTextNode(const char* text, int parent_width, int parent_height, int x, int y)
+    {
+        static char buffer[512]{};
+        static TextInfo text_info;
+        assert(text);
+        int index = 0;
+        int width = 0;
+        while(text[index] != '\0' || index >= 512)
+        {
+            char c = text[index];
+            buffer[index] = c;
+            index++;
+        }
+        buffer[index] = '\0';
+        DrawText_impl(buffer, x, y, text_info.font_size, text_info.spacing, text_info.color);
+    }
+}
 
 
 //Pass 4

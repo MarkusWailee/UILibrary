@@ -27,7 +27,8 @@ namespace UI
             //Considering using PARENT_WIDTH_PERCENT/PARENT_HEIGHT_PERCENT instead
             PARENT_WIDTH_PERCENT,     //Based on the size of the parent div
             PARENT_HEIGHT_PERCENT,     //Based on the size of the parent div
-            ROOT_PERCENT,       //Based on the root div size
+            ROOT_WIDTH_PERCENT,       //Based on the root div size
+            ROOT_HEIGHT_PERCENT,       //Based on the root div size
 
             //Unit Type 3
             // width/height only
@@ -125,7 +126,7 @@ namespace UI
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const UI::StyleSheet* div_style_sheet, const char* label = nullptr, UI::MouseInfo* get_info = nullptr);
-    void InsertText(const char* text, unsigned int font_size);
+    void InsertText(const char* text);
     void EndBox();
     void Draw();
 }
@@ -134,21 +135,21 @@ namespace UI
 //IMPLEMENT THESE FUNCTIONS
 namespace UI
 {
-    struct TextPrimitive
-    {
-        float x, y;
-        float font_size;
-        UI::Color color;
-    };
-
     //Error handling
     void LogError_impl(const char* text);
     void LogError_impl(int num);
 
     //Rendering
-    void DrawText_impl(const char* text, const TextPrimitive& p);
     void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color border_color, Color background_color);
-    float MeasureText_impl(const char* text, const TextPrimitive& p);
+
+    //Text Rendering
+    //Set internal font. Should load/cache fonts
+    void Init_impl();
+    void SetFont_impl(const char* file_path);
+    void DrawText_impl(const char* text, int x, int y, int font_size, int spacing, UI::Color color);
+    int MeasureChar_impl(char c, int font_size, int spacing);
+    int MeasureText_impl(const char* text, int size, int spacing);
+
     void BeginScissorMode_impl(float x, float y, float width, float height);
     void EndScissorMode_impl();
 }
