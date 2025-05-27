@@ -56,7 +56,7 @@ namespace UI
     private:
         //Values that can potentially use bit array
         Positioning positioning = Positioning::RELATIVE;
-        Flow::Axis flow_axis = Flow::Axis::VERTICAL;
+        Flow::Axis flow_axis = Flow::Axis::HORIZONTAL;
         bool flow_wrap = false;
         bool scissor = false;
     public:
@@ -749,64 +749,129 @@ namespace UI
     {
         assert(child);
         ArenaLL<TreeNode<Box>>::Node* temp;
-        int available_width = parent_box.width;
-        int total_percent = 0;
-        for(temp = child; temp != nullptr; temp = temp->next)
+        if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
-            Box& box = temp->value.val;
-            ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
-            if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
-            {
-                box.width = clamp(box.min_width, box.max_width, box.width);
-                available_width -= box.GetBoxModelWidth() + parent_box.gap_column;
-            }
-            else
-            {
-                available_width -= box.GetBoxExpansionWidth() + parent_box.gap_column;
-                total_percent += box.width;
-            }
-        }
-        available_width += parent_box.gap_column;
-        
-        bool complete = false;
-        while(!complete && total_percent)
-        {
-            complete = true;
-            int new_available_width = available_width;
-            int new_total_percent = total_percent;
+            int available_width = parent_box.width;
+            int total_percent = 0;
             for(temp = child; temp != nullptr; temp = temp->next)
             {
                 Box& box = temp->value.val;
+                if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
+                    box.height_unit = Unit::Type::PARENT_HEIGHT_PERCENT;
+                ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
+                box.height = clamp(box.min_height, box.max_height, box.height);
                 if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
-                    continue;
-    
-                int new_width = available_width * box.width / total_percent;
-                if(new_width < box.min_width || new_width > box.max_width)
                 {
-                    new_total_percent -= box.width;
-                    box.width_unit = Unit::Type::PIXEL;
-                    box.width = clamp(box.min_width, box.max_width, (uint16_t)max(0 ,new_width));
-                    new_available_width -= box.width;
-                    complete = false;
+                    box.width = clamp(box.min_width, box.max_width, box.width);
+                    available_width -= box.GetBoxModelWidth() + parent_box.gap_column;
+                }
+                else
+                {
+                    available_width -= box.GetBoxExpansionWidth() + parent_box.gap_column;
+                    total_percent += box.width;
                 }
             }
-            available_width = new_available_width;
-            total_percent = new_total_percent;
-        }
-        for(temp = child; temp != nullptr; temp = temp->next)
-        {
-            Box& box = temp->value.val;
-            if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+            available_width += parent_box.gap_column;
+
+            //Solves available_percent with min/max contraints
+            bool complete = false;
+            while(!complete && total_percent)
             {
-                box.width = available_width * box.width / total_percent;
+                complete = true;
+                int new_available_width = available_width;
+                int new_total_percent = total_percent;
+                for(temp = child; temp != nullptr; temp = temp->next)
+                {
+                    Box& box = temp->value.val;
+                    if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
+                        continue;
+                    //Calculates what the size would be
+                    int new_width = available_width * box.width / total_percent;
+                    //Clamps size if its not within bounds and changes unit to PIXEL
+                    if(new_width < box.min_width || new_width > box.max_width)
+                    {
+                        new_total_percent -= box.width;
+                        box.width_unit = Unit::Type::PIXEL;
+                        box.width = clamp(box.min_width, box.max_width, (uint16_t)max(0 ,new_width));
+                        new_available_width -= box.width;
+                        complete = false;
+                    }
+                }
+                available_width = new_available_width;
+                total_percent = new_total_percent;
             }
-        }
 
-        for(temp = child; temp != nullptr; temp = temp->next)
+            //Sets all final sizes
+            for(temp = child; temp != nullptr; temp = temp->next)
+            {
+                Box& box = temp->value.val;
+                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+                    box.width = available_width * box.width / total_percent;
+                SizePass(&temp->value);
+            }
+
+        } //End Horizontal
+        else //Vertical
         {
-            SizePass(&temp->value);
-        }
+            int available_height = parent_box.height;
+            int total_percent = 0;
+            for(temp = child; temp != nullptr; temp = temp->next)
+            {
+                Box& box = temp->value.val;
+                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+                    box.width_unit = Unit::Type::PARENT_WIDTH_PERCENT;
+                ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
+                box.width = clamp(box.min_width, box.max_width, box.width);
+                if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
+                {
+                    box.height = clamp(box.min_height, box.max_height, box.height);
+                    available_height -= box.GetBoxModelHeight() + parent_box.gap_row;
+                }
+                else
+                {
+                    available_height -= box.GetBoxExpansionHeight() + parent_box.gap_row;
+                    total_percent += box.height;
+                }
+            }
+            available_height += parent_box.gap_row;
 
+            //Solves available_percent with min/max contraints
+            bool complete = false;
+            while(!complete && total_percent)
+            {
+                complete = true;
+                int new_available_height = available_height;
+                int new_total_percent = total_percent;
+                for(temp = child; temp != nullptr; temp = temp->next)
+                {
+                    Box& box = temp->value.val;
+                    if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
+                        continue;
+                    //Calculates what the size would be
+                    int new_height = available_height * box.height / total_percent;
+                    //Clamps size if its not within bounds and changes unit to PIXEL
+                    if(new_height < box.min_height || new_height > box.max_height)
+                    {
+                        new_total_percent -= box.height;
+                        box.height_unit = Unit::Type::PIXEL;
+                        box.height = clamp(box.min_height, box.max_height, (uint16_t)max(0 ,new_height));
+                        new_available_height -= box.height;
+                        complete = false;
+                    }
+                }
+                available_height = new_available_height;
+                total_percent = new_total_percent;
+            }
+
+            //Sets all final sizes
+            for(temp = child; temp != nullptr; temp = temp->next)
+            {
+                Box& box = temp->value.val;
+                if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
+                    box.height = available_height * box.height / total_percent;
+                SizePass(&temp->value);
+            }
+        } //End vertical
     }
 }
 
@@ -839,8 +904,7 @@ namespace UI
             }
             else
             {
-                //DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y);
-                DrawPass_FlowNoWrap_TESTING(node->children.GetHead(), box, x, y);
+                DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y);
             }
         }
         else
@@ -851,51 +915,24 @@ namespace UI
 
     void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y)
     {
-        assert(child);
-        //HORIZONTAL LAYOUT 
+        ArenaLL<TreeNode<Box>>::Node* temp = child;
+        assert(temp);
+        //Horizontal
         if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
-            ArenaLL<TreeNode<Box>>::Node* temp = child;
-            int available_width = parent_box.width;
-            int total_percent = 0;
-            int child_count = 0;
-            while(temp != nullptr)
-            {
-                child_count++;
-                Box& box = temp->value.val;
-                ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
-                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                {
-                    total_percent += box.width;
-                    available_width -= box.GetBoxExpansionWidth();
-                }
-                else
-                {
-                    available_width -= box.GetBoxModelWidth();
-                }
-                temp = temp->next;
-            }
-            available_width = available_width - parent_box.gap_column * (child_count - 1);
-            temp = child;
+            int count = 0;
             int content_width = 0;
-            while(temp != nullptr)
+            for(temp = child; temp!=nullptr; temp = temp->next)
             {
-                Box& box = temp->value.val;
-                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                {
-                    box.width = available_width * box.width / total_percent;
-                }
-                if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                {
-                    box.height = (parent_box.height - box.GetBoxExpansionHeight()) * box.height / 100;
-                }
+                const Box& box = temp->value.val;
+                count++;
                 content_width += box.GetBoxModelWidth();
-                temp = temp->next;
             }
-            content_width += parent_box.gap_column * (child_count - 1);
-            temp = child;
+            content_width = count? content_width + (count-1) * parent_box.gap_column: content_width;
+
             int cursor_x = 0;
             int offset_x = 0;
+            int available_width = parent_box.width - content_width;
             switch(parent_box.flow_horizontal_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
             {
                 case Flow::Alignment::START:
@@ -905,18 +942,18 @@ namespace UI
                     cursor_x = parent_box.width - content_width;
                     break;
                 case Flow::Alignment::CENTERED:
-                    cursor_x = (parent_box.width - content_width)/2;
+                    cursor_x = available_width/2;
                     break;
                 case Flow::Alignment::SPACE_AROUND:
-                    offset_x = available_width/(child_count + 1);
+                    offset_x = available_width/(count + 1);
                     cursor_x = offset_x;
                     break;
                 case Flow::Alignment::SPACE_BETWEEN:
-                    if(child_count > 1)
-                        offset_x = available_width/(child_count - 1);
+                    if(count > 1)
+                        offset_x = available_width/(count - 1);
                     break;
             }
-            while(temp != nullptr)
+            for(temp = child; temp!=nullptr; temp = temp->next)
             {
                 const Box& box = temp->value.val;
                 int cursor_y = 0;
@@ -942,56 +979,24 @@ namespace UI
                 Color bg_c =            box.background_color;
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
                 DrawPass(&temp->value, render_x, render_y);
-                temp = temp->next;
                 cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
             }
         }
-        //VERTICAL LAYOUT
-        else
+        else //Vertical
         {
-            ArenaLL<TreeNode<Box>>::Node* temp = child;
-            float available_height = parent_box.height;
-            float total_percent = 0;
-            while(temp != nullptr)
+            int count = 0;
+            int content_height = 0;
+            for(temp = child; temp!=nullptr; temp = temp->next)
             {
-                Box& box = temp->value.val;
-                ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
-                if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                {
-                    total_percent += box.height;
-                    available_height -= parent_box.gap_row + box.GetBoxExpansionHeight();
-                }
-                else
-                {
-                    available_height -= box.GetBoxModelHeight() + parent_box.gap_row;  
-                }
-                temp = temp->next;
+                const Box& box = temp->value.val;
+                count++;
+                content_height += box.GetBoxModelHeight();
             }
-            available_height -= parent_box.gap_row;//off by 1 error
-            available_height = max(0.0f, available_height);
-            temp = child;
-            total_percent = total_percent? 1.0f/total_percent: 0;
-            float content_height = 0;
-            int child_count = 0;
-            while(temp != nullptr)
-            {
-                child_count++;
-                Box& box = temp->value.val;
-                if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.height = available_height * box.height * total_percent;
-                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.width = max(0 ,parent_box.width - box.GetBoxExpansionWidth()) * box.width/100;
-                
-                box.width = clamp(box.min_width, box.max_width, box.width);
-                box.height = clamp(box.min_height, box.max_height, box.height);
-                content_height += box.GetBoxModelHeight() + parent_box.gap_row;
-                temp = temp->next;
-            }
-            content_height-=parent_box.gap_column; //off by 1
-            available_height = parent_box.height - content_height;
-            temp = child;
-            float cursor_y = 0;
-            float offset_y = 0;
+            content_height = count? content_height + (count-1) * parent_box.gap_column: content_height;
+
+            int cursor_y = 0;
+            int offset_y = 0;
+            int available_height = parent_box.height - content_height;
             switch(parent_box.flow_vertical_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
             {
                 case Flow::Alignment::START:
@@ -1001,22 +1006,21 @@ namespace UI
                     cursor_y = parent_box.height - content_height;
                     break;
                 case Flow::Alignment::CENTERED:
-                    cursor_y = (parent_box.height - content_height)/2;
+                    cursor_y = available_height/2;
                     break;
                 case Flow::Alignment::SPACE_AROUND:
-                    offset_y = available_height/(child_count + 1);
+                    offset_y = available_height/(count + 1);
                     cursor_y = offset_y;
                     break;
                 case Flow::Alignment::SPACE_BETWEEN:
-                    if(child_count > 1)
-                        offset_y = available_height/(child_count - 1);
+                    if(count > 1)
+                        offset_y = available_height/(count - 1);
                     break;
             }
-            while(temp != nullptr)
+            for(temp = child; temp!=nullptr; temp = temp->next)
             {
                 const Box& box = temp->value.val;
-                float cursor_x = 0;
-
+                int cursor_x = 0;
                 switch(parent_box.flow_horizontal_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
                 {
                     case Flow::Alignment::START:
@@ -1029,57 +1033,19 @@ namespace UI
                         cursor_x = parent_box.width/2 - box.GetBoxModelWidth()/2;
                         break;
                 }
-                float render_width =    box.GetRenderingWidth();
-                float render_height =   box.GetRenderingHeight();
-                float render_x =        x + (float)(cursor_x + box.margin.left + parent_box.padding.left);
-                float render_y =        y + (float)(cursor_y + box.margin.top + parent_box.padding.top);
-                float corner_radius =   box.corner_radius;
-                float border_size =     box.border_width;
+                int render_width =    box.GetRenderingWidth();
+                int render_height =   box.GetRenderingHeight();
+                int render_x =        x + cursor_x + box.margin.left + parent_box.padding.left;
+                int render_y =        y + cursor_y + box.margin.top + parent_box.padding.top;
+                int corner_radius =   box.corner_radius;
+                int border_size =     box.border_width;
                 Color border_c =        box.border_color;
                 Color bg_c =            box.background_color;
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
                 DrawPass(&temp->value, render_x, render_y);
-                temp = temp->next;
                 cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;
             }
-        }
-    }
 
-
-    void DrawPass_FlowNoWrap_TESTING(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y)
-    {
-        ArenaLL<TreeNode<Box>>::Node* temp = child;
-        assert(temp);
-        int cursor_x = 0;
-        int offset_x = 0;
-        while(temp != nullptr)
-        {
-            const Box& box = temp->value.val;
-            int cursor_y = 0;
-            switch(parent_box.flow_vertical_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
-            {
-                case Flow::Alignment::START:
-                    cursor_y = 0;
-                    break;
-                case Flow::Alignment::END:
-                    cursor_y = parent_box.height - box.GetBoxModelHeight();
-                    break;
-                default:
-                    cursor_y = parent_box.height/2 - box.GetBoxModelHeight()/2;
-                    break;
-            }
-            int render_width =    box.GetRenderingWidth();
-            int render_height =   box.GetRenderingHeight();
-            int render_x =        x + cursor_x + box.margin.left + parent_box.padding.left;
-            int render_y =        y + cursor_y + box.margin.top + parent_box.padding.top;
-            int corner_radius =   box.corner_radius;
-            int border_size =     box.border_width;
-            Color border_c =        box.border_color;
-            Color bg_c =            box.background_color;
-            DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
-            DrawPass(&temp->value, render_x, render_y);
-            temp = temp->next;
-            cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
         }
     }
 
