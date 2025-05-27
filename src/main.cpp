@@ -92,23 +92,24 @@ int main(void)
             UI::BeginBox(&h_container);
                 UI::BeginBox(&button3);
                 UI::EndBox();
-                UI::MouseInfo info;
-                UI::BeginBox(&button, "Testing", &info);
-                if(info.on_mouse_hover)
-                {
-                    if(IsMouseButtonDown(0))
-                        button.background_color = UI::Color{255,0,0,255};
-                    else
-                        button.background_color = UI::Color{80,255,80,255};
 
-                    button.height = UI::Unit{110, UI::Unit::Type::PIXEL};
-                }
+                UI::MouseInfo info = UI::GetMouseInfo("Testing");
+                if(info.on_mouse_hover && IsMouseButtonPressed(0))
+                    std::cout<<"Button Pressed\n";
+                if(info.on_mouse_hover && IsMouseButtonDown(0))
+                    button.background_color = UI::Color{255,0 ,0, 255};
                 else
-                {
-                    button.height = UI::Unit{100, UI::Unit::Type::PIXEL};
-                }
+                    button.background_color = UI::Color{0, 255, 0, 255};
+                UI::BeginBox(&button, "Testing");
                 UI::EndBox();
-                UI::BeginBox(&button2);
+                info = UI::GetMouseInfo("Other");
+                if(info.on_mouse_hover && IsMouseButtonPressed(0))
+                    std::cout<<"Other Button Pressed\n";
+                if(info.on_mouse_hover && IsMouseButtonDown(0))
+                    button2.background_color = UI::Color{255,80 ,80, 255};
+                else
+                    button2.background_color = UI::Color{80, 255, 80, 255};
+                UI::BeginBox(&button2, "Other");
                 UI::InsertText("Hello world");
                 UI::EndBox();
             UI::EndBox();

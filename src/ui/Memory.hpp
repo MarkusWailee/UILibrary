@@ -43,8 +43,8 @@ namespace UI
             s1++;
             s2++;
         }
-        //return *s1 == *s2;
-        return true; //Temporary fix for ui
+        return *s1 == *s2;
+        //return true; //Temporary fix for ui
     }
 
 }

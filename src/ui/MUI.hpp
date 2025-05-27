@@ -124,6 +124,7 @@ namespace UI
         int mouse_rel_y = 0;
         bool on_mouse_hover = 0;
     };
+    MouseInfo GetMouseInfo(const char* label);
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const UI::StyleSheet* div_style_sheet, const char* label = nullptr, UI::MouseInfo* get_info = nullptr);

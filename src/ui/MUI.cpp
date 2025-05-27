@@ -276,14 +276,7 @@ namespace UI
         {
             if(get_info)
             {
-                if(StringCompare(label, user.label))
-                {
-                    *get_info = user.mouse_info;
-                }
-                else
-                {
-                    *get_info = MouseInfo();
-                }
+                *get_info = GetMouseInfo(label);
             }
         }
 
@@ -437,9 +430,19 @@ namespace UI
 
 
 //Common helpers and error checking
-#include <iostream>
 namespace UI
 {
+    MouseInfo GetMouseInfo(const char* label)
+    {
+        if(label && StringCompare(label, user.label))
+        {
+            return user.mouse_info;
+        }
+        else
+        {
+            return MouseInfo();
+        }
+    }
     void HandleUserInput(const char* label, int box_x, int box_y, int box_width, int box_height)
     {
         if(!label)
@@ -451,7 +454,7 @@ namespace UI
             StringCopy(user.label, label, 128);
             user.mouse_info = MouseInfo{box_x, box_y, box_width, box_height, true};
         }
-        else
+        else if(StringCompare(user.label, label))
         {
             user = UserInput();
         }
