@@ -34,7 +34,7 @@ int main(void)
     base.padding = {20, 20, 20, 20};
 
     UI::StyleSheet h_container;
-    h_container.flow.axis = UI::Flow::Axis::VERTICAL;
+    h_container.flow.axis = UI::Flow::Axis::HORIZONTAL;
     h_container.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
     h_container.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
     h_container.gap_row = UI::Unit{10, UI::Unit::Type::PIXEL};
@@ -47,32 +47,38 @@ int main(void)
 
 
     UI::StyleSheet button;
+    //button.margin = {20, 20, 20, 20};
     button.background_color = {40, 255, 50, 255};
-    button.width = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
-    button.height = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
+    button.width = UI::Unit{100, UI::Unit::Type::PIXEL};
+    button.height = UI::Unit{100, UI::Unit::Type::PIXEL};
     button.min_height = UI::Unit{100 ,UI::Unit::Type::PIXEL};
     button.border_width = 4;
     button.border_color = {0,0,0,255};
 
     UI::StyleSheet button2;
     button2.background_color = {255, 50, 50, 255};
-    button2.width = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
-    button2.height = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
+    button2.width = UI::Unit{100 ,UI::Unit::Type::PIXEL};
+    button2.height = UI::Unit{100 ,UI::Unit::Type::PIXEL};
     button2.max_height = UI::Unit{100 ,UI::Unit::Type::PIXEL};
     button2.border_width = 4;
     button2.border_color = {0,0,0,255};
-    button2.padding = {5, 5, 5, 5};
-    button2.margin = {5, 5, 5, 5};
+    //button2.padding = {5, 5, 5, 5};
+    //button2.margin = {5, 5, 5, 5};
 
     UI::StyleSheet button3;
-    button3.margin = {10, 10, 10, 10};
-    button3.padding = {10, 10, 10, 10};
+    //button3.margin = {10, 10, 10, 10};
+    //button3.padding = {10, 10, 10, 10};
     button3.background_color = {50, 50, 255, 255};
-    button3.width = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
-    button3.height = UI::Unit{100,UI::Unit::Type::AVAILABLE_PERCENT};
+    button3.width = UI::Unit{150 ,UI::Unit::Type::PIXEL};
+    button3.height = UI::Unit{100,UI::Unit::Type::PIXEL};
     button3.border_width = 4;
     button3.border_color = {0,0,0,255};
 
+    UI::StyleSheet button4;
+    button4.margin = {5,5,5,5};
+    button4.background_color = {50, 50, 50, 255};
+    button4.width = UI::Unit{200 ,UI::Unit::Type::PIXEL};
+    button4.height = UI::Unit{10,UI::Unit::Type::PIXEL};
 
     UI::StyleSheet style;
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -84,15 +90,26 @@ int main(void)
         UI::BeginRoot(GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
         UI::BeginBox(&base);
             UI::BeginBox(&h_container);
-                UI::BeginBox(&button);
+                UI::BeginBox(&button3);
                 UI::EndBox();
-                UI::BeginBox(&button);
+                UI::MouseInfo info;
+                UI::BeginBox(&button, "Testing", &info);
+                if(info.on_mouse_hover)
+                {
+                    if(IsMouseButtonDown(0))
+                        button.background_color = UI::Color{255,0,0,255};
+                    else
+                        button.background_color = UI::Color{80,255,80,255};
+
+                    button.height = UI::Unit{110, UI::Unit::Type::PIXEL};
+                }
+                else
+                {
+                    button.height = UI::Unit{100, UI::Unit::Type::PIXEL};
+                }
                 UI::EndBox();
                 UI::BeginBox(&button2);
-                UI::EndBox();
-                UI::BeginBox(&button3);
-                UI::EndBox();
-                UI::BeginBox(&button3);
+                UI::InsertText("Hello world");
                 UI::EndBox();
             UI::EndBox();
         UI::EndBox();

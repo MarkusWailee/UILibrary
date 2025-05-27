@@ -118,10 +118,11 @@ namespace UI
 {
     struct MouseInfo
     {
+        int pos_x = 0;
+        int pos_y = 0;
+        int mouse_rel_x = 0;
+        int mouse_rel_y = 0;
         bool on_mouse_hover = 0;
-        bool on_mouse_down = 0;
-        bool on_mouse_click = 0;
-        bool on_mouse_release = 0;
     };
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();

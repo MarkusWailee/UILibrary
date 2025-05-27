@@ -17,9 +17,9 @@ namespace UI
         uint16_t gap_row =          0;
         uint16_t gap_column =       0;
         uint16_t min_width =        0;
-        uint16_t max_width =        0;
+        uint16_t max_width =        UINT16_MAX;
         uint16_t min_height =       0;
-        uint16_t max_height =       0;
+        uint16_t max_height =       UINT16_MAX;
         int16_t x =                 0;
         int16_t y =                 0;
         uint16_t grid_cell_width =  0;
@@ -124,6 +124,12 @@ namespace UI
 //Common helpers and error handling
 namespace UI
 {
+    struct UserInput
+    {
+        char label[128] = "";
+        MouseInfo mouse_info;
+    };
+    void HandleUserInput(const char* label, int box_x, int box_y, int box_width, int box_height);
     struct Error
     {
         enum class Type : unsigned char
@@ -166,7 +172,6 @@ namespace UI
     T clamp(T minimum, T maximum, T value);
 
 
-
     //Used during tree descending
     Box ComputeStyleSheet(const StyleSheet& style, const Box& root);
 }
@@ -192,7 +197,8 @@ namespace UI
 namespace UI
 {
     StyleSheet default_style_sheet;
-
+    UserInput user;
+    int mouse_x = 0, mouse_y = 0;
     float dpi = 96.0f;
     MemoryArena arena(32768);
     TreeNode<Box>* root_node = nullptr;
@@ -203,6 +209,8 @@ namespace UI
 {
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
     {
+        UI::mouse_x = mouse_x;
+        UI::mouse_y = mouse_y;
         if(HasGlobalError())
             return;
         arena.Reset(); 
@@ -263,6 +271,22 @@ namespace UI
         if(HandleGlobalError(CheckUnitErrors(style)))
             return;
 
+        //Input Handling
+        if(label)
+        {
+            if(get_info)
+            {
+                if(StringCompare(label, user.label))
+                {
+                    *get_info = user.mouse_info;
+                }
+                else
+                {
+                    *get_info = MouseInfo();
+                }
+            }
+        }
+
         if(!stack.IsEmpty())  // should add to parent
         {
             TreeNode<Box>* parent_node = stack.Peek();
@@ -271,6 +295,7 @@ namespace UI
 
             TreeNode<Box> child_node;
             child_node.val = ComputeStyleSheet(style, root_node->val);
+            child_node.val.label = label;
             TreeNode<Box>* child_ptr = parent_node->children.Add(child_node, &arena); 
             assert(child_ptr && "Arena out of memory");
             stack.Push(child_ptr);
@@ -299,11 +324,66 @@ namespace UI
             if(HandleGlobalError(CheckLeafNodeContradictions(node_box)))
                 return;
         }
-        else 
+        else //Calculate all CONTENT_PERCENT
         {
-            ArenaLL<TreeNode<Box>>::Node* head = node->children.GetHead();  
+            ArenaLL<TreeNode<Box>>::Node* temp = node->children.GetHead();  
+            int content_width = 0;
+            int content_height = 0;
+            if(node_box.GetLayout() == Layout::FLOW && (node_box.width_unit == Unit::Type::CONTENT_PERCENT || node_box.height_unit == Unit::Type::CONTENT_PERCENT))
+            {
+                if(node_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
+                {
+                    int largest_height = 0;
+                    for(;temp != nullptr; temp = temp->next)
+                    {
+                        const Box& box = temp->value.val;
+                        content_width += box.GetBoxModelWidth() + node_box.gap_column;
+                        int height = box.GetBoxModelHeight();
+                        if(largest_height < height)
+                            largest_height = height;
+                    }
+                    content_height = largest_height;
+                    content_width -= node_box.gap_column;
+                }
+                else
+                {
+                    int largest_width = 0;
+                    for(;temp != nullptr; temp = temp->next)
+                    {
+                        const Box& box = temp->value.val;
+                        content_height += box.GetBoxModelHeight() + node_box.gap_row;
+                        int width = box.GetBoxModelWidth();
+                        if(largest_width < width)
+                            largest_width = width;
+                    }
+                    content_width = largest_width;
+                    content_height -= node_box.gap_row;
+                }
+                if(node_box.width_unit == Unit::Type::CONTENT_PERCENT)
+                    node_box.width = content_width * node_box.width / 100;
+                if(node_box.height_unit == Unit::Type::CONTENT_PERCENT)
+                    node_box.height = content_height * node_box.height / 100;
+
+                if(node_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
+                    node_box.max_width = content_width * node_box.max_width / 100;
+                if(node_box.max_height_unit == Unit::Type::CONTENT_PERCENT)
+                    node_box.max_height = content_height * node_box.max_height / 100;
+
+                if(node_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
+                    node_box.min_width = content_width * node_box.min_width / 100;
+                if(node_box.max_height_unit == Unit::Type::CONTENT_PERCENT)
+                    node_box.min_height = content_height * node_box.min_height / 100;
+            }
         }
         stack.Pop();
+        if(!stack.IsEmpty())
+        {
+            TreeNode<Box>* parent = stack.Peek();
+            assert(parent);
+            if(HandleGlobalError(CheckNodeContradictions(node_box, parent->val)))
+                return;
+        }
+
     }
 
     void InsertText(const char* text)
@@ -324,9 +404,9 @@ namespace UI
         //DEBUGGING TEXT
         box.width = 10;
         box.height = 10;
-        box.background_color = {255, 0, 255, 255};
-
+        box.background_color = {255, 255, 255, 255};
         box.text = text;
+
         text_node.val = box;
         TreeNode<Box>* addr = parent_node->children.Add(text_node, &arena);
         assert(addr);
@@ -357,8 +437,25 @@ namespace UI
 
 
 //Common helpers and error checking
+#include <iostream>
 namespace UI
 {
+    void HandleUserInput(const char* label, int box_x, int box_y, int box_width, int box_height)
+    {
+        if(!label)
+            return;
+
+        if(mouse_x >= box_x && mouse_x <= box_x + box_width
+            && mouse_y >= box_y && mouse_y <= box_y + box_height)
+        {
+            StringCopy(user.label, label, 128);
+            user.mouse_info = MouseInfo{box_x, box_y, box_width, box_height, true};
+        }
+        else
+        {
+            user = UserInput();
+        }
+    }
     void DisplayError(const Error& error)
     {
         /*
@@ -522,6 +619,7 @@ namespace UI
         bool p_width = parent.width_unit == Unit::Type::CONTENT_PERCENT;
         bool p_height = parent.height_unit == Unit::Type::CONTENT_PERCENT;
 
+        //HORIZONTAL
         //width
         if(child.width_unit == Unit::Type::PARENT_WIDTH_PERCENT && p_width)
             return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::PARENT_WIDTH_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
@@ -530,6 +628,7 @@ namespace UI
         if(child.width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
             return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
 
+        //VERTICAL
         //height
         if(child.height_unit == Unit::Type::PARENT_HEIGHT_PERCENT && p_height)
             return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::PARENT_HEIGHT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
@@ -978,6 +1077,7 @@ namespace UI
                 Color border_c =        box.border_color;
                 Color bg_c =            box.background_color;
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
+                HandleUserInput(box.label, render_x, render_y, render_width, render_height);
                 DrawPass(&temp->value, render_x, render_y);
                 cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
             }
@@ -992,7 +1092,7 @@ namespace UI
                 count++;
                 content_height += box.GetBoxModelHeight();
             }
-            content_height = count? content_height + (count-1) * parent_box.gap_column: content_height;
+            content_height = count? content_height + (count-1) * parent_box.gap_row: content_height;
 
             int cursor_y = 0;
             int offset_y = 0;
@@ -1042,6 +1142,7 @@ namespace UI
                 Color border_c =        box.border_color;
                 Color bg_c =            box.background_color;
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
+                HandleUserInput(box.label, render_x, render_y, render_width, render_height);
                 DrawPass(&temp->value, render_x, render_y);
                 cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;
             }
