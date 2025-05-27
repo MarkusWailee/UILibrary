@@ -183,6 +183,7 @@ namespace UI
 namespace UI
 {
     //computes layout and draws
+    void SizePass(TreeNode<Box>* node);
     void DrawPass(TreeNode<Box>* node, int x, int y);
 }
 
@@ -343,6 +344,7 @@ namespace UI
             HandleGlobalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing EndRoot()"});
             return;
         }
+        SizePass(root_node);
         DrawPass(root_node, 0, 0);
 
         
@@ -704,7 +706,7 @@ namespace UI
         box.height =                    (uint16_t)max(0, DescendParentPercent(box.height,           box.height_unit,            parent_width, parent_height)); 
         box.gap_row =                   (uint16_t)max(0, DescendParentPercent(box.gap_row,          box.gap_row_unit,           parent_width, parent_height)); 
         box.gap_column =                (uint16_t)max(0, DescendParentPercent(box.gap_column,       box.gap_column_unit,        parent_width, parent_height)); 
-        box.min_width =                 (uint16_t)max(0, DescendParentPercent(box.min_height,       box.min_width_unit,         parent_width, parent_height)); 
+        box.min_width =                 (uint16_t)max(0, DescendParentPercent(box.min_width,       box.min_width_unit,         parent_width, parent_height)); 
         box.max_width =                 (uint16_t)max(0, DescendParentPercent(box.max_width,        box.max_width_unit,         parent_width, parent_height)); 
         box.min_height =                (uint16_t)max(0, DescendParentPercent(box.min_height,       box.min_height_unit,        parent_width, parent_height)); 
         box.max_height =                (uint16_t)max(0, DescendParentPercent(box.max_height,       box.max_height_unit,        parent_width, parent_height)); 
@@ -717,31 +719,101 @@ namespace UI
 }
 
 
+//PASS 3
+//Size calculations
+namespace UI
+{
+    void SizePass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box);
+    void SizePass(TreeNode<Box>* node)
+    {
+        if(node == nullptr || node->children.IsEmpty())
+            return;
+        const Box& box = node->val;
+        if(box.GetLayout() == Layout::FLOW)
+        {
+            if(box.IsFlowWrap())
+            {
+                assert("have not added wrapping");
+            }
+            else
+            {
+                SizePass_FlowNoWrap(node->children.GetHead(), box);
+            }
+        }
+        else
+        {
+            assert("have not added grid");
+        }
+    }
+    void SizePass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
+    {
+        assert(child);
+        ArenaLL<TreeNode<Box>>::Node* temp;
+        int available_width = parent_box.width;
+        int total_percent = 0;
+        for(temp = child; temp != nullptr; temp = temp->next)
+        {
+            Box& box = temp->value.val;
+            ComputeParentPercentForBox(box, parent_box.width, parent_box.height);
+            if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
+            {
+                box.width = clamp(box.min_width, box.max_width, box.width);
+                available_width -= box.GetBoxModelWidth() + parent_box.gap_column;
+            }
+            else
+            {
+                available_width -= box.GetBoxExpansionWidth() + parent_box.gap_column;
+                total_percent += box.width;
+            }
+        }
+        available_width += parent_box.gap_column;
+        
+        bool complete = false;
+        while(!complete && total_percent)
+        {
+            complete = true;
+            int new_available_width = available_width;
+            int new_total_percent = total_percent;
+            for(temp = child; temp != nullptr; temp = temp->next)
+            {
+                Box& box = temp->value.val;
+                if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
+                    continue;
+    
+                int new_width = available_width * box.width / total_percent;
+                if(new_width < box.min_width || new_width > box.max_width)
+                {
+                    new_total_percent -= box.width;
+                    box.width_unit = Unit::Type::PIXEL;
+                    box.width = clamp(box.min_width, box.max_width, (uint16_t)max(0 ,new_width));
+                    new_available_width -= box.width;
+                    complete = false;
+                }
+            }
+            available_width = new_available_width;
+            total_percent = new_total_percent;
+        }
+        for(temp = child; temp != nullptr; temp = temp->next)
+        {
+            Box& box = temp->value.val;
+            if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+            {
+                box.width = available_width * box.width / total_percent;
+            }
+        }
+
+        for(temp = child; temp != nullptr; temp = temp->next)
+        {
+            SizePass(&temp->value);
+        }
+
+    }
+}
+
+
 //TEXT RENDERING
 namespace UI
 {
-    struct TextInfo
-    {
-        Color color = {255, 255, 255, 255};
-        int font_size = 32;
-        int spacing = 1;
-    };
-    void DrawTextNode(const char* text, int parent_width, int parent_height, int x, int y)
-    {
-        static char buffer[512]{};
-        static TextInfo text_info;
-        assert(text);
-        int index = 0;
-        int width = 0;
-        while(text[index] != '\0' || index >= 512)
-        {
-            char c = text[index];
-            buffer[index] = c;
-            index++;
-        }
-        buffer[index] = '\0';
-        DrawText_impl(buffer, x, y, text_info.font_size, text_info.spacing, text_info.color);
-    }
 }
 
 
@@ -752,6 +824,7 @@ namespace UI
 
     //This is a temporary function to test things
     void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y);
+    void DrawPass_FlowNoWrap_TESTING(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y);
 
     void DrawPass(TreeNode<Box>* node, int x, int y)
     {
@@ -766,7 +839,8 @@ namespace UI
             }
             else
             {
-                DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y);
+                //DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y);
+                DrawPass_FlowNoWrap_TESTING(node->children.GetHead(), box, x, y);
             }
         }
         else
@@ -972,6 +1046,42 @@ namespace UI
     }
 
 
+    void DrawPass_FlowNoWrap_TESTING(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y)
+    {
+        ArenaLL<TreeNode<Box>>::Node* temp = child;
+        assert(temp);
+        int cursor_x = 0;
+        int offset_x = 0;
+        while(temp != nullptr)
+        {
+            const Box& box = temp->value.val;
+            int cursor_y = 0;
+            switch(parent_box.flow_vertical_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
+            {
+                case Flow::Alignment::START:
+                    cursor_y = 0;
+                    break;
+                case Flow::Alignment::END:
+                    cursor_y = parent_box.height - box.GetBoxModelHeight();
+                    break;
+                default:
+                    cursor_y = parent_box.height/2 - box.GetBoxModelHeight()/2;
+                    break;
+            }
+            int render_width =    box.GetRenderingWidth();
+            int render_height =   box.GetRenderingHeight();
+            int render_x =        x + cursor_x + box.margin.left + parent_box.padding.left;
+            int render_y =        y + cursor_y + box.margin.top + parent_box.padding.top;
+            int corner_radius =   box.corner_radius;
+            int border_size =     box.border_width;
+            Color border_c =        box.border_color;
+            Color bg_c =            box.background_color;
+            DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
+            DrawPass(&temp->value, render_x, render_y);
+            temp = temp->next;
+            cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
+        }
+    }
 
 
 }
