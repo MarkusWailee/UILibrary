@@ -93,6 +93,9 @@ namespace UI
         Unit x = Unit{0, Unit::Type::PIXEL};
         Unit y = Unit{0, Unit::Type::PIXEL};
 
+        int scroll_x = 0;
+        int scroll_y = 0;
+
 
         Color background_color = UI::Color{0, 0, 0, 0};
         Color border_color = UI::Color{0, 0, 0, 0};

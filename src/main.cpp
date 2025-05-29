@@ -4,6 +4,7 @@
 #include <math/vec.h>
 
 
+
 int main(void)
 {
     const int screenWidth = 800;
@@ -27,23 +28,26 @@ int main(void)
     UI::StyleSheet base;
     base.background_color = {80, 80, 80, 255};
     base.flow.axis = UI::Flow::Axis::HORIZONTAL;
-    base.flow.horizontal_alignment = UI::Flow::Alignment::START;
-    base.flow.vertical_alignment = UI::Flow::Alignment::START;
+    base.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
+    base.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
     base.width = UI::Unit{100, UI::Unit::Type::PARENT_WIDTH_PERCENT};
     base.height = UI::Unit{100, UI::Unit::Type::PARENT_HEIGHT_PERCENT};
     base.padding = {20, 20, 20, 20};
 
     UI::StyleSheet h_container;
+    h_container.padding = {10, 10, 10, 10};
     h_container.flow.axis = UI::Flow::Axis::HORIZONTAL;
     h_container.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
     h_container.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
     h_container.gap_row = UI::Unit{10, UI::Unit::Type::PIXEL};
     h_container.gap_column = UI::Unit{10, UI::Unit::Type::PIXEL};
-    h_container.background_color = {40, 40, 50, 255};
-    h_container.width = UI::Unit{100 ,UI::Unit::Type::PARENT_WIDTH_PERCENT};
-    h_container.height = UI::Unit{100 ,UI::Unit::Type::PARENT_HEIGHT_PERCENT};
-    h_container.border_width = 4;
-    h_container.border_color = {0,0,0,255};
+    h_container.background_color = {40, 100, 50, 255};
+    h_container.width = UI::Unit{100 ,UI::Unit::Type::MM};
+    h_container.height = UI::Unit{100 ,UI::Unit::Type::MM};
+    h_container.border_width = 2;
+    h_container.corner_radius = 10;
+    h_container.border_color = {25, 25, 30, 255};
+    h_container.scissor = true;
 
 
     UI::StyleSheet button;
@@ -66,51 +70,61 @@ int main(void)
     //button2.margin = {5, 5, 5, 5};
 
     UI::StyleSheet button3;
-    //button3.margin = {10, 10, 10, 10};
-    //button3.padding = {10, 10, 10, 10};
-    button3.background_color = {50, 50, 255, 255};
-    button3.width = UI::Unit{150 ,UI::Unit::Type::PIXEL};
-    button3.height = UI::Unit{100,UI::Unit::Type::PIXEL};
-    button3.border_width = 4;
-    button3.border_color = {0,0,0,255};
+    button3.margin = {5,5,5,5};
+    button3.background_color = {50, 50, 70, 255};
+    button3.border_color = {25, 25, 30, 255};
+    button3.width = UI::Unit{20 ,UI::Unit::Type::MM};
+    button3.height = UI::Unit{50,UI::Unit::Type::AVAILABLE_PERCENT};
+    button3.border_width = 0;
+    button3.corner_radius = 20;
 
     UI::StyleSheet button4;
+    button4.flow.axis = UI::Flow::Axis::HORIZONTAL;
+    button4.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
+    button4.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
     button4.margin = {5,5,5,5};
-    button4.background_color = {50, 50, 50, 255};
-    button4.width = UI::Unit{200 ,UI::Unit::Type::PIXEL};
-    button4.height = UI::Unit{10,UI::Unit::Type::PIXEL};
+    button4.background_color = {50, 50, 70, 255};
+    button4.border_color = {25, 25, 30, 255};
+    button4.width = UI::Unit{200,UI::Unit::Type::PIXEL};
+    button4.height = UI::Unit{50,UI::Unit::Type::AVAILABLE_PERCENT};
+    button4.border_width = 0;
+    button4.corner_radius = 20;
+    button4.scissor = true;
+
+    UI::StyleSheet button5;
+    button5.margin = {5,5,5,5};
+    button5.background_color = {0, 0, 0, 255};
+    button5.border_color = {25, 25, 30, 255};
+    button5.width = UI::Unit{100 ,UI::Unit::Type::PIXEL};
+    button5.height = UI::Unit{100,UI::Unit::Type::PIXEL};
+    button5.border_width = 0;
+    button5.corner_radius = 20;
 
     UI::StyleSheet style;
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
         BeginDrawing();
         ClearBackground(Color{83, 81, 100, 255});
-
+        h_container.scroll_x += GetMouseWheelMove() * 40;
         //UI LIBRARY TEST
         UI::BeginRoot(GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
         UI::BeginBox(&base);
             UI::BeginBox(&h_container);
-                UI::BeginBox(&button3);
+                UI::BeginBox(&button4);
                 UI::EndBox();
-
-                UI::MouseInfo info = UI::GetMouseInfo("Testing");
-                if(info.on_mouse_hover && IsMouseButtonPressed(0))
-                    std::cout<<"Button Pressed\n";
-                if(info.on_mouse_hover && IsMouseButtonDown(0))
-                    button.background_color = UI::Color{255,0 ,0, 255};
-                else
-                    button.background_color = UI::Color{0, 255, 0, 255};
-                UI::BeginBox(&button, "Testing");
+                UI::BeginBox(&button4);
                 UI::EndBox();
-                info = UI::GetMouseInfo("Other");
-                if(info.on_mouse_hover && IsMouseButtonPressed(0))
-                    std::cout<<"Other Button Pressed\n";
-                if(info.on_mouse_hover && IsMouseButtonDown(0))
-                    button2.background_color = UI::Color{255,80 ,80, 255};
-                else
-                    button2.background_color = UI::Color{80, 255, 80, 255};
-                UI::BeginBox(&button2, "Other");
-                UI::InsertText("Hello world");
+                UI::BeginBox(&button4);
+                UI::EndBox();
+                UI::MouseInfo info = UI::GetMouseInfo("button5");
+                if(IsMouseButtonPressed(0))
+                {
+                    if(info.on_mouse_hover)
+                        std::cout<<"button clicked\n";
+                    else
+                        std::cout<<"not clicked\n";
+                }
+                UI::BeginBox(&button5, "button5");
                 UI::EndBox();
             UI::EndBox();
         UI::EndBox();

@@ -10,10 +10,11 @@ namespace UI
         const char* text = nullptr;
         Color background_color = UI::Color{0, 0, 0, 0}; //used for debugging
         Color border_color = UI::Color{0, 0, 0, 0};
-
         //type 3
-        uint16_t width =            0; //Used for debugging
-        uint16_t height =           0; //Used for debugging
+        int scroll_x =              0;
+        int scroll_y =              0;
+        uint16_t width =            0;
+        uint16_t height =           0;
         uint16_t gap_row =          0;
         uint16_t gap_column =       0;
         uint16_t min_width =        0;
@@ -60,76 +61,34 @@ namespace UI
         bool flow_wrap = false;
         bool scissor = false;
     public:
-        void SetPositioning(Positioning p){positioning = p;}
-        void SetFlowAxis(Flow::Axis axis){flow_axis = axis;}
-        void SetScissor(bool flag){scissor = flag;}
-        void SetFlowWrap(bool flag){flow_wrap = flag;}
-        Layout GetLayout() const
-        {
-            return layout;
-        }
-        Flow::Axis GetFlowAxis() const
-        {
-            return flow_axis;
-        }
-        Positioning GetPositioning() const
-        {
-            return positioning;
-        }
-        bool IsScissor() const
-        {
-            return scissor;
-        }
-        bool IsFlowWrap() const
-        {
-            return flow_wrap;
-        }
-        int GetBoxExpansionWidth() const
-        {
-            return margin.left + margin.right + padding.left + padding.right;
-        }
-        int GetBoxExpansionHeight() const
-        {
-            return margin.top + margin.bottom + padding.top + padding.bottom;
-        }
-        int GetBoxModelWidth() const
-        {
-            //internal box model
-            return margin.left + padding.left + width + padding.right + margin.right;
-        }
-        int GetBoxModelHeight() const
-        {
-            return margin.top + padding.top + height + padding.bottom + margin.bottom;
-        }
-        int GetRenderingWidth() const
-        {
-            return padding.left + width + padding.right;
-        }
-        int GetRenderingHeight() const
-        {
-            return padding.top + height + padding.bottom;
-        }
+        void SetPositioning(Positioning p);
+        void SetFlowAxis(Flow::Axis axis);
+        void SetScissor(bool flag);
+        void SetFlowWrap(bool flag);
+        Layout GetLayout() const;
+        Flow::Axis GetFlowAxis() const;
+        Positioning GetPositioning() const;
+        bool IsScissor() const;
+        bool IsFlowWrap() const;
+        int GetBoxExpansionWidth() const;
+        int GetBoxExpansionHeight() const;
+        int GetBoxModelWidth() const;
+        int GetBoxModelHeight() const;
+        int GetRenderingWidth() const;
+        int GetRenderingHeight() const;
 
     };
-
     template<typename T>
     struct TreeNode
     {
         T val;
         ArenaLL<TreeNode> children;
     };
-}
 
 
-//Common helpers and error handling
-namespace UI
-{
-    struct UserInput
-    {
-        char label[128] = "";
-        MouseInfo mouse_info;
-    };
-    void HandleUserInput(const char* label, int box_x, int box_y, int box_width, int box_height);
+
+
+    //Error handling
     struct Error
     {
         enum class Type : unsigned char
@@ -152,15 +111,24 @@ namespace UI
     Error CheckLeafNodeContradictions(const Box& leaf);
     Error CheckRootNodeConflicts(const StyleSheet& root);
     Error CheckNodeContradictions(const Box& child, const Box& parent);
-
     Error& GetGlobalError();
     bool HasGlobalError();
-
     //Returns false and does nothing if no error
     //Returns true, sets internal error, and displays error if true
     bool HandleGlobalError(const Error& error);
 
     //Math helpers
+    struct Rect
+    {
+        static bool Overlap(const Rect& r1, const Rect& r2);
+        static bool Contains(const Rect& r ,int x, int y);
+        static Rect Intersection(const Rect& r1, const Rect& r2);
+
+        int x = 0;
+        int y = 0;
+        int width = 0;
+        int height = 0;
+    };
     float MillimeterToPixels(float mm);
     float CentimeterToPixels(float cm);
     float InchToPixels(float inches);
@@ -171,25 +139,39 @@ namespace UI
     template<typename T>
     T clamp(T minimum, T maximum, T value);
 
-
     //Used during tree descending
     Box ComputeStyleSheet(const StyleSheet& style, const Box& root);
-}
 
-
-//TEXT RENDERING
-namespace UI
-{
+    //Text Handling
+    char ToLower(char c);
+    uint32_t StrToU32(const char* text, bool* error = nullptr);
+    uint32_t HexToU32(const char* text, bool* error = nullptr);
+    Color HexToRGBA(const char* text, bool* error = nullptr);
+    Color HexToRGB(const char* text, bool* error = nullptr);
+    class CustomMD
+    {
+    public:
+    };
+    
     //Draws text based on custom markup
     void DrawTextNode(const char* text, int parent_width, int parent_height, int x, int y);
-}
 
-//UI passes
-namespace UI
-{
-    //computes layout and draws
+
+
+    //User input 
+    struct UserInput
+    {
+        char label[128] = "";
+        MouseInfo mouse_info;
+    };
+    //Tests if mouse position is within rect
+    void HandleUserInput(const char* label, const Rect& rect);
+
+
+    //Calculates all PARENT_HEIGHT_PERCENT, PARENT_WIDTH_PERCENT, AVAILABLE_PERCENT, and min/max units
     void SizePass(TreeNode<Box>* node);
-    void DrawPass(TreeNode<Box>* node, int x, int y);
+    //Computes and draw where elements should be. Also computes UserInput
+    void DrawPass(TreeNode<Box>* node, int x, int y, Rect parent_aabb);
 }
 
 
@@ -205,6 +187,9 @@ namespace UI
     FixedStack<TreeNode<Box>*, 100> stack; //elements should never nest over 100 layers deep
 }
 
+
+
+//IMPLEMENTATION
 namespace UI
 {
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
@@ -379,6 +364,8 @@ namespace UI
 
     }
 
+
+
     void InsertText(const char* text)
     {
         if(HasGlobalError())
@@ -417,17 +404,67 @@ namespace UI
             HandleGlobalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing EndRoot()"});
             return;
         }
+        const Box& root_box = root_node->val;
         SizePass(root_node);
-        DrawPass(root_node, 0, 0);
-
-        
-        //Resetting everything
+        DrawPass(root_node, 0, 0, Rect{0, 0, root_box.width, root_box.height});
     }
-
 }
 
 
+//Box
+namespace UI
+{
+    inline void Box::SetPositioning(Positioning p){positioning = p;}
+    inline void Box::SetFlowAxis(Flow::Axis axis){flow_axis = axis;}
+    inline void Box::SetScissor(bool flag){scissor = flag;}
+    inline void Box::SetFlowWrap(bool flag){flow_wrap = flag;}
+    inline Layout Box::GetLayout() const
+    {
+        return layout;
+    }
+    inline Flow::Axis Box::GetFlowAxis() const
+    {
+        return flow_axis;
+    }
+    inline Positioning Box::GetPositioning() const
+    {
+        return positioning;
+    }
+    inline bool Box::IsScissor() const
+    {
+        return scissor;
+    }
+    inline bool Box::IsFlowWrap() const
+    {
+        return flow_wrap;
+    }
+    inline int Box::GetBoxExpansionWidth() const
+    {
+        return margin.left + margin.right + padding.left + padding.right;
+    }
+    inline int Box::GetBoxExpansionHeight() const
+    {
+        return margin.top + margin.bottom + padding.top + padding.bottom;
+    }
+    inline int Box::GetBoxModelWidth() const
+    {
+        //internal box model
+        return margin.left + padding.left + width + padding.right + margin.right;
+    }
+    inline int Box::GetBoxModelHeight() const
+    {
+        return margin.top + padding.top + height + padding.bottom + margin.bottom;
+    }
+    inline int Box::GetRenderingWidth() const
+    {
+        return padding.left + width + padding.right;
+    }
+    inline int Box::GetRenderingHeight() const
+    {
+        return padding.top + height + padding.bottom;
+    }
 
+}
 
 //Common helpers and error checking
 namespace UI
@@ -443,16 +480,15 @@ namespace UI
             return MouseInfo();
         }
     }
-    void HandleUserInput(const char* label, int box_x, int box_y, int box_width, int box_height)
+    void HandleUserInput(const char* label, const Rect& rect)
     {
         if(!label)
             return;
 
-        if(mouse_x >= box_x && mouse_x <= box_x + box_width
-            && mouse_y >= box_y && mouse_y <= box_y + box_height)
+        if(Rect::Contains(rect, mouse_x, mouse_y))
         {
             StringCopy(user.label, label, 128);
-            user.mouse_info = MouseInfo{box_x, box_y, box_width, box_height, true};
+            user.mouse_info = MouseInfo{rect.x, rect.y, rect.width, rect.height, true};
         }
         else if(StringCompare(user.label, label))
         {
@@ -674,6 +710,30 @@ namespace UI
         return false;
     }
 
+    bool Rect::Overlap(const Rect& r1, const Rect& r2)
+    {
+        return (r1.x < r2.x + r2.width && r1.x + r1.width > r2.x &&
+                r1.y < r2.y + r2.height && r1.y + r1.height > r2.y);
+    }
+    bool Rect::Contains(const Rect& r ,int x, int y)
+    {
+        return (x >= r.x && x <= r.x + r.width &&
+                y >= r.y && y <= r.y + r.height);
+    }
+    Rect Rect::Intersection(const Rect& r1, const Rect& r2)
+    {
+        Rect r;
+        if(Overlap(r1, r2))
+        {
+            r.x = max(r1.x, r2.x);
+            r.y = max(r1.y, r2.y);
+            int outer_x = min(r1.x + r1.width, r2.x + r2.width);
+            int outer_y = min(r1.y + r1.height, r2.y + r2.height);
+            r.width = abs(outer_x - r.x);
+            r.height = abs(outer_y  - r.y);
+        }
+        return r;
+    }
     inline float MillimeterToPixels(float mm)
     {
         return mm * dpi / 25.4f;
@@ -731,6 +791,9 @@ namespace UI
         box.background_color =          style.background_color;
         box.border_color =              style.border_color;
         //type 3
+
+        box.scroll_x =                  style.scroll_x;
+        box.scroll_y =                  style.scroll_y;
         
         box.width =                     (uint16_t)max(0, DescendFixedUnitToPx(style.width, root_width, root_height));
         box.height =                    (uint16_t)max(0, DescendFixedUnitToPx(style.height, root_width, root_height));
@@ -888,7 +951,7 @@ namespace UI
                     if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
                         continue;
                     //Calculates what the size would be
-                    int new_width = available_width * box.width / total_percent;
+                    int new_width = available_width * box.width / max(100, total_percent); //Anything below 100% will not fill in the entire space
                     //Clamps size if its not within bounds and changes unit to PIXEL
                     if(new_width < box.min_width || new_width > box.max_width)
                     {
@@ -908,7 +971,7 @@ namespace UI
             {
                 Box& box = temp->value.val;
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.width = available_width * box.width / total_percent;
+                    box.width = available_width * box.width / max(100, total_percent); //Anything below 100% will not fill in the entire space
                 SizePass(&temp->value);
             }
 
@@ -950,7 +1013,7 @@ namespace UI
                     if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
                         continue;
                     //Calculates what the size would be
-                    int new_height = available_height * box.height / total_percent;
+                    int new_height = available_height * box.height / max(100, total_percent); //Any thing below 100% will not fill in the entire space
                     //Clamps size if its not within bounds and changes unit to PIXEL
                     if(new_height < box.min_height || new_height > box.max_height)
                     {
@@ -970,7 +1033,7 @@ namespace UI
             {
                 Box& box = temp->value.val;
                 if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.height = available_height * box.height / total_percent;
+                    box.height = available_height * box.height / max(100, total_percent);  //Anything below 100% will not fill in the entire space
                 SizePass(&temp->value);
             }
         } //End vertical
@@ -981,6 +1044,68 @@ namespace UI
 //TEXT RENDERING
 namespace UI
 {
+    inline bool IsDigit(char c)
+    {
+        return c >= '0' && c <= '9';
+    }
+    inline char ToLower(char c)
+    {
+        if(c >= 'A' && c <= 'Z')
+            return c + 32;
+        return c;
+    }
+    inline uint32_t StrToU32(const char* text, bool* error)
+    {
+        if(!text)
+        {
+            if(error)
+                *error = true;
+            return 0;
+        }
+        uint32_t result = 0;
+        for(;*text; text++)
+        {
+            char c = *text;
+            if(IsDigit(c))
+            {
+                uint32_t digit = c - '0';
+                if(result > (0xFFFFFFFF - digit)/10)
+                {
+                    if(error)
+                        *error = true;
+                    return 0;
+                }
+                result = result * 10 + digit;
+            }
+            else
+            {
+                if(error)
+                    *error = true;
+                return 0;
+            }
+        }
+        return result;
+    }
+    inline uint32_t HexToU32(const char* text, bool* error)
+    {
+        if(!text)
+        {
+            if(error)
+                *error = true;
+            return 0;
+        }
+        uint32_t result;
+        return result;
+    }
+    inline Color HexToRGBA(const char* text, bool* error)
+    {
+
+    }
+    inline Color HexToRGB(const char* text, bool* error)
+    {
+
+    }
+    //CustomMD
 }
 
 
@@ -990,10 +1115,9 @@ namespace UI
 {
 
     //This is a temporary function to test things
-    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y);
-    void DrawPass_FlowNoWrap_TESTING(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y);
+    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
 
-    void DrawPass(TreeNode<Box>* node, int x, int y)
+    void DrawPass(TreeNode<Box>* node, int x, int y, Rect parent_aabb)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
@@ -1006,7 +1130,7 @@ namespace UI
             }
             else
             {
-                DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y);
+                DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y, parent_aabb);
             }
         }
         else
@@ -1015,10 +1139,14 @@ namespace UI
         }
     }
 
-    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y)
+    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb)
     {
         ArenaLL<TreeNode<Box>>::Node* temp = child;
         assert(temp);
+        if(parent_box.IsScissor())
+        {
+            parent_aabb = Rect::Intersection(parent_aabb, Rect{x + parent_box.padding.left, y + parent_box.padding.bottom, parent_box.width, parent_box.height});
+        }
         //Horizontal
         if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
@@ -1073,15 +1201,27 @@ namespace UI
                 }
                 int render_width =    box.GetRenderingWidth();
                 int render_height =   box.GetRenderingHeight();
-                int render_x =        x + cursor_x + box.margin.left + parent_box.padding.left;
-                int render_y =        y + cursor_y + box.margin.top + parent_box.padding.top;
+                int render_x =        x + cursor_x + parent_box.scroll_x + box.margin.left + parent_box.padding.left;
+                int render_y =        y + cursor_y + parent_box.scroll_y + box.margin.top + parent_box.padding.top;
                 int corner_radius =   box.corner_radius;
                 int border_size =     box.border_width;
                 Color border_c =        box.border_color;
                 Color bg_c =            box.background_color;
+                if(parent_box.IsScissor())
+                {
+                    if(!Rect::Overlap(parent_aabb, Rect{render_x, render_y, render_width, render_height}))
+                    {
+                        cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
+                        continue;
+                    }
+                    else
+                    {
+                        BeginScissorMode_impl(parent_aabb.x, parent_aabb.y, parent_aabb.width, parent_aabb.height);
+                    }
+                }
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
-                HandleUserInput(box.label, render_x, render_y, render_width, render_height);
-                DrawPass(&temp->value, render_x, render_y);
+                HandleUserInput(box.label, Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}));
+                DrawPass(&temp->value, render_x, render_y, parent_aabb);
                 cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
             }
         }
@@ -1138,19 +1278,32 @@ namespace UI
                 }
                 int render_width =    box.GetRenderingWidth();
                 int render_height =   box.GetRenderingHeight();
-                int render_x =        x + cursor_x + box.margin.left + parent_box.padding.left;
-                int render_y =        y + cursor_y + box.margin.top + parent_box.padding.top;
+                int render_x =        x + cursor_x + parent_box.scroll_x + box.margin.left + parent_box.padding.left;
+                int render_y =        y + cursor_y + parent_box.scroll_y + box.margin.top + parent_box.padding.top;
                 int corner_radius =   box.corner_radius;
                 int border_size =     box.border_width;
                 Color border_c =        box.border_color;
                 Color bg_c =            box.background_color;
+                if(parent_box.IsScissor())
+                {
+                    if(!Rect::Overlap(parent_aabb, Rect{render_x, render_y, render_width, render_height}))
+                    {
+                        cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;
+                        continue;
+                    }
+                    else
+                    {
+                        BeginScissorMode_impl(parent_aabb.x, parent_aabb.y, parent_aabb.width, parent_aabb.height);
+                    }
+                }
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
-                HandleUserInput(box.label, render_x, render_y, render_width, render_height);
-                DrawPass(&temp->value, render_x, render_y);
+                HandleUserInput(box.label, Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}));
+                DrawPass(&temp->value, render_x, render_y, parent_aabb);
                 cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;
             }
-
         }
+        if(parent_box.IsScissor())
+            EndScissorMode_impl();
     }
 
 
