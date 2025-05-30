@@ -10,6 +10,7 @@ int main(void)
     const int screenWidth = 800;
     const int screenHeight = 450;
 
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
@@ -33,17 +34,18 @@ int main(void)
     base.width = UI::Unit{100, UI::Unit::Type::PARENT_WIDTH_PERCENT};
     base.height = UI::Unit{100, UI::Unit::Type::PARENT_HEIGHT_PERCENT};
     base.padding = {20, 20, 20, 20};
+    base.background_color = {80, 80, 100, 255};
 
     UI::StyleSheet h_container;
     h_container.padding = {10, 10, 10, 10};
-    h_container.flow.axis = UI::Flow::Axis::HORIZONTAL;
-    h_container.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
+    h_container.flow.axis = UI::Flow::Axis::VERTICAL;
+    h_container.flow.horizontal_alignment = UI::Flow::Alignment::START;
     h_container.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
     h_container.gap_row = UI::Unit{10, UI::Unit::Type::PIXEL};
     h_container.gap_column = UI::Unit{10, UI::Unit::Type::PIXEL};
-    h_container.background_color = {40, 100, 50, 255};
-    h_container.width = UI::Unit{100 ,UI::Unit::Type::MM};
-    h_container.height = UI::Unit{100 ,UI::Unit::Type::MM};
+    h_container.background_color = {40, 40, 50, 255};
+    h_container.width = UI::Unit{100 ,UI::Unit::Type::PARENT_WIDTH_PERCENT};
+    h_container.height = UI::Unit{100 ,UI::Unit::Type::PARENT_HEIGHT_PERCENT};
     h_container.border_width = 2;
     h_container.corner_radius = 10;
     h_container.border_color = {25, 25, 30, 255};
@@ -86,7 +88,7 @@ int main(void)
     button4.background_color = {50, 50, 70, 255};
     button4.border_color = {25, 25, 30, 255};
     button4.width = UI::Unit{200,UI::Unit::Type::PIXEL};
-    button4.height = UI::Unit{50,UI::Unit::Type::AVAILABLE_PERCENT};
+    button4.height = UI::Unit{80,UI::Unit::Type::AVAILABLE_PERCENT};
     button4.border_width = 0;
     button4.corner_radius = 20;
     button4.scissor = true;
@@ -101,11 +103,13 @@ int main(void)
     button5.corner_radius = 20;
 
     UI::StyleSheet style;
+    float time = 0;
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
+        time += GetFrameTime() * 20;
         BeginDrawing();
-        ClearBackground(Color{83, 81, 100, 255});
-        h_container.scroll_x += GetMouseWheelMove() * 40;
+        ClearBackground(Color{255, 255, 255, 255});
+        h_container.scroll_y += GetMouseWheelMove() * 40;
         //UI LIBRARY TEST
         UI::BeginRoot(GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
         UI::BeginBox(&base);
@@ -115,16 +119,7 @@ int main(void)
                 UI::BeginBox(&button4);
                 UI::EndBox();
                 UI::BeginBox(&button4);
-                UI::EndBox();
-                UI::MouseInfo info = UI::GetMouseInfo("button5");
-                if(IsMouseButtonPressed(0))
-                {
-                    if(info.on_mouse_hover)
-                        std::cout<<"button clicked\n";
-                    else
-                        std::cout<<"not clicked\n";
-                }
-                UI::BeginBox(&button5, "button5");
+                UI::InsertText("HELLO world");
                 UI::EndBox();
             UI::EndBox();
         UI::EndBox();

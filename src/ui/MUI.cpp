@@ -111,11 +111,10 @@ namespace UI
     Error CheckLeafNodeContradictions(const Box& leaf);
     Error CheckRootNodeConflicts(const StyleSheet& root);
     Error CheckNodeContradictions(const Box& child, const Box& parent);
-    Error& GetGlobalError();
-    bool HasGlobalError();
+    bool HasInternalError();
     //Returns false and does nothing if no error
     //Returns true, sets internal error, and displays error if true
-    bool HandleGlobalError(const Error& error);
+    bool HandleInternalError(const Error& error);
 
     //Math helpers
     struct Rect
@@ -142,15 +141,65 @@ namespace UI
     //Used during tree descending
     Box ComputeStyleSheet(const StyleSheet& style, const Box& root);
 
+
+
     //Text Handling
+
     char ToLower(char c);
     uint32_t StrToU32(const char* text, bool* error = nullptr);
     uint32_t HexToU32(const char* text, bool* error = nullptr);
     Color HexToRGBA(const char* text, bool* error = nullptr);
-    Color HexToRGB(const char* text, bool* error = nullptr);
-    class CustomMD
+
+
+    //Stack allocated string for convenience
+    template<uint32_t CAPACITY>
+    class FixedString
+    {
+        uint32_t size = 0;
+        char data[CAPACITY + 1]{};
+    public:
+        const char* Data() const;
+        uint32_t Size() const; 
+        bool IsEmpty() const;
+        bool Push(char c);
+        bool Pop();
+        void Clear();
+        char& operator[](uint32_t index);
+    };
+
+    //Custom markdown language
+    class Markdown
     {
     public:
+        enum class State : unsigned char
+        {
+            ERROR,          //Used to handle any escape code errors
+            CONTINUE,       //Used to tell function to continue parsing
+            FONT_CHANGE,    //Used to tell function that font should change 
+            FLUSH_TEXT,     //Used to tell function that text is full and should flush to "DrawText"
+        };
+
+        State PushCharacter(char c, int max_width);
+        int GetCursorX() const;
+        int GetCursorY() const;
+        const FixedString<255>& GetText() const;
+        Color GetFontColor() const;
+        int GetFontSize() const; 
+        int GetFontSpacing() const; 
+    private:
+        State ComputeEscapeCode();
+        
+        //Markdown state variables
+        int font_size = 32;
+        int font_spacing = 1;
+        Color font_color = {255, 255, 255, 255};
+
+
+        int cursor_x = 0;
+        int cursor_y = 0;
+        FixedString<128> code;
+        FixedString<255> text;
+        bool escape = false;
     };
     
     //Draws text based on custom markup
@@ -178,6 +227,7 @@ namespace UI
 //GLOBALS
 namespace UI
 {
+    Error internal_error;
     StyleSheet default_style_sheet;
     UserInput user;
     int mouse_x = 0, mouse_y = 0;
@@ -196,7 +246,7 @@ namespace UI
     {
         UI::mouse_x = mouse_x;
         UI::mouse_y = mouse_y;
-        if(HasGlobalError())
+        if(HasInternalError())
             return;
         arena.Reset(); 
         stack.Clear();
@@ -221,13 +271,13 @@ namespace UI
         else
         {
             assert(0);
-            HandleGlobalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "There can only be 1 Root node"});
+            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "There can only be 1 Root node"});
             return;
         }
     }
     void EndRoot()
     {
-        if(HasGlobalError())
+        if(HasInternalError())
             return;
         if(stack.Size() == 1)
         {
@@ -235,25 +285,25 @@ namespace UI
         }
         else if(stack.Size() < 1)
         {
-            HandleGlobalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "More than one RootEnd() function"});
+            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "More than one RootEnd() function"});
             return;
         }
         else
         {
-            HandleGlobalError(Error{Error::Type::MISSING_END, "Missing EndBox()"});
+            HandleInternalError(Error{Error::Type::MISSING_END, "Missing EndBox()"});
             return;
         }
     }
     void BeginBox(const UI::StyleSheet* style_sheet, const char* label, UI::MouseInfo* get_info)
     {
-        if(HasGlobalError())
+        if(HasInternalError())
             return;
         Error::node_number++;
         StyleSheet style = style_sheet? *style_sheet: default_style_sheet;
 
         //Check for unit type errors
         //Could be moved into creating style sheets for more performance, but this is good enough for now
-        if(HandleGlobalError(CheckUnitErrors(style)))
+        if(HandleInternalError(CheckUnitErrors(style)))
             return;
 
         //Input Handling
@@ -280,18 +330,18 @@ namespace UI
         }
         else
         {
-            if(HandleGlobalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing BeginRoot()"}))
+            if(HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing BeginRoot()"}))
                 return;
         }
     }
 
     void EndBox()
     {
-        if(HasGlobalError())
+        if(HasInternalError())
             return;
         if(stack.Size() <= 1)
         {
-            HandleGlobalError(Error{Error::Type::MISSING_BEGIN, "Missing BeginBox()"});
+            HandleInternalError(Error{Error::Type::MISSING_BEGIN, "Missing BeginBox()"});
             return;
         }
         TreeNode<Box>* node = stack.Peek();
@@ -299,7 +349,7 @@ namespace UI
         Box& node_box = node->val;
         if(node->children.IsEmpty())
         {
-            if(HandleGlobalError(CheckLeafNodeContradictions(node_box)))
+            if(HandleInternalError(CheckLeafNodeContradictions(node_box)))
                 return;
         }
         else //Calculate all CONTENT_PERCENT
@@ -358,7 +408,7 @@ namespace UI
         {
             TreeNode<Box>* parent = stack.Peek();
             assert(parent);
-            if(HandleGlobalError(CheckNodeContradictions(node_box, parent->val)))
+            if(HandleInternalError(CheckNodeContradictions(node_box, parent->val)))
                 return;
         }
 
@@ -368,12 +418,12 @@ namespace UI
 
     void InsertText(const char* text)
     {
-        if(HasGlobalError())
+        if(HasInternalError())
             return;
         Error::node_number++;
         if(stack.IsEmpty())
         {
-            HandleGlobalError(Error{Error::Type::TEXT_NODE_CONTRADICTION, "Text node needs a container"});
+            HandleInternalError(Error{Error::Type::TEXT_NODE_CONTRADICTION, "Text node needs a container"});
             return;
         }
         TreeNode<Box>* parent_node = stack.Peek();
@@ -382,10 +432,13 @@ namespace UI
         Box box;
 
         //DEBUGGING TEXT
-        box.width = 10;
-        box.height = 10;
+        box.width = 100;
+        box.height = 100;
         box.background_color = {255, 255, 255, 255};
         box.text = text;
+
+        box.width_unit = Unit::Type::AVAILABLE_PERCENT;
+        box.height_unit = Unit::Type::AVAILABLE_PERCENT;
 
         text_node.val = box;
         TreeNode<Box>* addr = parent_node->children.Add(text_node, &arena);
@@ -396,12 +449,12 @@ namespace UI
 
     void Draw()
     {
-        if(HasGlobalError())
+        if(HasInternalError())
             return;
         
         if(!stack.IsEmpty())
         {
-            HandleGlobalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing EndRoot()"});
+            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing EndRoot()"});
             return;
         }
         const Box& root_box = root_node->val;
@@ -690,20 +743,15 @@ namespace UI
         return Error();
     }
 
-    Error& GetGlobalError()
+    bool HasInternalError()
     {
-        static Error internal_error;
-        return internal_error;
+        return internal_error.type != Error::Type::NO_ERROR;
     }
-    bool HasGlobalError()
-    {
-        return GetGlobalError().type != Error::Type::NO_ERROR;
-    }
-    bool HandleGlobalError(const Error& error)
+    bool HandleInternalError(const Error& error)
     {
         if(error.type != Error::Type::NO_ERROR)
         {
-            GetGlobalError() = error;
+            internal_error = error;
             DisplayError(error);
             return true;
         }
@@ -1044,15 +1092,9 @@ namespace UI
 //TEXT RENDERING
 namespace UI
 {
-    inline bool IsDigit(char c)
-    {
-        return c >= '0' && c <= '9';
-    }
     inline char ToLower(char c)
     {
-        if(c >= 'A' && c <= 'Z')
-            return c + 32;
-        return c;
+        return (c >= 'A' && c <= 'Z')? c + 32: c;
     }
     inline uint32_t StrToU32(const char* text, bool* error)
     {
@@ -1066,7 +1108,7 @@ namespace UI
         for(;*text; text++)
         {
             char c = *text;
-            if(IsDigit(c))
+            if(c >= '0' && c <= '9')
             {
                 uint32_t digit = c - '0';
                 if(result > (0xFFFFFFFF - digit)/10)
@@ -1094,18 +1136,226 @@ namespace UI
                 *error = true;
             return 0;
         }
-        uint32_t result;
+        uint32_t result = 0;
+        for(; *text; text++)
+        {
+            result <<= 4;
+            char c = *text;
+            c = ToLower(c);
+            if(c >= '0' && c <= '9')
+                result |= c - '0';
+            else if(c >= 'a' && c<= 'f')
+                result |= c - 87;
+            else
+            {
+                if(error)
+                    *error = true;
+                return 0;
+            }
+        }
         return result;
     }
     inline Color HexToRGBA(const char* text, bool* error)
     {
-
+        bool err = false;
+        if(!text)
+            err = true;
+        char hex[3]{};
+        Color result = {0, 0, 0, 255};
+        for(int i = 0; i<6; i++)
+        {
+            if(text[i] == '\0')
+                err = true;
+        }
+        hex[0] = text[0]; hex[1] = text[1]; hex[2] = '\0';
+        result.r = HexToU32(hex, &err);
+        hex[0] = text[2]; hex[1] = text[3]; hex[2] = '\0';
+        result.g = HexToU32(hex, &err);
+        hex[0] = text[4]; hex[1] = text[5]; hex[2] = '\0';
+        result.b = HexToU32(hex, &err);
+        if(text[6] == '\0')
+        {
+            if(error)
+                *error = err;
+            return err? Color() : result;
+        }
+        if(text[7] == '\0')
+        {
+            if(error)
+                *error = true;
+            return Color();
+        }
+        hex[0] = text[6]; hex[1] = text[7]; hex[2] = '\0';
+        result.a = HexToU32(hex, &err);
+        if(text[8] != '\0')
+            err = true;
+        if(error)
+            *error = err;
+        return err? Color(): result;
     }
-    inline Color HexToRGB(const char* text, bool* error)
+    //FixedString
+    template<uint32_t CAPACITY>
+    const char* FixedString<CAPACITY>::Data() const
     {
-
+        return data;
     }
+    template<uint32_t CAPACITY>
+    uint32_t FixedString<CAPACITY>::Size() const
+    {
+        return size;
+    }
+    template<uint32_t CAPACITY>
+    bool FixedString<CAPACITY>::IsEmpty() const
+    {
+        return size == 0;
+    }
+    template<uint32_t CAPACITY>
+    bool FixedString<CAPACITY>::Push(char c)
+    {
+        if(size >= CAPACITY)
+            return false;
+        data[size++] = c;
+        data[size] = '\0';
+        return true;
+    }
+    template<uint32_t CAPACITY>
+    bool FixedString<CAPACITY>::Pop()
+    {
+        if(size > 0)
+        {
+            size--;
+            data[size] = '\0';
+            return true;
+        }
+        return false;
+    }
+    template<uint32_t CAPACITY>
+    void FixedString<CAPACITY>::Clear()
+    {
+        data[0] = '\0';
+        size = 0;
+    }
+    template<uint32_t CAPACITY>
+    char& FixedString<CAPACITY>::operator[](uint32_t index)
+    {
+        assert(index < size && "FixedString operator[] out of scope");
+        return data[index];
+    }
+
+
+
     //CustomMD
+    Markdown::State Markdown::ComputeEscapeCode()
+    {
+        if(code.IsEmpty())
+            return State::ERROR;
+        switch(code[0])
+        {
+            case 'C':
+            {
+                if(code[1] != ':')
+                    return State::ERROR;
+                bool err = false;
+                font_color = HexToRGBA(&code[2], &err);
+                return err? State::ERROR: State::FLUSH_TEXT;
+            }
+            case 'S':
+            {
+                if(code[1] != ':')
+                    return State::ERROR;
+                bool err = false;
+                font_size = StrToU32(&code[2], &err);
+                return err? State::ERROR: State::FLUSH_TEXT;
+            }
+            default:
+                return State::ERROR;
+        }
+    }
+    Markdown::State Markdown::PushCharacter(char c, int max_width)
+    {
+        if(c == '[')
+        {
+            escape = true;
+            return State::CONTINUE;
+        }
+        else if(c == ']')
+        {
+            escape = false;
+            return ComputeEscapeCode();
+        }
+        else if(escape)
+        {
+            return code.Push(c)? State::CONTINUE: State::ERROR;
+        }
+        if(c == '\n')
+        {
+            cursor_x = 0;
+            cursor_y += font_size;
+        }
+        return text.Push(c)? State::CONTINUE: State::FLUSH_TEXT; 
+    }
+    int Markdown::GetCursorX() const
+    {
+        return cursor_x;
+    }
+    int Markdown::GetCursorY() const
+    {
+        return cursor_y;
+    }
+    Color Markdown::GetFontColor() const
+    {
+        return font_color;
+    }
+    int Markdown::GetFontSize() const
+    {
+        return font_size;
+    }
+    int Markdown::GetFontSpacing() const
+    {
+        return font_spacing;
+    }
+    const FixedString<255>& Markdown::GetText() const
+    {
+        return text;
+    }
+
+
+    
+    void DrawTextNode(const char* text, int parent_width, int parent_height, int x, int y)
+    {
+        if(!text)
+            return;
+        Markdown md;
+        for(const char* c = text; *c; c++)
+        {
+            Markdown::State state = md.PushCharacter(*c, parent_width);
+            switch(state)
+            {
+                case Markdown::State::ERROR:
+                {
+                    assert(0 && "Text error");
+                    break;
+                }
+                case Markdown::State::CONTINUE:
+                    break;
+                case Markdown::State::FONT_CHANGE:
+                {
+                    assert(0 && "Font change not added yet");
+                    break;
+                }
+                case Markdown::State::FLUSH_TEXT:
+                {
+                    const FixedString<255>& text = md.GetText();
+                    int render_x = x; 
+                    int render_y = y; 
+                    DrawText_impl(text.Data(), x, y, md.GetFontSize(), md.GetFontSpacing(), md.GetFontColor());
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+    }
 }
 
 
@@ -1220,6 +1470,8 @@ namespace UI
                     }
                 }
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
+                if(box.text)
+                    DrawTextNode(box.text, box.width, box.height, render_x, render_y);
                 HandleUserInput(box.label, Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}));
                 DrawPass(&temp->value, render_x, render_y, parent_aabb);
                 cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
@@ -1297,6 +1549,8 @@ namespace UI
                     }
                 }
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
+                if(box.text)
+                    DrawTextNode(box.text, box.width, box.height, render_x, render_y);
                 HandleUserInput(box.label, Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}));
                 DrawPass(&temp->value, render_x, render_y, parent_aabb);
                 cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;

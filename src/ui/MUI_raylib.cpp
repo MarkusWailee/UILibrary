@@ -35,7 +35,7 @@ namespace UI
         int far_offset = corner_radius * 2 + border_size * 2;
         int near_offset = corner_radius + border_size;
         int outer_radius = corner_radius + border_size;
-        int segments = 8;
+        int segments = 4;
         if(corner_radius == 255)
         {
             DrawCircle(x, y, corner_radius, {bg.r, bg.g, bg.b, bg.a});
