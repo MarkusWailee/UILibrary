@@ -171,6 +171,7 @@ namespace UI
     };
 
     //Custom markdown language
+    #define FLUSH_CAP 500
     class Markdown
     {
         struct Attributes
@@ -189,6 +190,7 @@ namespace UI
         int GetMeasuredHeight() const;
         TextPrimitive GetTextPrimitive(int x, int y);
     private:
+        void HandleWrap();
         void PushAndMeasureChar(char c);
         bool ComputeEscapeCode();
         void ClearBuffers();
@@ -202,9 +204,10 @@ namespace UI
         int cursor_y = 0;
         int max_width = INT_MAX;
         int max_height = INT_MAX;
+        int measured_width = 0;
         bool escape = false;
         FixedString<128> code;
-        FixedString<255> text;
+        FixedString<FLUSH_CAP> text;
     };
     
     //Draws text based on custom markup
@@ -439,7 +442,7 @@ namespace UI
         //DEBUGGING TEXT
         box.width = 100;
         box.height = 100;
-        box.background_color = {0, 0, 0, 255};
+        box.background_color = {0, 0, 0, 100};
         box.text = text;
 
         if(parent_node->val.width_unit != Unit::Type::CONTENT_PERCENT)
@@ -1309,6 +1312,25 @@ namespace UI
             }
         }
     }
+    void Markdown::HandleWrap()
+    {
+        if(text.Size() <= 1)
+            return;
+        int index = text.Size() - 1;
+        int offset = 0;
+        for(;index >= 0; index--)
+        {
+            if(text[index] == ' ')
+            {
+                text[index] = '\n';
+                cursor_x = 0;
+                cursor_y += state.font_size + state.line_spacing;
+                break;
+            }
+            offset += MeasureChar_impl(text[index], state.font_size, state.font_spacing);
+        }
+        cursor_x += offset;
+    }
     void Markdown::PushAndMeasureChar(char c)
     {
         text.Push(c);
@@ -1323,22 +1345,10 @@ namespace UI
         }
         if(cursor_x >= max_width)
         {
-            int index = text.Size() - 1;
-            for(;index > 0; index--)
-            {
-                if(text[index] == ' ')
-                {
-                    text[index] = '\n';
-                    cursor_x = 0;
-                    cursor_y += state.font_size + state.line_spacing;
-                    break;
-                }
-            }
-            for(;index<text.Size(); index++)
-            {
-                cursor_x += MeasureChar_impl(text[index], state.font_size, state.font_spacing);
-            }
+            HandleWrap();
         }
+        if(cursor_x >= measured_width)
+            measured_width = cursor_x;
     }
     bool Markdown::ComputeNextTextRun()
     {
@@ -1401,6 +1411,35 @@ namespace UI
                 PushAndMeasureChar(c);
             }
         }
+
+        //Fixing edge case
+        #if 1
+        bool esc = false;
+        int c_x = cursor_x;
+        for(int i = 0;; i++)
+        {
+            char c = source[i];
+            if(c == '\0')
+                break;
+            else if(should_ignore)
+            {
+                c_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
+                should_ignore = false;
+            }
+            else if(c == '\\' && !esc)
+                should_ignore = true;
+            else if(c == '[')
+                esc = true;
+            else if(c == ']' && esc)
+                esc = false;
+            else if(c == ' ')
+                break;
+            else if(!esc)
+                c_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
+        }
+        if(c_x >= max_width)
+            HandleWrap();
+        #endif
         return true;
     }
     TextPrimitive Markdown::GetTextPrimitive(int x, int y)
@@ -1411,11 +1450,11 @@ namespace UI
     }
     int Markdown::GetMeasuredWidth() const
     {
-        return 0;
+        return measured_width;
     }
     int Markdown::GetMeasuredHeight() const
     {
-        return 0;
+        return cursor_y;
     }
     void Markdown::ClearBuffers()
     {

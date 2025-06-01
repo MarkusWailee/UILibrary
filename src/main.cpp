@@ -37,7 +37,7 @@ int main(void)
     base.background_color = {80, 80, 100, 255};
 
     UI::StyleSheet h_container;
-    h_container.padding = {10, 10, 10, 10};
+    h_container.padding = {20, 20, 10, 10};
     h_container.flow.axis = UI::Flow::Axis::VERTICAL;
     h_container.flow.horizontal_alignment = UI::Flow::Alignment::START;
     h_container.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
@@ -111,15 +111,12 @@ int main(void)
         h_container.scroll_y += GetMouseWheelMove() * 40;
         //UI LIBRARY TEST
 
-        const char text[] = 
-        "This is some texting text\n"
-        "[C:FF0000]RED = \\[C:FF0000]\n"
-        "[C:00FF00]GREEN = \\[C:00FF00]\n"
-        "[C:0000FF]BLUE = \\[C:0000FF]\n"
-        "[S:48]Font size = \\[S:48]\n"
-        "[S:32]Font size = \\[S:32]\n"
-        "[C:FFFFFF]WHITE = \\[C:FFFFFF] this is some white text\n"
-        "\\[This text has brackets] [S:48]and this text is size 48\\h";
+
+
+        const char text1[] = "[C:228BE6]A [C:F06292]B[C:4CAF50] C[C:FFC107] D[C:795548] E[C:9C27B0] F[C:2196F3] G[C:FF5722] H[C:3F51B5] I[C:CDDC39] J";
+        const char text2[] ="[C:228BE6] Sky Blue [C:F06292]Pink Rose [C:4CAF50]Leaf Green [C:FFC107]Golden Amber [C:795548]Cocoa Brown [C:9C27B0]Vivid Purple [C:2196F3]Bright Azure [C:FF5722]Flame Orange [C:3F51B5]Indigo Blue [C:CDDC39]Lime Yellow";
+        const char text3[] = "\\[C:FF0000]Red  [C:FF7F00]Orange	[C:FFFF00]Yellow[C:00FF00] Green\n[C:0000FF]Blue [C:4B0082]Indigo   [C:8B00FF]Violet [C:FF0000] R	 e  d [C:FF7F00]O r\ta	n g  e";
+        const char text4[] = "[S:64][C:FF0000]R[C:FF7F00]a[C:FFFF00]i[C:00FF00]n[C:0000FF]b[C:4B0082]o[C:8B00FF]w [C:FF0000]T[C:FF7F00]e[C:FFFF00]x[C:00FF00]t [C:0000FF]T[C:4B0082]E[C:8B00FF]S[C:FF0000]T!";
 
 
 
@@ -130,12 +127,10 @@ int main(void)
                 UI::EndBox();
                 UI::BeginBox(&button4);
                 UI::EndBox();
-                for(int i = 0; i<10; i++)
-                {
-                    UI::BeginBox(&button4);
-                    UI::EndBox();
-                }
-                UI::InsertText(text);
+                UI::InsertText(text1);
+                UI::InsertText(text2);
+                UI::InsertText(text3);
+                UI::InsertText(text4);
             UI::EndBox();
         UI::EndBox();
         UI::EndRoot();
