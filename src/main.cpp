@@ -14,7 +14,7 @@ int main(void)
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
-    //SetTargetFPS();
+    //SetTargetFPS(100);
 
     UI::Init_impl();
 
@@ -41,8 +41,8 @@ int main(void)
     h_container.flow.axis = UI::Flow::Axis::VERTICAL;
     h_container.flow.horizontal_alignment = UI::Flow::Alignment::START;
     h_container.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
-    h_container.gap_row = UI::Unit{10, UI::Unit::Type::PIXEL};
-    h_container.gap_column = UI::Unit{10, UI::Unit::Type::PIXEL};
+    h_container.gap_row = UI::Unit{1, UI::Unit::Type::PIXEL};
+    //h_container.gap_column = UI::Unit{10, UI::Unit::Type::PIXEL};
     h_container.background_color = {40, 40, 50, 255};
     h_container.width = UI::Unit{100 ,UI::Unit::Type::PARENT_WIDTH_PERCENT};
     h_container.height = UI::Unit{100 ,UI::Unit::Type::PARENT_HEIGHT_PERCENT};
@@ -84,14 +84,13 @@ int main(void)
     button4.flow.axis = UI::Flow::Axis::HORIZONTAL;
     button4.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
     button4.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
-    button4.margin = {5,5,5,5};
+    //button4.margin = {5,5,5,5};
     button4.background_color = {50, 50, 70, 255};
     button4.border_color = {25, 25, 30, 255};
-    button4.width = UI::Unit{200,UI::Unit::Type::PIXEL};
-    button4.height = UI::Unit{80,UI::Unit::Type::AVAILABLE_PERCENT};
+    button4.width = UI::Unit{100,UI::Unit::Type::AVAILABLE_PERCENT};
+    button4.height = UI::Unit{16,UI::Unit::Type::PIXEL};
     button4.border_width = 0;
-    button4.corner_radius = 20;
-    button4.scissor = true;
+    button4.corner_radius = 10;
 
     UI::StyleSheet button5;
     button5.margin = {5,5,5,5};
@@ -101,16 +100,29 @@ int main(void)
     button5.height = UI::Unit{100,UI::Unit::Type::PIXEL};
     button5.border_width = 0;
     button5.corner_radius = 20;
-
+    SetTextLineSpacing(0);
     UI::StyleSheet style;
     float time = 0;
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
         time += GetFrameTime() * 20;
         BeginDrawing();
-        ClearBackground(Color{255, 255, 255, 255});
+        ClearBackground(Color{0, 0, 0, 255});
         h_container.scroll_y += GetMouseWheelMove() * 40;
         //UI LIBRARY TEST
+
+        const char text[] = 
+        "This is some texting text\n"
+        "[C:FF0000]RED = \\[C:FF0000]\n"
+        "[C:00FF00]GREEN = \\[C:00FF00]\n"
+        "[C:0000FF]BLUE = \\[C:0000FF]\n"
+        "[S:48]Font size = \\[S:48]\n"
+        "[S:32]Font size = \\[S:32]\n"
+        "[C:FFFFFF]WHITE = \\[C:FFFFFF] this is some white text\n"
+        "\\[This text has brackets] [S:48]and this text is size 48\\h";
+
+
+
         UI::BeginRoot(GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
         UI::BeginBox(&base);
             UI::BeginBox(&h_container);
@@ -118,9 +130,12 @@ int main(void)
                 UI::EndBox();
                 UI::BeginBox(&button4);
                 UI::EndBox();
-                UI::BeginBox(&button4);
-                UI::InsertText("HELLO world");
-                UI::EndBox();
+                for(int i = 0; i<10; i++)
+                {
+                    UI::BeginBox(&button4);
+                    UI::EndBox();
+                }
+                UI::InsertText(text);
             UI::EndBox();
         UI::EndBox();
         UI::EndRoot();

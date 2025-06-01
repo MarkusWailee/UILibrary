@@ -1,4 +1,5 @@
 #include <raylib/raylib.h>
+#include <raylib/rlgl.h>
 #include "MUI.hpp"
 #include <unordered_map>
 //Raylib backend
@@ -10,7 +11,7 @@ namespace UI
     GlyphInfo font_info[128]{};
     void Init_impl()
     {
-        font = LoadFontEx("assets/fonts/Quicksand-Regular.ttf", 32, 0, 0);
+        font = LoadFontEx("assets/fonts/SpaceMono-Regular.ttf", 32, 0, 0);
         if(IsFontValid(font))
         {
             for(int i = 32; i<=126; i++) //Printable asci characters
@@ -19,8 +20,8 @@ namespace UI
     }
 }
 
-//Drawing functions
 #include <iostream>
+//Drawing functions
 namespace UI
 {
     void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color brdr, Color bg)
@@ -69,9 +70,35 @@ namespace UI
     {
         
     }
-    void DrawText_impl(const char* text, int x, int y, int font_size, int spacing, UI::Color color)
+
+    //This is not an optimal implementation for performance, but this works for testing
+    //Use raylibs batching system to drastically speed up text rendering
+    void DrawText_impl(TextPrimitive p)
     {
-        DrawTextEx(font, text, Vector2{(float)x, (float)y}, font_size, spacing, {color.r, color.g, color.b, color.a});
+        if(!p.text)
+            return;
+        Color color = p.font_color;
+        for(const char *ch = p.text; *ch; ch++)
+        {
+            char c = *ch;
+            int width = MeasureChar_impl(c, p.font_size, p.font_spacing);
+            if(c == '\n')
+            {
+                p.cursor_x = 0;
+                p.cursor_y += p.font_size + p.line_spacing;
+                continue;
+            }
+            else if(c == ' ' || c == '\t')
+            {
+                p.cursor_x += width + p.font_spacing;
+                continue;
+            }
+            int render_x = p.x + p.cursor_x;
+            int render_y = p.y + p.cursor_y;
+            DrawTextCodepoint(font, c, {(float)render_x, (float)render_y}, p.font_size, {color.r, color.g, color.b, color.a});
+            p.cursor_x += width + p.font_spacing;
+        }
+        //DrawTextEx(font, p.text, Vector2{(float)p.x, (float)p.y}, p.font_size, p.font_spacing, {color.r, color.g, color.b, color.a});
     }
     int MeasureChar_impl(char c, int font_size, int spacing)
     {

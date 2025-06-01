@@ -89,6 +89,7 @@ namespace UI
 
 
     //Error handling
+    #define ERROR_MSG_SIZE 128
     struct Error
     {
         enum class Type : unsigned char
@@ -100,10 +101,11 @@ namespace UI
             ROOT_NODE_CONTRADICTION,
             MISSING_END,
             MISSING_BEGIN,
-            TEXT_NODE_CONTRADICTION
+            TEXT_NODE_CONTRADICTION,
+            TEXT_UNKOWN_ESCAPE_CODE
         };
         Type type = Type::NO_ERROR;
-        char msg[100] = "\0";
+        char msg[ERROR_MSG_SIZE]{};
         inline static int node_number = 0;
     };
     void DisplayError(const Error& error);
@@ -161,6 +163,7 @@ namespace UI
         const char* Data() const;
         uint32_t Size() const; 
         bool IsEmpty() const;
+        bool IsFull() const;
         bool Push(char c);
         bool Pop();
         void Clear();
@@ -170,40 +173,42 @@ namespace UI
     //Custom markdown language
     class Markdown
     {
-    public:
-        enum class State : unsigned char
+        struct Attributes
         {
-            ERROR,          //Used to handle any escape code errors
-            CONTINUE,       //Used to tell function to continue parsing
-            FONT_CHANGE,    //Used to tell function that font should change 
-            FLUSH_TEXT,     //Used to tell function that text is full and should flush to "DrawText"
+            //All the variables the markdown can change
+            int font_size = 32;
+            int line_spacing = 0;
+            int font_spacing = 0;
+            Color font_color = {255, 255, 255, 255};
         };
-
-        State PushCharacter(char c, int max_width);
-        int GetCursorX() const;
-        int GetCursorY() const;
-        const FixedString<255>& GetText() const;
-        Color GetFontColor() const;
-        int GetFontSize() const; 
-        int GetFontSpacing() const; 
+    public:
+        void SetInput(const char* source, int max_width, int max_height);
+        bool ComputeNextTextRun();
+        bool Done();
+        int GetMeasuredWidth() const;
+        int GetMeasuredHeight() const;
+        TextPrimitive GetTextPrimitive(int x, int y);
     private:
-        State ComputeEscapeCode();
-        
-        //Markdown state variables
-        int font_size = 32;
-        int font_spacing = 1;
-        Color font_color = {255, 255, 255, 255};
+        void PushAndMeasureChar(char c);
+        bool ComputeEscapeCode();
+        void ClearBuffers();
+        const char* source = nullptr;
+
+        TextPrimitive p;
+        Attributes state;
 
 
         int cursor_x = 0;
         int cursor_y = 0;
+        int max_width = INT_MAX;
+        int max_height = INT_MAX;
+        bool escape = false;
         FixedString<128> code;
         FixedString<255> text;
-        bool escape = false;
     };
     
     //Draws text based on custom markup
-    void DrawTextNode(const char* text, int parent_width, int parent_height, int x, int y);
+    void DrawTextNode(const char* text, int max_width, int max_height, int x, int y);
 
 
 
@@ -434,11 +439,21 @@ namespace UI
         //DEBUGGING TEXT
         box.width = 100;
         box.height = 100;
-        box.background_color = {255, 255, 255, 255};
+        box.background_color = {0, 0, 0, 255};
         box.text = text;
 
-        box.width_unit = Unit::Type::AVAILABLE_PERCENT;
-        box.height_unit = Unit::Type::AVAILABLE_PERCENT;
+        if(parent_node->val.width_unit != Unit::Type::CONTENT_PERCENT)
+        {
+            box.width_unit = Unit::Type::AVAILABLE_PERCENT;
+            box.height_unit = Unit::Type::AVAILABLE_PERCENT;
+            box.max_width = UINT16_MAX; //set this to the length of the first 255 characters
+        }
+        else
+        {
+            box.width = 0;
+            box.min_width = 100; //Change this to the width of the text, up to 255 characters
+        }
+
 
         text_node.val = box;
         TreeNode<Box>* addr = parent_node->children.Add(text_node, &arena);
@@ -579,6 +594,8 @@ namespace UI
                 break;
             case Error::Type::TEXT_NODE_CONTRADICTION:
                 LogError_impl("ERROR: Text node contradiction\n");
+            case Error::Type::TEXT_UNKOWN_ESCAPE_CODE:
+                LogError_impl("ERROR: Text unknown escape code\n");
                 break;
             default:
                 return;
@@ -1210,6 +1227,11 @@ namespace UI
         return size == 0;
     }
     template<uint32_t CAPACITY>
+    bool FixedString<CAPACITY>::IsFull() const
+    {
+        return size >= CAPACITY;
+    }
+    template<uint32_t CAPACITY>
     bool FixedString<CAPACITY>::Push(char c)
     {
         if(size >= CAPACITY)
@@ -1244,116 +1266,177 @@ namespace UI
 
 
 
-    //CustomMD
-    Markdown::State Markdown::ComputeEscapeCode()
+
+    void Markdown::SetInput(const char* source, int max_width, int max_height)
+    {
+        assert(source);
+        this->source = source; 
+        this->max_width = max_width;
+    }
+    bool Markdown::Done()
+    {
+        if(source == nullptr)
+            return true;
+        return *source == '\0';
+    }
+    bool Markdown::ComputeEscapeCode()
     {
         if(code.IsEmpty())
-            return State::ERROR;
+            return false;
+
         switch(code[0])
         {
             case 'C':
             {
                 if(code[1] != ':')
-                    return State::ERROR;
+                    return false;
                 bool err = false;
-                font_color = HexToRGBA(&code[2], &err);
-                return err? State::ERROR: State::FLUSH_TEXT;
+                state.font_color = HexToRGBA(&code[2], &err);
+                return !err;
             }
             case 'S':
             {
                 if(code[1] != ':')
-                    return State::ERROR;
+                    return false;
                 bool err = false;
-                font_size = StrToU32(&code[2], &err);
-                return err? State::ERROR: State::FLUSH_TEXT;
+                state.font_size = StrToU32(&code[2], &err);
+                return !err;
             }
             default:
-                return State::ERROR;
+            {
+                return false;
+                break;
+            }
         }
     }
-    Markdown::State Markdown::PushCharacter(char c, int max_width)
+    void Markdown::PushAndMeasureChar(char c)
     {
-        if(c == '[')
-        {
-            escape = true;
-            return State::CONTINUE;
-        }
-        else if(c == ']')
-        {
-            escape = false;
-            return ComputeEscapeCode();
-        }
-        else if(escape)
-        {
-            return code.Push(c)? State::CONTINUE: State::ERROR;
-        }
+        text.Push(c);
         if(c == '\n')
         {
             cursor_x = 0;
-            cursor_y += font_size;
+            cursor_y += state.font_size + state.line_spacing;
         }
-        return text.Push(c)? State::CONTINUE: State::FLUSH_TEXT; 
+        else
+        {
+            cursor_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
+        }
+        if(cursor_x >= max_width)
+        {
+            int index = text.Size() - 1;
+            for(;index > 0; index--)
+            {
+                if(text[index] == ' ')
+                {
+                    text[index] = '\n';
+                    cursor_x = 0;
+                    cursor_y += state.font_size + state.line_spacing;
+                    break;
+                }
+            }
+            for(;index<text.Size(); index++)
+            {
+                cursor_x += MeasureChar_impl(text[index], state.font_size, state.font_spacing);
+            }
+        }
     }
-    int Markdown::GetCursorX() const
+    bool Markdown::ComputeNextTextRun()
     {
-        return cursor_x;
+        if(!source || *source == '\0')
+            return false;
+
+        ClearBuffers();
+        p.text = text.Data();
+        p.cursor_x = cursor_x;
+        p.cursor_y = cursor_y;
+        p.font_size = state.font_size;
+        p.line_spacing = state.line_spacing;
+        p.font_spacing = state.font_spacing;
+        p.font_color = state.font_color;
+        bool should_ignore = false;
+        for(;;source++)
+        {
+            char c = *source; 
+            if(c == '\0')
+            {
+                break;
+            }
+            else if(should_ignore)
+            {
+                //Inserting text
+                if(text.IsFull()) 
+                    break;
+                PushAndMeasureChar(c);
+                should_ignore = false;
+            }
+            else if(c == '\\' && !escape)
+            {
+                should_ignore = true;
+            }
+            else if(c == '[')
+            {
+                escape = true;
+            }
+            else if(c == ']' && escape)
+            {
+                if(!ComputeEscapeCode())
+                {
+                    assert(0 && "unknown escape code");
+                }
+                escape = false;
+                source++;
+                break;
+            }
+            else if(escape)
+            {
+                if(c == ' ')
+                    continue;
+                code.Push(c);
+            }
+            else
+            {
+                //Inserting text
+                if(text.IsFull())
+                    break;
+                PushAndMeasureChar(c);
+            }
+        }
+        return true;
     }
-    int Markdown::GetCursorY() const
+    TextPrimitive Markdown::GetTextPrimitive(int x, int y)
     {
-        return cursor_y;
+        p.x = x;
+        p.y = y;
+        return p;
     }
-    Color Markdown::GetFontColor() const
+    int Markdown::GetMeasuredWidth() const
     {
-        return font_color;
+        return 0;
     }
-    int Markdown::GetFontSize() const
+    int Markdown::GetMeasuredHeight() const
     {
-        return font_size;
+        return 0;
     }
-    int Markdown::GetFontSpacing() const
+    void Markdown::ClearBuffers()
     {
-        return font_spacing;
-    }
-    const FixedString<255>& Markdown::GetText() const
-    {
-        return text;
+        text.Clear();
+        code.Clear();
     }
 
 
     
-    void DrawTextNode(const char* text, int parent_width, int parent_height, int x, int y)
+    void DrawTextNode(const char* text, int max_width, int max_height, int x, int y)
     {
         if(!text)
             return;
         Markdown md;
-        for(const char* c = text; *c; c++)
+
+        md.SetInput(text, max_width, max_height);
+
+        while(md.ComputeNextTextRun())
         {
-            Markdown::State state = md.PushCharacter(*c, parent_width);
-            switch(state)
-            {
-                case Markdown::State::ERROR:
-                {
-                    assert(0 && "Text error");
-                    break;
-                }
-                case Markdown::State::CONTINUE:
-                    break;
-                case Markdown::State::FONT_CHANGE:
-                {
-                    assert(0 && "Font change not added yet");
-                    break;
-                }
-                case Markdown::State::FLUSH_TEXT:
-                {
-                    const FixedString<255>& text = md.GetText();
-                    int render_x = x; 
-                    int render_y = y; 
-                    DrawText_impl(text.Data(), x, y, md.GetFontSize(), md.GetFontSpacing(), md.GetFontColor());
-                    break;
-                }
-                default:
-                    break;
-            }
+            TextPrimitive p = md.GetTextPrimitive(x, y);
+            DrawText_impl(p);
         }
     }
 }

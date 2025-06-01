@@ -140,6 +140,23 @@ namespace UI
 //IMPLEMENT THESE FUNCTIONS
 namespace UI
 {
+    struct TextPrimitive
+    {
+        const char* text = nullptr;
+        int x = 0;
+        int y = 0;
+
+        //This relative position is where the last rendered text left off.
+        int cursor_x = 0;
+        int cursor_y = 0;
+
+        int font_size = 0;
+        int line_spacing = 0;
+        int font_spacing = 0;
+
+        Color font_color;
+    };
+
     //Error handling
     void LogError_impl(const char* text);
     void LogError_impl(int num);
@@ -151,7 +168,7 @@ namespace UI
     //Set internal font. Should load/cache fonts
     void Init_impl();
     void SetFont_impl(const char* file_path);
-    void DrawText_impl(const char* text, int x, int y, int font_size, int spacing, UI::Color color);
+    void DrawText_impl(TextPrimitive draw_command);
     int MeasureChar_impl(char c, int font_size, int spacing);
     int MeasureText_impl(const char* text, int size, int spacing);
 
