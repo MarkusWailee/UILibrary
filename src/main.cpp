@@ -44,8 +44,8 @@ int main(void)
     h_container.gap_row = UI::Unit{1, UI::Unit::Type::PIXEL};
     //h_container.gap_column = UI::Unit{10, UI::Unit::Type::PIXEL};
     h_container.background_color = {40, 40, 50, 255};
-    h_container.width = UI::Unit{100 ,UI::Unit::Type::CONTENT_PERCENT};
-    h_container.height = UI::Unit{100 ,UI::Unit::Type::PARENT_HEIGHT_PERCENT};
+    h_container.width = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
+    h_container.height = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
     //h_container.max_height = UI::Unit{50, UI::Unit::Type::CONTENT_PERCENT};
     h_container.border_width = 2;
     h_container.corner_radius = 10;
@@ -88,13 +88,14 @@ int main(void)
     //button4.margin = {5,5,5,5};
     button4.background_color = {50, 50, 70, 255};
     button4.border_color = {25, 25, 30, 255};
-    button4.width = UI::Unit{200,UI::Unit::Type::PIXEL};
+    button4.width = UI::Unit{100,UI::Unit::Type::PIXEL};
     button4.height = UI::Unit{50,UI::Unit::Type::ROOT_HEIGHT_PERCENT};
-    button4.max_height = UI::Unit{50, UI::Unit::Type::MM};
+    //button4.max_height = UI::Unit{100, UI::Unit::Type::PIXEL};
     button4.border_width = 0;
     button4.corner_radius = 10;
 
     UI::StyleSheet button5;
+    //button5.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
     button5.padding = {5,5,5,5};
     button5.background_color = {0, 0, 0, 255};
     button5.border_color = {25, 25, 30, 255};
@@ -102,8 +103,17 @@ int main(void)
     button5.height = UI::Unit{100,UI::Unit::Type::CONTENT_PERCENT};
     button5.border_width = 0;
     button5.corner_radius = 20;
-    SetTextLineSpacing(0);
-    UI::StyleSheet style;
+
+
+    UI::StyleSheet TextContainer;
+    TextContainer.padding = {5,5,5,5};
+    TextContainer.background_color = {10, 10, 10, 255};
+    TextContainer.border_color = {25, 25, 30, 255};
+    TextContainer.width = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
+    TextContainer.height = UI::Unit{100,UI::Unit::Type::CONTENT_PERCENT};
+    TextContainer.max_width = UI::Unit{400, UI::Unit::Type::PIXEL};
+    TextContainer.border_width = 0;
+    TextContainer.corner_radius = 20;
     float time = 0;
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
@@ -118,7 +128,7 @@ int main(void)
         const char text1[] = "[C:228BE6]A [C:F06292]B[C:4CAF50] C[C:FFC107] D[C:795548] E[C:9C27B0] F[C:2196F3] G[C:FF5722] H[C:3F51B5] I[C:CDDC39] J";
         const char text2[] ="[C:228BE6] Sky Blue [C:F06292]Pink Rose [C:4CAF50]Leaf Green [C:FFC107]Golden Amber [C:795548]Cocoa Brown [C:9C27B0]Vivid Purple [C:2196F3]Bright Azure [C:FF5722]Flame Orange [C:3F51B5]Indigo Blue [C:CDDC39]Lime Yellow";
         const char text3[] = "\\[C:FF0000]Red  [C:FF7F00]Orange	[C:FFFF00]Yellow[C:00FF00] Green\n[C:0000FF]Blue [C:4B0082]Indigo   [C:8B00FF]Violet [C:FF0000] R	 e  d [C:FF7F00]O r\ta	n g  e";
-        const char text4[] = "[S:64][C:FF0000]R[C:FF7F00]a[C:FFFF00]i[C:00FF00]n[C:0000FF]b[C:4B0082]o[C:8B00FF]w [C:FF0000]T[C:FF7F00]e[C:FFFF00]x[C:00FF00]t [C:0000FF]T[C:4B0082]E[C:8B00FF]S[C:FF0000]T!";
+        const char text4[] = "[C:FF0000]R[C:FF7F00]a[C:FFFF00]i[C:00FF00]n[C:0000FF]b[C:4B0082]o[C:8B00FF]w [C:FF0000]T[C:FF7F00]e[C:FFFF00]x[C:00FF00]t [C:0000FF]T[C:4B0082]E[C:8B00FF]S[C:FF0000]T!";
         const char text5[] = "On the other hand, we denounce with righteous indignation and dislike men who are so beguiled and demoralized by the charms of pleasure of the moment, so blinded by desire, that they cannot foresee the pain and trouble that are bound to ensue; and equal blame belongs to those who fail in their duty through weakness of will, which is the same as saying through shrinking from toil and pain. These cases are perfectly simple and easy to distinguish. In a free hour, when our power of choice is untrammelled and when nothing prevents our being able to do what we like best, every pleasure is to be welcomed and every pain avoided. But in certain circumstances and owing to the claims of duty or the obligations of business it will frequently occur that pleasures have to be repudiated and annoyances accepted. The wise man therefore always holds in these matters to this principle of selection: he rejects pleasures to secure other greater pleasures, or else he endures pains to avoid worse pains.";
 
         UI::BeginRoot(GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
@@ -126,13 +136,10 @@ int main(void)
             UI::BeginBox(&h_container);
                 UI::BeginBox(&button4);
                 UI::EndBox();
-                UI::BeginBox(&button4);
+                UI::BeginBox(&TextContainer);
+                    UI::InsertText(text4);
                 UI::EndBox();
-                UI::BeginBox(&button5);
-                    UI::BeginBox(&button4);
-                    UI::EndBox();
-                    UI::BeginBox(&button4);
-                    UI::EndBox();
+                UI::BeginBox(&button4);
                 UI::EndBox();
                 //UI::InsertText(text4);
             UI::EndBox();

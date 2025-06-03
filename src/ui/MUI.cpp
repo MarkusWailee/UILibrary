@@ -368,52 +368,75 @@ namespace UI
             ArenaLL<TreeNode<Box>>::Node* child = node->children.GetHead();  
             int content_width = 0;
             int content_height = 0;
-            if(parent_box.GetLayout() == Layout::FLOW && (parent_box.width_unit == Unit::Type::CONTENT_PERCENT || parent_box.height_unit == Unit::Type::CONTENT_PERCENT))
+            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT || parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
             {
-                if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
+                if(parent_box.GetLayout() == Layout::FLOW)
                 {
-                    int largest_height = 0;
-                    for(;child != nullptr; child = child->next)
+                    if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
                     {
-                        const Box& box = child->value.val;
-                        //width and min/max all must me calculated at this point.
-                        //box.width = clamp(box.min_width, box.max_width, box.width);
-                        content_width += box.GetBoxModelWidth() + parent_box.gap_column;
-                        int height = box.GetBoxModelHeight();
-                        if(largest_height < height)
-                            largest_height = height;
+                        int largest_height = 0;
+                        for(;child != nullptr; child = child->next)
+                        {
+                            Box& box = child->value.val;
+
+                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+                            {
+                                //Im able to compute box.width since parents width is CONTENT_PERCENT
+                                //See CheckNodeContradictions() function for details
+                                box.width = clamp(box.min_width, box.max_width, box.width);
+                                content_width += box.GetBoxModelWidth() + parent_box.gap_column;
+                            }
+                            if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
+                            {
+                                box.height = clamp(box.min_height, box.max_height, box.height);
+                                int height = box.GetBoxModelHeight();
+                                if(largest_height < height)
+                                    largest_height = height;
+                            }
+                        }
+                        content_height = largest_height;
+                        content_width -= parent_box.gap_column;
                     }
-                    content_height = largest_height;
-                    content_width -= parent_box.gap_column;
+                    else //VERTICAL
+                    {
+                        int largest_width = 0;
+                        for(;child != nullptr; child = child->next)
+                        {
+                            Box& box = child->value.val;
+                            if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
+                            {
+                                //Im able to compute box.height since parents height is CONTENT_PERCENT.
+                                //See CheckNodeContradictions() function for details
+                                box.height = clamp(box.min_height, box.max_height, box.height);
+                                content_height += box.GetBoxModelHeight() + parent_box.gap_row;
+                            }
+                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+                            {
+                                int width = box.GetBoxModelWidth();
+                                if(largest_width < width)
+                                    largest_width = width;
+                            }
+                        }
+                        content_width = largest_width;
+                        content_height -= parent_box.gap_row;
+                    }
+                    if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+                        parent_box.width = content_width * parent_box.width / 100;
+                    if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
+                        parent_box.height = content_height * parent_box.height / 100;
                 }
-                else //VERTICAL
+                else //Grid
                 {
-                    int largest_width = 0;
-                    for(;child != nullptr; child = child->next)
-                    {
-                        Box& box = child->value.val;
-                        //height and min/max all must me calculated at this point.
-                        box.height = clamp(box.min_height, box.max_height, box.height);
-                        content_height += box.GetBoxModelHeight() + parent_box.gap_row;
-                        int width = box.GetBoxModelWidth();
-                        if(largest_width < width)
-                            largest_width = width;
-                    }
-                    content_width = largest_width;
-                    content_height -= parent_box.gap_row;
+                    assert(0 && "Have not added grid");
                 }
-                if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
-                    parent_box.width = content_width * parent_box.width / 100;
-                if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
-                    parent_box.height = content_height * parent_box.height / 100;
             }
         }
         stack.Pop();
         if(!stack.IsEmpty())
         {
-            TreeNode<Box>* parent = stack.Peek();
-            assert(parent);
-            if(HandleInternalError(CheckNodeContradictions(parent_box, parent->val)))
+            TreeNode<Box>* grand_parent = stack.Peek();
+            assert(grand_parent);
+            if(HandleInternalError(CheckNodeContradictions(parent_box, grand_parent->val)))
                 return;
         }
 
@@ -438,9 +461,9 @@ namespace UI
         Box box;
 
         //DEBUGGING TEXT
-        box.width = 100;
-        box.height = 100;
         box.background_color = {0, 0, 0, 100};
+
+
         if(should_copy && text)
         {
             int len = StringLength(text);
@@ -453,15 +476,13 @@ namespace UI
         box.text = text;
 
 
-        //Markdown md;
-        //md.SetInput(text, max_width, max_height);
-        //while(md.ComputeNextTextRun())
-        //{
-        //    TextPrimitive p = md.GetTextPrimitive(x, y);
-        //    DrawText_impl(p);
-        //}
+        Markdown md;
+        md.SetInput(text, 9999, 9999);
+        while(md.ComputeNextTextRun()){}
+
         if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
         {
+            box.width = md.GetMeasuredWidth() + 1;
         }
         else
         {
@@ -469,6 +490,17 @@ namespace UI
             box.width = 100;
             box.max_width = 9999;
         }
+        if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
+        {
+            box.height = md.GetMeasuredHeight();
+        }
+        else
+        {
+            box.height_unit = Unit::Type::AVAILABLE_PERCENT;
+            box.height = 100;
+            box.max_height = 9999;
+        }
+
 
 
         text_node.val = box;
@@ -1476,7 +1508,7 @@ namespace UI
     }
     int Markdown::GetMeasuredHeight() const
     {
-        return cursor_y;
+        return cursor_y + state.font_size;
     }
     void Markdown::ClearBuffers()
     {
