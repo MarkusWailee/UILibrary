@@ -131,7 +131,7 @@ namespace UI
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const UI::StyleSheet* div_style_sheet, const char* label = nullptr, UI::MouseInfo* get_info = nullptr);
-    void InsertText(const char* text);
+    void InsertText(const char* text, bool copy_text = true);
     void EndBox();
     void Draw();
 }

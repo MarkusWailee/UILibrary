@@ -24,11 +24,11 @@ namespace UI
     template<typename T>
     class ArenaLL;
 
-    void StringCopy(char* dst, const char* src, uint32_t size)
+    void StringCopy(char* dst, const char* src, uint32_t buffer_size)
     {
-        if(!size || !src || !dst) return;
+        if(!buffer_size || !src || !dst) return;
         uint32_t i;
-        for(i = 0; i<size-1 && src[i] != '\0'; i++)
+        for(i = 0; i<buffer_size-1 && src[i] != '\0'; i++)
             dst[i] = src[i];
         dst[i] = '\0';
     }

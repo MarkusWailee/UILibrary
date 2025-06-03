@@ -148,6 +148,9 @@ namespace UI
     //Text Handling
 
     char ToLower(char c);
+
+    //Does not count '\0'
+    int StringLength(const char* text);
     uint32_t StrToU32(const char* text, bool* error = nullptr);
     uint32_t HexToU32(const char* text, bool* error = nullptr);
     Color HexToRGBA(const char* text, bool* error = nullptr);
@@ -354,61 +357,55 @@ namespace UI
         }
         TreeNode<Box>* node = stack.Peek();
         assert(node);
-        Box& node_box = node->val;
+        Box& parent_box = node->val;
         if(node->children.IsEmpty())
         {
-            if(HandleInternalError(CheckLeafNodeContradictions(node_box)))
+            if(HandleInternalError(CheckLeafNodeContradictions(parent_box)))
                 return;
         }
         else //Calculate all CONTENT_PERCENT
         {
-            ArenaLL<TreeNode<Box>>::Node* temp = node->children.GetHead();  
+            ArenaLL<TreeNode<Box>>::Node* child = node->children.GetHead();  
             int content_width = 0;
             int content_height = 0;
-            if(node_box.GetLayout() == Layout::FLOW && (node_box.width_unit == Unit::Type::CONTENT_PERCENT || node_box.height_unit == Unit::Type::CONTENT_PERCENT))
+            if(parent_box.GetLayout() == Layout::FLOW && (parent_box.width_unit == Unit::Type::CONTENT_PERCENT || parent_box.height_unit == Unit::Type::CONTENT_PERCENT))
             {
-                if(node_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
+                if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
                 {
                     int largest_height = 0;
-                    for(;temp != nullptr; temp = temp->next)
+                    for(;child != nullptr; child = child->next)
                     {
-                        const Box& box = temp->value.val;
-                        content_width += box.GetBoxModelWidth() + node_box.gap_column;
+                        const Box& box = child->value.val;
+                        //width and min/max all must me calculated at this point.
+                        //box.width = clamp(box.min_width, box.max_width, box.width);
+                        content_width += box.GetBoxModelWidth() + parent_box.gap_column;
                         int height = box.GetBoxModelHeight();
                         if(largest_height < height)
                             largest_height = height;
                     }
                     content_height = largest_height;
-                    content_width -= node_box.gap_column;
+                    content_width -= parent_box.gap_column;
                 }
-                else
+                else //VERTICAL
                 {
                     int largest_width = 0;
-                    for(;temp != nullptr; temp = temp->next)
+                    for(;child != nullptr; child = child->next)
                     {
-                        const Box& box = temp->value.val;
-                        content_height += box.GetBoxModelHeight() + node_box.gap_row;
+                        Box& box = child->value.val;
+                        //height and min/max all must me calculated at this point.
+                        box.height = clamp(box.min_height, box.max_height, box.height);
+                        content_height += box.GetBoxModelHeight() + parent_box.gap_row;
                         int width = box.GetBoxModelWidth();
                         if(largest_width < width)
                             largest_width = width;
                     }
                     content_width = largest_width;
-                    content_height -= node_box.gap_row;
+                    content_height -= parent_box.gap_row;
                 }
-                if(node_box.width_unit == Unit::Type::CONTENT_PERCENT)
-                    node_box.width = content_width * node_box.width / 100;
-                if(node_box.height_unit == Unit::Type::CONTENT_PERCENT)
-                    node_box.height = content_height * node_box.height / 100;
-
-                if(node_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
-                    node_box.max_width = content_width * node_box.max_width / 100;
-                if(node_box.max_height_unit == Unit::Type::CONTENT_PERCENT)
-                    node_box.max_height = content_height * node_box.max_height / 100;
-
-                if(node_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
-                    node_box.min_width = content_width * node_box.min_width / 100;
-                if(node_box.max_height_unit == Unit::Type::CONTENT_PERCENT)
-                    node_box.min_height = content_height * node_box.min_height / 100;
+                if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+                    parent_box.width = content_width * parent_box.width / 100;
+                if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
+                    parent_box.height = content_height * parent_box.height / 100;
             }
         }
         stack.Pop();
@@ -416,7 +413,7 @@ namespace UI
         {
             TreeNode<Box>* parent = stack.Peek();
             assert(parent);
-            if(HandleInternalError(CheckNodeContradictions(node_box, parent->val)))
+            if(HandleInternalError(CheckNodeContradictions(parent_box, parent->val)))
                 return;
         }
 
@@ -424,7 +421,7 @@ namespace UI
 
 
 
-    void InsertText(const char* text)
+    void InsertText(const char* text, bool should_copy)
     {
         if(HasInternalError())
             return;
@@ -436,6 +433,7 @@ namespace UI
         }
         TreeNode<Box>* parent_node = stack.Peek();
         assert(parent_node);
+        const Box& parent_box = parent_node->val;
         TreeNode<Box> text_node;
         Box box;
 
@@ -443,18 +441,33 @@ namespace UI
         box.width = 100;
         box.height = 100;
         box.background_color = {0, 0, 0, 100};
+        if(should_copy && text)
+        {
+            int len = StringLength(text);
+            char* text_copy = (char*)arena.Allocate(len + 1);
+            if(!text_copy)
+                assert(0 && "Arena out of memory");
+            StringCopy(text_copy, text, len + 1); 
+            text = text_copy;
+        }
         box.text = text;
 
-        if(parent_node->val.width_unit != Unit::Type::CONTENT_PERCENT)
+
+        //Markdown md;
+        //md.SetInput(text, max_width, max_height);
+        //while(md.ComputeNextTextRun())
+        //{
+        //    TextPrimitive p = md.GetTextPrimitive(x, y);
+        //    DrawText_impl(p);
+        //}
+        if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
         {
-            box.width_unit = Unit::Type::AVAILABLE_PERCENT;
-            box.height_unit = Unit::Type::AVAILABLE_PERCENT;
-            box.max_width = UINT16_MAX; //set this to the length of the first 255 characters
         }
         else
         {
-            box.width = 0;
-            box.min_width = 100; //Change this to the width of the text, up to 255 characters
+            box.width_unit = Unit::Type::AVAILABLE_PERCENT;
+            box.width = 100;
+            box.max_width = 9999;
         }
 
 
@@ -735,30 +748,31 @@ namespace UI
         //width
         if(child.width_unit == Unit::Type::PARENT_WIDTH_PERCENT && p_width)
             return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::PARENT_WIDTH_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.height_unit == Unit::Type::PARENT_WIDTH_PERCENT && p_width)
-            return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::PARENT_WIDTH_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+        //if(child.height_unit == Unit::Type::PARENT_WIDTH_PERCENT && p_width)
+        //    return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::PARENT_WIDTH_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
         if(child.width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
             return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
 
         //VERTICAL
-        //height
         if(child.height_unit == Unit::Type::PARENT_HEIGHT_PERCENT && p_height)
             return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::PARENT_HEIGHT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.width_unit == Unit::Type::PARENT_HEIGHT_PERCENT && p_height)
-            return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::PARENT_HEIGHT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+        //if(child.width_unit == Unit::Type::PARENT_HEIGHT_PERCENT && p_height)
+        //    return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::PARENT_HEIGHT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
         if(child.height_unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
             return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
 
-        if(parent.GetLayout() == Layout::FLOW)
-        {
-            if(parent.IsFlowWrap())
-            {
-                if(parent.GetFlowAxis() == Flow::Axis::HORIZONTAL && child.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                    return Error{Error::Type::NODE_CONTRADICTION, "parent.flow.axis = Flow::Axis::HORIZONTAL && child.width.unit = Unit::Type::AVAILABLE_PERCENT"};
-                else if(parent.GetFlowAxis() == Flow::Axis::VERTICAL && child.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                    return Error{Error::Type::NODE_CONTRADICTION, "parent.flow.axis = Flow::Axis::VERTICAL && child.height.unit = Unit::Type::AVAILABLE_PERCENT"};
-            }
-        }
+
+        //Min/max values
+        if(child.min_width_unit == Unit::Type::PARENT_WIDTH_PERCENT && p_width) 
+            return Error{Error::Type::NODE_CONTRADICTION, "min_width.unit = Unit::Type::PARENT_WIDTH_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.max_width_unit == Unit::Type::PARENT_WIDTH_PERCENT && p_width) 
+            return Error{Error::Type::NODE_CONTRADICTION, "max_width.unit = Unit::Type::PARENT_WIDTH_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+
+        if(child.min_height_unit == Unit::Type::PARENT_HEIGHT_PERCENT && p_height) 
+            return Error{Error::Type::NODE_CONTRADICTION, "min_height.unit = Unit::Type::PARENT_HEIGHT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.max_height_unit == Unit::Type::PARENT_HEIGHT_PERCENT && p_height) 
+            return Error{Error::Type::NODE_CONTRADICTION, "max_height.unit = Unit::Type::PARENT_HEIGHT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+
         //no error
         return Error();
     }
@@ -1115,6 +1129,14 @@ namespace UI
     inline char ToLower(char c)
     {
         return (c >= 'A' && c <= 'Z')? c + 32: c;
+    }
+    int StringLength(const char* text)
+    {
+        if(!text)
+            return -1;
+        int i;
+        for(i = 0; text[i]; i++);
+        return i;
     }
     inline uint32_t StrToU32(const char* text, bool* error)
     {
