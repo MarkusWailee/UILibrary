@@ -53,7 +53,6 @@ namespace UI
         Axis axis = Axis::HORIZONTAL;
         Alignment vertical_alignment = Alignment::START;
         Alignment horizontal_alignment = Alignment::START;
-        bool wrap = false;
     };
 
     struct Grid
