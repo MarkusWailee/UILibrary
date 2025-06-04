@@ -15,7 +15,7 @@ namespace UI
     //All measurements are based on this Unit
     struct Unit
     {
-        enum class Type : unsigned char 
+        enum Type : unsigned char 
         {
             //Unit Type 1
             PIXEL,
@@ -24,14 +24,8 @@ namespace UI
             INCH,
 
             //Unit Type 2
-            //Considering using PARENT_WIDTH_PERCENT/PARENT_HEIGHT_PERCENT instead
-            PARENT_WIDTH_PERCENT,     //Based on the size of the parent div
-            PARENT_HEIGHT_PERCENT,     //Based on the size of the parent div
-            //PARENT_PERCENT,
-            //WIDTH_PERCENT,
-
-            ROOT_WIDTH_PERCENT,       //Based on the root div size
-            ROOT_HEIGHT_PERCENT,       //Based on the root div size
+            PARENT_PERCENT,
+            ROOT_PERCENT,
 
             //Unit Type 3
             // width/height only

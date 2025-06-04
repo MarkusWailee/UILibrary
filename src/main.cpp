@@ -31,50 +31,63 @@ int main(void)
     base.flow.axis = UI::Flow::Axis::HORIZONTAL;
     base.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
     base.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
-    base.width = UI::Unit{100, UI::Unit::Type::PARENT_WIDTH_PERCENT};
-    base.height = UI::Unit{100, UI::Unit::Type::PARENT_HEIGHT_PERCENT};
+    base.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
+    base.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
     base.padding = {20, 20, 20, 20};
     base.background_color = {80, 80, 100, 255};
 
     UI::StyleSheet h_container;
-    h_container.padding = {20, 20, 10, 10};
-    h_container.flow.axis = UI::Flow::Axis::HORIZONTAL;
-    h_container.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
-    h_container.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
-    h_container.gap_row = UI::Unit{1, UI::Unit::Type::PIXEL};
-    //h_container.gap_column = UI::Unit{10, UI::Unit::Type::PIXEL};
-    h_container.background_color = {40, 40, 50, 255};
-    h_container.width = UI::Unit{50, UI::Unit::Type::ROOT_WIDTH_PERCENT};
-    h_container.height = UI::Unit{50,UI::Unit::Type::ROOT_WIDTH_PERCENT};
-    //h_container.max_width = UI::Unit{50, UI::Unit::Type::CONTENT_PERCENT};
-    h_container.min_height = UI::Unit{100, UI::Unit::Type::CONTENT_PERCENT};
-    h_container.border_width = 2;
+    h_container.gap_column = UI::Unit{10, UI::Unit::PIXEL};
+    //h_container.background_color = {40, 40, 50, 255};
+    h_container.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
+    h_container.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
     h_container.corner_radius = 10;
-    h_container.border_color = {25, 25, 30, 255};
     h_container.scissor = true;
 
-    UI::StyleSheet textbox1;
-    textbox1.padding = {5,5,5,5};
-    textbox1.background_color = {20, 20, 60, 255};
-    textbox1.border_color = {25, 25, 30, 255};
-    textbox1.flow.horizontal_alignment = UI::Flow::Alignment::START;
-    textbox1.flow.vertical_alignment = UI::Flow::Alignment::START;
-    textbox1.width = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
-    textbox1.height = UI::Unit{100,UI::Unit::Type::AVAILABLE_PERCENT};
-    textbox1.border_width = 0;
-    textbox1.corner_radius = 20;
+    UI::StyleSheet v_container1;
+    v_container1.flow.axis = UI::Flow::Axis::VERTICAL;
+    v_container1.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
+    v_container1.flow.vertical_alignment = UI::Flow::Alignment::START;
+    v_container1.background_color = {40, 40, 50, 255};
+    v_container1.width = UI::Unit{30, UI::Unit::AVAILABLE_PERCENT};
+    v_container1.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
+    v_container1.border_width = 2;
+    v_container1.corner_radius = 10;
+    v_container1.border_color = {25, 25, 30, 255};
+
+    UI::StyleSheet v_container2;
+    v_container2.flow.axis = UI::Flow::Axis::VERTICAL;
+    v_container2.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
+    v_container2.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
+    v_container2.background_color = {40, 40, 50, 255};
+    v_container2.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+    v_container2.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
+    v_container2.border_width = 2;
+    v_container2.corner_radius = 10;
+    v_container2.border_color = {25, 25, 30, 255};
 
     UI::StyleSheet button;
-    button.padding = {5,5,5,5};
-    button.background_color = {70, 50, 60, 255};
-    button.border_color = {25, 25, 30, 255};
-    button.flow.horizontal_alignment = UI::Flow::Alignment::START;
-    button.flow.vertical_alignment = UI::Flow::Alignment::START;
-    button.width = UI::Unit{100 ,UI::Unit::Type::PIXEL};
-    button.height = UI::Unit{100,UI::Unit::Type::PIXEL};
-    button.max_width = UI::Unit{200, UI::Unit::Type::PIXEL};
-    button.border_width = 0;
-    button.corner_radius = 5;
+    button.corner_radius = 10;
+    button.background_color = UI::Color{70, 70, 90, 255};
+    button.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+    button.height = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
+    button.border_color = UI::Color{20, 20, 30, 255};
+    button.border_width = 1;
+
+    UI::StyleSheet button2;
+    button2.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
+    button2.flow.vertical_alignment= UI::Flow::Alignment::CENTERED;
+    button2.margin = {10,10,10,10};
+    button2.corner_radius = 10;
+    button2.border_width = 1;
+    button2.background_color = UI::Color{50, 54, 60, 255};
+    button2.border_color = UI::Color{20, 20, 30, 255};
+    button2.width = UI::Unit{200, UI::Unit::PIXEL};
+    button2.height = UI::Unit{50, UI::Unit::PIXEL};
+
+    UI::StyleSheet options = button2;
+    UI::StyleSheet play = button2;
+    UI::StyleSheet exit = button2;
 
 
     float time = 0;
@@ -83,7 +96,7 @@ int main(void)
         time += GetFrameTime() * 20;
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
-        h_container.scroll_y += GetMouseWheelMove() * 40;
+        v_container2.scroll_y += GetMouseWheelMove() * 40;
         //UI LIBRARY TEST
 
 
@@ -93,15 +106,61 @@ int main(void)
         const char text4[] = "[C:FF0000]R[C:FF7F00]a[C:FFFF00]i[C:00FF00]n[C:0000FF]b[C:4B0082]o[C:8B00FF]w [C:FF0000]T[C:FF7F00]e[C:FFFF00]x[C:00FF00]t [C:0000FF]T[C:4B0082]E[C:8B00FF]S[C:FF0000]T!";
         const char text5[] = "On the other hand, we denounce with righteous indignation and dislike men who are so beguiled and demoralized by the charms of pleasure of the moment, so blinded by desire, that they cannot foresee the pain and trouble that are bound to ensue; and equal blame belongs to those who fail in their duty through weakness of will, which is the same as saying through shrinking from toil and pain. These cases are perfectly simple and easy to distinguish. In a free hour, when our power of choice is untrammelled and when nothing prevents our being able to do what we like best, every pleasure is to be welcomed and every pain avoided. But in certain circumstances and owing to the claims of duty or the obligations of business it will frequently occur that pleasures have to be repudiated and annoyances accepted. The wise man therefore always holds in these matters to this principle of selection: he rejects pleasures to secure other greater pleasures, or else he endures pains to avoid worse pains.";
 
+
+        UI::MouseInfo info = UI::GetMouseInfo("Options");
+        if(info.on_mouse_hover)
+        {
+            options.width = UI::Unit{230, UI::Unit::PIXEL};
+            if(IsMouseButtonReleased(0))
+                std::cout<<"Options\n";
+        }
+        else
+            options.width = UI::Unit{200, UI::Unit::PIXEL};
+        info = UI::GetMouseInfo("Play");
+        if(info.on_mouse_hover)
+        {
+            play.width = UI::Unit{230, UI::Unit::PIXEL};
+            if(IsMouseButtonReleased(0))
+                std::cout<<"Play\n";
+        }
+        else
+            play.width = UI::Unit{200, UI::Unit::PIXEL};
+        info = UI::GetMouseInfo("Exit");
+        if(info.on_mouse_hover)
+        {
+            exit.width = UI::Unit{230, UI::Unit::PIXEL};
+            if(IsMouseButtonReleased(0))
+                CloseWindow();
+        }
+        else
+            exit.width = UI::Unit{200, UI::Unit::PIXEL};
+
         UI::BeginRoot(GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
         UI::BeginBox(&base);
             UI::BeginBox(&h_container);
-                UI::BeginBox(&button);
+                UI::BeginBox(&v_container1);
+                for(int i = 0; i<5; i++)
+                {
+                    UI::BeginBox(&button);
+                        UI::InsertText(TextFormat("B%d", i), true);
+                    UI::EndBox();
+                }
                 UI::EndBox();
-                //UI::InsertText(text1);
-                UI::InsertText(text2);
-                //UI::InsertText(text4);
+                UI::BeginBox(&v_container2);
+                UI::InsertText("[C:119999]Game Title Here!");
+                    UI::BeginBox(&play, "Play");
+                        UI::InsertText("Play");
+                    UI::EndBox();
+                    UI::BeginBox(&options, "Options");
+                        UI::InsertText("Options", "Options");
+                    UI::EndBox();
+                    UI::BeginBox(&exit, "Exit");
+                        UI::InsertText("Exit");
+                    UI::EndBox();
+                UI::EndBox();
             UI::EndBox();
+
+
         UI::EndBox();
         UI::EndRoot();
 
