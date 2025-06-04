@@ -228,12 +228,12 @@ namespace UI
 
     //Calculates all PARENT_HEIGHT_PERCENT, PARENT_WIDTH_PERCENT, AVAILABLE_PERCENT, and min/max units
     //Width
-    void WidthSizePass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box);
-    void WidthSizePass(TreeNode<Box>* node);
+    void WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box);
+    void WidthPass(TreeNode<Box>* node);
     //Height
-    //void HeightContentPercentPass(TreeNode<Box>* node);
-    void HeightSizePass(TreeNode<Box>* node);
-    void HeightSizePass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box);
+    void HeightContentPercentPass(TreeNode<Box>* node);
+    void HeightPass(TreeNode<Box>* node);
+    void HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box);
 
     //Computes and draw where elements should be. Also computes UserInput
     void DrawPass(TreeNode<Box>* node, int x, int y, Rect parent_aabb);
@@ -376,34 +376,24 @@ namespace UI
         {
             ArenaLL<TreeNode<Box>>::Node* child = node->children.GetHead();  
             int content_width = 0;
-            int content_height = 0;
-            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT || parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
+            //only handles content_percent for width
+            //This is done for dynamic text wrapping with different Unit types
+            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
             {
                 if(parent_box.GetLayout() == Layout::FLOW)
                 {
                     if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
                     {
-                        int largest_height = 0;
                         for(;child != nullptr; child = child->next)
                         {
                             Box& box = child->value.val;
 
                             if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
                             {
-                                //Im able to compute box.width since parents width is CONTENT_PERCENT
-                                //See CheckNodeContradictions() function for details
                                 box.width = clamp(box.min_width, box.max_width, box.width);
                                 content_width += box.GetBoxModelWidth() + parent_box.gap_column;
                             }
-                            if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
-                            {
-                                box.height = clamp(box.min_height, box.max_height, box.height);
-                                int height = box.GetBoxModelHeight();
-                                if(largest_height < height)
-                                    largest_height = height;
-                            }
                         }
-                        content_height = largest_height;
                         content_width -= parent_box.gap_column;
                     }
                     else //VERTICAL
@@ -412,13 +402,6 @@ namespace UI
                         for(;child != nullptr; child = child->next)
                         {
                             Box& box = child->value.val;
-                            if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
-                            {
-                                //Im able to compute box.height since parents height is CONTENT_PERCENT.
-                                //See CheckNodeContradictions() function for details
-                                box.height = clamp(box.min_height, box.max_height, box.height);
-                                content_height += box.GetBoxModelHeight() + parent_box.gap_row;
-                            }
                             if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
                             {
                                 int width = box.GetBoxModelWidth();
@@ -427,14 +410,15 @@ namespace UI
                             }
                         }
                         content_width = largest_width;
-                        content_height -= parent_box.gap_row;
                     }
                     if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
                         parent_box.width = content_width * parent_box.width / 100;
-                    if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
-                        parent_box.height = content_height * parent_box.height / 100;
+                    if(parent_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
+                        parent_box.min_width = content_width * parent_box.min_width / 100;
+                    if(parent_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
+                        parent_box.max_width = content_width * parent_box.max_width / 100;
                 }
-                else //Grid
+                else //Grid 
                 {
                     assert(0 && "Have not added grid");
                 }
@@ -470,7 +454,7 @@ namespace UI
         Box box;
 
         //DEBUGGING TEXT
-        box.background_color = {0, 0, 0, 100};
+        box.background_color = {0, 0, 0, 255};
 
 
         if(should_copy && text)
@@ -497,17 +481,7 @@ namespace UI
         {
             box.width_unit = Unit::Type::AVAILABLE_PERCENT;
             box.width = 100;
-            box.max_width = 9999;
-        }
-        if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
-        {
-            box.height = md.GetMeasuredHeight();
-        }
-        else
-        {
-            box.height_unit = Unit::Type::AVAILABLE_PERCENT;
-            box.height = 100;
-            box.max_height = 9999;
+            box.max_width = md.GetMeasuredWidth() + 1;
         }
 
 
@@ -531,8 +505,9 @@ namespace UI
         }
         const Box& root_box = root_node->val;
         //SizePass(root_node);
-        WidthSizePass(root_node);
-        HeightSizePass(root_node);
+        WidthPass(root_node);
+        HeightContentPercentPass(root_node);
+        HeightPass(root_node);
         DrawPass(root_node, 0, 0, Rect{0, 0, root_box.width, root_box.height});
     }
 }
@@ -679,10 +654,10 @@ namespace UI
         UNIT_CONFLICT(style.grid.cell_width.unit,       Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
         UNIT_CONFLICT(style.grid.cell_height.unit,      Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
 
-        UNIT_CONFLICT(style.min_width.unit,             Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.min_height.unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.max_width.unit,             Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.max_height.unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+        //UNIT_CONFLICT(style.min_width.unit,             Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+        //UNIT_CONFLICT(style.min_height.unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+        //UNIT_CONFLICT(style.max_width.unit,             Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+        //UNIT_CONFLICT(style.max_height.unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
 
         //Available%
         UNIT_CONFLICT(style.x.unit,                     Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
@@ -800,6 +775,7 @@ namespace UI
             return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
 
 
+        /*
         //Min/max values
         if(child.min_width_unit == Unit::Type::PARENT_WIDTH_PERCENT && p_width) 
             return Error{Error::Type::NODE_CONTRADICTION, "min_width.unit = Unit::Type::PARENT_WIDTH_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
@@ -810,6 +786,7 @@ namespace UI
             return Error{Error::Type::NODE_CONTRADICTION, "min_height.unit = Unit::Type::PARENT_HEIGHT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
         if(child.max_height_unit == Unit::Type::PARENT_HEIGHT_PERCENT && p_height) 
             return Error{Error::Type::NODE_CONTRADICTION, "max_height.unit = Unit::Type::PARENT_HEIGHT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+        */
 
         //no error
         return Error();
@@ -1063,14 +1040,14 @@ namespace UI
 namespace UI
 {
 
-    void WidthSizePass(TreeNode<Box>* node)
+    void WidthPass(TreeNode<Box>* node)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
         const Box& box = node->val;
         if(box.GetLayout() == Layout::FLOW)
         {
-            WidthSizePass_Flow(node->children.GetHead(), box);
+            WidthPass_Flow(node->children.GetHead(), box);
         }
         else
         {
@@ -1078,7 +1055,7 @@ namespace UI
         }
     }
 
-    void WidthSizePass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
+    void WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
     {
         assert(child);
         ArenaLL<TreeNode<Box>>::Node* temp;
@@ -1137,7 +1114,7 @@ namespace UI
                 Box& box = temp->value.val;
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.width = available_width * box.width / max(100, total_percent); //Anything below 100% will not fill in the entire space
-                WidthSizePass(&temp->value);
+                WidthPass(&temp->value);
             }
 
         } //End Horizontal
@@ -1149,28 +1126,29 @@ namespace UI
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.width_unit = Unit::Type::PARENT_WIDTH_PERCENT;
                 ComputeParentWidthPercent(box, parent_box.width);
-                WidthSizePass(&temp->value);
+                box.width = clamp(box.min_width, box.max_width, box.width);
+                WidthPass(&temp->value);
             }
         } //End vertical
     }
 
 
 
-    void HeightSizePass(TreeNode<Box>* node)
+    void HeightPass(TreeNode<Box>* node)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
         const Box& box = node->val;
         if(box.GetLayout() == Layout::FLOW)
         {
-            HeightSizePass_Flow(node->children.GetHead(), box);
+            HeightPass_Flow(node->children.GetHead(), box);
         }
         else
         {
             assert("have not added grid");
         }
     }
-    void HeightSizePass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
+    void HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
     {
         assert(child);
         ArenaLL<TreeNode<Box>>::Node* temp;
@@ -1182,7 +1160,8 @@ namespace UI
                 if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.height_unit = Unit::Type::PARENT_HEIGHT_PERCENT;
                 ComputeParentHeightPercent(box, parent_box.height);
-                HeightSizePass(&temp->value);
+                box.height = clamp(box.min_height, box.max_height, box.height);
+                HeightPass(&temp->value);
             }
         } 
         else //Vertical
@@ -1193,7 +1172,6 @@ namespace UI
             {
                 Box& box = temp->value.val;
                 ComputeParentHeightPercent(box, parent_box.height);
-                box.width = clamp(box.min_width, box.max_width, box.width);
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
                 {
                     box.height = clamp(box.min_height, box.max_height, box.height);
@@ -1241,9 +1219,82 @@ namespace UI
                 Box& box = temp->value.val;
                 if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.height = available_height * box.height / max(100, total_percent);  //Anything below 100% will not fill in the entire space
-                HeightSizePass(&temp->value);
+                box.height = clamp(box.min_height, box.max_height, box.height);
+                HeightPass(&temp->value);
             }
         } //End vertical
+    }
+
+
+    void HeightContentPercentPass_Flow(TreeNode<Box>* node);
+    void HeightContentPercentPass(TreeNode<Box>* node)
+    {
+        if(!node)    
+            return;
+        assert(node);
+        const Box& box = node->val;
+        if(box.GetLayout() == Layout::FLOW)
+        {
+            HeightContentPercentPass_Flow(node);
+        }
+        else
+        {
+            assert(0 && "Have not added grid yet");
+        }
+    }
+    void HeightContentPercentPass_Flow(TreeNode<Box>* node)
+    {
+        assert(node);
+        Box& parent_box = node->val;
+        ArenaLL<TreeNode<Box>>::Node* child = node->children.GetHead();
+        int content_height = 0;
+        if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
+        {
+            int largest_height = 0;
+            for(ArenaLL<TreeNode<Box>>::Node* temp = child; temp != nullptr; temp = temp->next)
+            {
+                HeightContentPercentPass(&temp->value);
+                Box& box = temp->value.val;
+                if(box.text)
+                {
+                    Markdown md;
+                    //Width should be computed by this point
+                    box.width = min(parent_box.width, box.width);
+                    md.SetInput(box.text, box.width, INT_MAX);
+                    while(md.ComputeNextTextRun()){}
+                    box.height = md.GetMeasuredHeight();
+                }
+                int height = box.GetBoxModelHeight();
+                if(largest_height < height)
+                    largest_height = height;
+            }
+            content_height = largest_height;
+        }
+        else //Vertical
+        {
+            for(ArenaLL<TreeNode<Box>>::Node* temp = child; temp != nullptr; temp = temp->next)
+            {
+                HeightContentPercentPass(&temp->value);
+                Box& box = temp->value.val;
+                if(box.text)
+                {
+                    Markdown md;
+                    //Width should be computed by this point
+                    box.width = min(parent_box.width, box.width);
+                    md.SetInput(box.text, box.width, INT_MAX);
+                    while(md.ComputeNextTextRun()){}
+                    box.height = md.GetMeasuredHeight();
+                }
+                content_height += box.GetBoxModelHeight() + parent_box.gap_row;
+            }
+            content_height -= parent_box.gap_row;
+        }
+        if(parent_box.height_unit == Unit::Type::CONTENT_PERCENT)
+            parent_box.height = parent_box.height * content_height / 100;
+        if(parent_box.min_height_unit == Unit::Type::CONTENT_PERCENT)
+            parent_box.min_height = parent_box.min_height * content_height / 100;
+        if(parent_box.max_height_unit == Unit::Type::CONTENT_PERCENT)
+            parent_box.max_height = parent_box.max_height * content_height / 100;
     }
 
 

@@ -27,6 +27,9 @@ namespace UI
             //Considering using PARENT_WIDTH_PERCENT/PARENT_HEIGHT_PERCENT instead
             PARENT_WIDTH_PERCENT,     //Based on the size of the parent div
             PARENT_HEIGHT_PERCENT,     //Based on the size of the parent div
+            //PARENT_PERCENT,
+            //WIDTH_PERCENT,
+
             ROOT_WIDTH_PERCENT,       //Based on the root div size
             ROOT_HEIGHT_PERCENT,       //Based on the root div size
 

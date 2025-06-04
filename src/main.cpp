@@ -44,76 +44,39 @@ int main(void)
     h_container.gap_row = UI::Unit{1, UI::Unit::Type::PIXEL};
     //h_container.gap_column = UI::Unit{10, UI::Unit::Type::PIXEL};
     h_container.background_color = {40, 40, 50, 255};
-    h_container.width = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
-    h_container.height = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
-    //h_container.max_height = UI::Unit{50, UI::Unit::Type::CONTENT_PERCENT};
+    h_container.width = UI::Unit{50, UI::Unit::Type::ROOT_WIDTH_PERCENT};
+    h_container.height = UI::Unit{50,UI::Unit::Type::ROOT_WIDTH_PERCENT};
+    //h_container.max_width = UI::Unit{50, UI::Unit::Type::CONTENT_PERCENT};
+    h_container.min_height = UI::Unit{100, UI::Unit::Type::CONTENT_PERCENT};
     h_container.border_width = 2;
     h_container.corner_radius = 10;
     h_container.border_color = {25, 25, 30, 255};
     h_container.scissor = true;
 
+    UI::StyleSheet textbox1;
+    textbox1.padding = {5,5,5,5};
+    textbox1.background_color = {20, 20, 60, 255};
+    textbox1.border_color = {25, 25, 30, 255};
+    textbox1.flow.horizontal_alignment = UI::Flow::Alignment::START;
+    textbox1.flow.vertical_alignment = UI::Flow::Alignment::START;
+    textbox1.width = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
+    textbox1.height = UI::Unit{100,UI::Unit::Type::AVAILABLE_PERCENT};
+    textbox1.border_width = 0;
+    textbox1.corner_radius = 20;
 
     UI::StyleSheet button;
-    //button.margin = {20, 20, 20, 20};
-    button.background_color = {40, 255, 50, 255};
-    button.width = UI::Unit{100, UI::Unit::Type::PIXEL};
-    button.height = UI::Unit{100, UI::Unit::Type::PIXEL};
-    button.min_height = UI::Unit{100 ,UI::Unit::Type::PIXEL};
-    button.border_width = 4;
-    button.border_color = {0,0,0,255};
-
-    UI::StyleSheet button2;
-    button2.background_color = {255, 50, 50, 255};
-    button2.width = UI::Unit{100 ,UI::Unit::Type::PIXEL};
-    button2.height = UI::Unit{100 ,UI::Unit::Type::PIXEL};
-    button2.max_height = UI::Unit{100 ,UI::Unit::Type::PIXEL};
-    button2.border_width = 4;
-    button2.border_color = {0,0,0,255};
-    //button2.padding = {5, 5, 5, 5};
-    //button2.margin = {5, 5, 5, 5};
-
-    UI::StyleSheet button3;
-    button3.margin = {5,5,5,5};
-    button3.background_color = {50, 50, 70, 255};
-    button3.border_color = {25, 25, 30, 255};
-    button3.width = UI::Unit{20 ,UI::Unit::Type::MM};
-    button3.height = UI::Unit{50,UI::Unit::Type::AVAILABLE_PERCENT};
-    button3.border_width = 0;
-    button3.corner_radius = 20;
-
-    UI::StyleSheet button4;
-    button4.flow.axis = UI::Flow::Axis::HORIZONTAL;
-    button4.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
-    button4.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
-    //button4.margin = {5,5,5,5};
-    button4.background_color = {50, 50, 70, 255};
-    button4.border_color = {25, 25, 30, 255};
-    button4.width = UI::Unit{100,UI::Unit::Type::PIXEL};
-    button4.height = UI::Unit{50,UI::Unit::Type::ROOT_HEIGHT_PERCENT};
-    //button4.max_height = UI::Unit{100, UI::Unit::Type::PIXEL};
-    button4.border_width = 0;
-    button4.corner_radius = 10;
-
-    UI::StyleSheet button5;
-    //button5.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
-    button5.padding = {5,5,5,5};
-    button5.background_color = {0, 0, 0, 255};
-    button5.border_color = {25, 25, 30, 255};
-    button5.width = UI::Unit{100 ,UI::Unit::Type::CONTENT_PERCENT};
-    button5.height = UI::Unit{100,UI::Unit::Type::CONTENT_PERCENT};
-    button5.border_width = 0;
-    button5.corner_radius = 20;
+    button.padding = {5,5,5,5};
+    button.background_color = {70, 50, 60, 255};
+    button.border_color = {25, 25, 30, 255};
+    button.flow.horizontal_alignment = UI::Flow::Alignment::START;
+    button.flow.vertical_alignment = UI::Flow::Alignment::START;
+    button.width = UI::Unit{100 ,UI::Unit::Type::PIXEL};
+    button.height = UI::Unit{100,UI::Unit::Type::PIXEL};
+    button.max_width = UI::Unit{200, UI::Unit::Type::PIXEL};
+    button.border_width = 0;
+    button.corner_radius = 5;
 
 
-    UI::StyleSheet TextContainer;
-    TextContainer.padding = {5,5,5,5};
-    TextContainer.background_color = {10, 10, 10, 255};
-    TextContainer.border_color = {25, 25, 30, 255};
-    TextContainer.width = UI::Unit{100 ,UI::Unit::Type::AVAILABLE_PERCENT};
-    TextContainer.height = UI::Unit{100,UI::Unit::Type::CONTENT_PERCENT};
-    TextContainer.max_width = UI::Unit{400, UI::Unit::Type::PIXEL};
-    TextContainer.border_width = 0;
-    TextContainer.corner_radius = 20;
     float time = 0;
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
@@ -122,7 +85,6 @@ int main(void)
         ClearBackground(Color{0, 0, 0, 255});
         h_container.scroll_y += GetMouseWheelMove() * 40;
         //UI LIBRARY TEST
-
 
 
         const char text1[] = "[C:228BE6]A [C:F06292]B[C:4CAF50] C[C:FFC107] D[C:795548] E[C:9C27B0] F[C:2196F3] G[C:FF5722] H[C:3F51B5] I[C:CDDC39] J";
@@ -134,13 +96,10 @@ int main(void)
         UI::BeginRoot(GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
         UI::BeginBox(&base);
             UI::BeginBox(&h_container);
-                UI::BeginBox(&button4);
+                UI::BeginBox(&button);
                 UI::EndBox();
-                UI::BeginBox(&TextContainer);
-                    UI::InsertText(text4);
-                UI::EndBox();
-                UI::BeginBox(&button4);
-                UI::EndBox();
+                //UI::InsertText(text1);
+                UI::InsertText(text2);
                 //UI::InsertText(text4);
             UI::EndBox();
         UI::EndBox();
