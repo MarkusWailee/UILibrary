@@ -1,10 +1,6 @@
 #pragma once
-
-
 /*
-margin-(left, right, top, bottom)
-padding-(left, right, top, bottom)
-
+    The library useses the css box model, but border-wdith does not extend the box. It is only effects rendering
 */
 
 
@@ -17,20 +13,21 @@ namespace UI
     {
         enum Type : unsigned char 
         {
-            //Unit Type 1
+            //These units may be used by all units
             PIXEL,
             MM,
             CM,
             INCH,
 
-            //Unit Type 2
+            //Try to only use these for width/height or min/max sizing properties
             PARENT_PERCENT,
             ROOT_PERCENT,
 
-            //Unit Type 3
-            // width/height only
-            CONTENT_PERCENT,    //Based on the size of the inner content(child divs)
-            AVAILABLE_PERCENT   //Based on the amount of space available
+            //This option is limited to width/height/min_width/max_width/min_height/max_height
+            CONTENT_PERCENT,   
+
+            //This option is limited to width/height
+            AVAILABLE_PERCENT  
         };
 
         float value = 0;

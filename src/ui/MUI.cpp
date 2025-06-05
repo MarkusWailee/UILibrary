@@ -172,7 +172,7 @@ namespace UI
     };
 
     //Custom markdown language
-    #define FLUSH_CAP 500
+    #define FLUSH_CAP 512
     class Markdown
     {
         struct Attributes
@@ -505,10 +505,16 @@ namespace UI
         }
         const Box& root_box = root_node->val;
         //SizePass(root_node);
+
         WidthPass(root_node);
+
         HeightContentPercentPass(root_node);
+
         HeightPass(root_node);
+
         DrawPass(root_node, 0, 0, Rect{0, 0, root_box.width, root_box.height});
+
+
     }
 }
 

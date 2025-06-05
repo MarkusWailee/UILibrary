@@ -11,7 +11,7 @@ namespace UI
     GlyphInfo font_info[128]{};
     void Init_impl()
     {
-        font = LoadFontEx("assets/fonts/SpaceMono-Regular.ttf", 32, 0, 0);
+        font = LoadFontEx("assets/fonts/OpenSans-Regular.ttf", 32, 0, 0);
         if(IsFontValid(font))
         {
             for(int i = 32; i<=126; i++) //Printable asci characters
