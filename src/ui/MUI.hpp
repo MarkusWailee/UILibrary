@@ -6,7 +6,16 @@
 
 namespace UI
 {
-
+    //Math helpers
+    template<typename T>
+    inline T Min(T a, T b) {return a < b? a: b;}
+    template<typename T>
+    inline T Max(T a, T b) {return a >= b? a: b;}
+    template<typename T>
+    inline T Clamp(T value, T minimum, T maximum)
+    {
+        return Max(Min(value, maximum), minimum);
+    }
 
     //All measurements are based on this Unit
     struct Unit
@@ -104,14 +113,9 @@ namespace UI
         unsigned char corner_radius = 0; //255 sets to circle
         unsigned char border_width = 0;  
     };
-}
 
 
-
-
-//Main UI Functions
-namespace UI
-{
+    //Main UI Functions
     struct BoxInfo
     {
         int draw_x =             0;
@@ -123,8 +127,8 @@ namespace UI
         bool valid =            false;
         bool is_hover =         false;
         bool is_direct_hover =  false;
-        int MinScrollX() const { return draw_width - content_width;}
-        int MinScrollY() const { return draw_height - content_height;}
+        int MaxScrollX() const { return Max(0, content_width - draw_width);}
+        int MaxScrollY() const { return Max(0, content_height - draw_height);}
     };
     BoxInfo GetBoxInfo(const char* label);
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
@@ -133,12 +137,8 @@ namespace UI
     void InsertText(const char* text, bool copy_text = true);
     void EndBox();
     void Draw();
-}
 
 
-//IMPLEMENT THESE FUNCTIONS
-namespace UI
-{
     struct TextPrimitive
     {
         const char* text = nullptr;
@@ -156,21 +156,17 @@ namespace UI
         Color font_color;
     };
 
-    //Error handling
+    //Implement these functions
     void LogError_impl(const char* text);
     void LogError_impl(int num);
-
-    //Rendering
-    void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color border_color, Color background_color);
-
-    //Text Rendering
-    //Set internal font. Should load/cache fonts
     void Init_impl();
+    void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color border_color, Color background_color);
     void SetFont_impl(const char* file_path);
     void DrawText_impl(TextPrimitive draw_command);
     int MeasureChar_impl(char c, int font_size, int spacing);
     int MeasureText_impl(const char* text, int size, int spacing);
-
     void BeginScissorMode_impl(float x, float y, float width, float height);
     void EndScissorMode_impl();
 }
+
+

@@ -1014,11 +1014,11 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-        h_container.scroll_y += GetMouseWheelMove() * 20;
+        h_container.scroll_y -= GetMouseWheelMove() * 20;
         UI::BoxInfo scroll_info = UI::GetBoxInfo("Scroll Container");
         if(scroll_info.valid)
         {
-            h_container.scroll_y = clamp(h_container.scroll_y, scroll_info.MinScrollY(), 0);
+            h_container.scroll_y = UI::Clamp(h_container.scroll_y, 0, scroll_info.MaxScrollY());
         }
 
         for(int i = 0; i< 4; i++)
@@ -1046,7 +1046,7 @@ int main(void)
                     UI::BeginBox(button, "Button4");
                         UI::InsertText("b4");
                     UI::EndBox();
-                    UI::BeginBox(button);
+                    UI::BeginBox(button, "Button4");
                         UI::InsertText("b5");
                     UI::EndBox();
                     UI::BeginBox(button);

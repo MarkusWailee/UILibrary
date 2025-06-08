@@ -49,6 +49,16 @@ namespace UI
         return *s1 == *s2;
     }
 
+    uint64_t Hash(const char* str) 
+    {
+        uint64_t hash = 14695981039346656037ULL;
+        while (*str) {
+            hash ^= static_cast<uint64_t>(*str++);
+            hash *= 1099511628211ULL;
+        }
+        //avoiding returning 0
+        return !hash? 1: hash;
+    }
 
 }
 
@@ -173,6 +183,7 @@ namespace UI
         bool IsEmpty() const;
         //Just sets head/tail to nullptr
         void Clear();
+        bool PopHead();
         Node* GetHead();
     };
 
@@ -540,6 +551,13 @@ namespace UI
     inline typename ArenaLL<T>::Node* ArenaLL<T>::GetHead()
     {
         return head; 
+    }
+    template<typename T>
+    inline bool ArenaLL<T>::PopHead()
+    {
+        if(head == nullptr)
+            return false;
+        head = head->next;
     }
     template<typename T>
     inline void ArenaLL<T>::Clear()

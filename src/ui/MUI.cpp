@@ -58,7 +58,6 @@ namespace UI
         //Values that can potentially use bit array
         Positioning positioning = Positioning::RELATIVE;
         Flow::Axis flow_axis = Flow::Axis::HORIZONTAL;
-        bool flow_wrap = false;
         bool scissor = false;
     public:
         void SetPositioning(Positioning p);
@@ -131,12 +130,6 @@ namespace UI
     float MillimeterToPixels(float mm);
     float CentimeterToPixels(float cm);
     float InchToPixels(float inches);
-    template<typename T>
-    T min(T a, T b);
-    template<typename T>
-    T max(T a, T b);
-    template<typename T>
-    T clamp(T minimum, T maximum, T value);
 
     //Used during tree descending
     Box ComputeStyleSheet(const BoxStyle& style, const Box& root);
@@ -227,12 +220,12 @@ namespace UI
 
     //Calculates all PARENT_PERCENT, AVAILABLE_PERCENT, and min/max units
     //Width
-    void WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box);
     void WidthPass(TreeNode<Box>* node);
+    void WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box); //Recurse Helper
     //Height
     void HeightContentPercentPass(TreeNode<Box>* node);
     void HeightPass(TreeNode<Box>* node);
-    void HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box);
+    void HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box); //Recurse Helper
 
     //Computes and draw where elements should be. Also computes UserInput
     void DrawPass(TreeNode<Box>* node, int x, int y, Rect parent_aabb);
@@ -396,7 +389,7 @@ namespace UI
 
                             if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
                             {
-                                box.width = clamp(box.min_width, box.max_width, box.width);
+                                box.width = Clamp(box.width, box.min_width, box.max_width);
                                 content_width += box.GetBoxModelWidth() + parent_box.gap_column;
                             }
                         }
@@ -769,10 +762,10 @@ namespace UI
         Rect r;
         if(Overlap(r1, r2))
         {
-            r.x = max(r1.x, r2.x);
-            r.y = max(r1.y, r2.y);
-            int outer_x = min(r1.x + r1.width, r2.x + r2.width);
-            int outer_y = min(r1.y + r1.height, r2.y + r2.height);
+            r.x = Max(r1.x, r2.x);
+            r.y = Max(r1.y, r2.y);
+            int outer_x = Min(r1.x + r1.width, r2.x + r2.width);
+            int outer_y = Min(r1.y + r1.height, r2.y + r2.height);
             r.width = abs(outer_x - r.x);
             r.height = abs(outer_y  - r.y);
         }
@@ -788,15 +781,6 @@ namespace UI
     inline float InchToPixels(float inches)
     {
         return inches * dpi;
-    }
-    template<typename T>
-    inline T min(T a, T b) {return a < b? a: b;}
-    template<typename T>
-    inline T max(T a, T b) {return a >= b? a: b;}
-    template<typename T>
-    inline T clamp(T minimum, T maximum, T value)
-    {
-        return max(min(value, maximum), minimum);
     }
 }
 
@@ -826,8 +810,8 @@ namespace UI
     {
         int root_width = root.width - style.margin.left - style.margin.right - style.padding.left - style.padding.right;
         int root_height = root.height - style.margin.top - style.margin.bottom - style.padding.top - style.padding.bottom;
-        root_width = max(0, root_width);
-        root_height = max(0, root_height);
+        root_width = Max(0, root_width);
+        root_height = Max(0, root_height);
 
         Box box;
         box.background_color =          style.background_color;
@@ -837,18 +821,18 @@ namespace UI
         box.scroll_x =                  style.scroll_x;
         box.scroll_y =                  style.scroll_y;
         
-        box.width =                     (uint16_t)max(0, FixedUnitToPx(style.width, root_width));
-        box.height =                    (uint16_t)max(0, FixedUnitToPx(style.height, root_height));
-        box.gap_row =                   (uint16_t)max(0, FixedUnitToPx(style.gap_row, root_height));
-        box.gap_column =                (uint16_t)max(0, FixedUnitToPx(style.gap_column, root_width));
-        box.min_width =                 (uint16_t)max(0, FixedUnitToPx(style.min_width, root_width));
-        box.max_width =                 (uint16_t)max(0, FixedUnitToPx(style.max_width, root_width));
-        box.min_height =                (uint16_t)max(0, FixedUnitToPx(style.min_height, root_height));
-        box.max_height =                (uint16_t)max(0, FixedUnitToPx(style.max_height, root_height));
+        box.width =                     (uint16_t)Max(0, FixedUnitToPx(style.width, root_width));
+        box.height =                    (uint16_t)Max(0, FixedUnitToPx(style.height, root_height));
+        box.gap_row =                   (uint16_t)Max(0, FixedUnitToPx(style.gap_row, root_height));
+        box.gap_column =                (uint16_t)Max(0, FixedUnitToPx(style.gap_column, root_width));
+        box.min_width =                 (uint16_t)Max(0, FixedUnitToPx(style.min_width, root_width));
+        box.max_width =                 (uint16_t)Max(0, FixedUnitToPx(style.max_width, root_width));
+        box.min_height =                (uint16_t)Max(0, FixedUnitToPx(style.min_height, root_height));
+        box.max_height =                (uint16_t)Max(0, FixedUnitToPx(style.max_height, root_height));
         box.x =                         (int16_t)FixedUnitToPx(style.x, root_width);
         box.y =                         (int16_t)FixedUnitToPx(style.y, root_height);
-        box.grid_cell_width =           (uint16_t)max(0, FixedUnitToPx(style.grid.cell_width, root_width));
-        box.grid_cell_height =          (uint16_t)max(0, FixedUnitToPx(style.grid.cell_height, root_width));
+        box.grid_cell_width =           (uint16_t)Max(0, FixedUnitToPx(style.grid.cell_width, root_width));
+        box.grid_cell_height =          (uint16_t)Max(0, FixedUnitToPx(style.grid.cell_height, root_width));
 
         box.width_unit =                style.width.unit;
         box.height_unit =               style.height.unit;
@@ -936,26 +920,26 @@ namespace UI
     void ComputeParentWidthPercent(Box& box, int parent_width)
     {
         parent_width -= box.padding.left + box.padding.right + box.margin.left + box.margin.right;
-        parent_width = max(0, parent_width);
-        box.width =                     (uint16_t)max(0, ParentPercentToPx(box.width,            box.width_unit,             parent_width)); 
-        box.gap_column =                (uint16_t)max(0, ParentPercentToPx(box.gap_column,       box.gap_column_unit,        parent_width)); 
-        box.min_width =                 (uint16_t)max(0, ParentPercentToPx(box.min_width,        box.min_width_unit,         parent_width)); 
-        box.max_width =                 (uint16_t)max(0, ParentPercentToPx(box.max_width,        box.max_width_unit,         parent_width)); 
+        parent_width = Max(0, parent_width);
+        box.width =                     (uint16_t)Max(0, ParentPercentToPx(box.width,            box.width_unit,             parent_width)); 
+        box.gap_column =                (uint16_t)Max(0, ParentPercentToPx(box.gap_column,       box.gap_column_unit,        parent_width)); 
+        box.min_width =                 (uint16_t)Max(0, ParentPercentToPx(box.min_width,        box.min_width_unit,         parent_width)); 
+        box.max_width =                 (uint16_t)Max(0, ParentPercentToPx(box.max_width,        box.max_width_unit,         parent_width)); 
         box.x =                                 (int16_t)ParentPercentToPx(box.x,                box.x_unit,                 parent_width); 
-        box.grid_cell_width =           (uint16_t)max(0, ParentPercentToPx(box.grid_cell_width,  box.grid_cell_width_unit,   parent_width)); 
+        box.grid_cell_width =           (uint16_t)Max(0, ParentPercentToPx(box.grid_cell_width,  box.grid_cell_width_unit,   parent_width)); 
     }
 
     //Height
     void ComputeParentHeightPercent(Box& box, int parent_height)
     {
         parent_height -= box.padding.top + box.padding.bottom + box.margin.top + box.margin.bottom;
-        parent_height = max(0, parent_height);
-        box.height =                    (uint16_t)max(0, ParentPercentToPx(box.height,           box.height_unit,            parent_height)); 
-        box.gap_row =                   (uint16_t)max(0, ParentPercentToPx(box.gap_row,          box.gap_row_unit,           parent_height)); 
-        box.min_height =                (uint16_t)max(0, ParentPercentToPx(box.min_height,       box.min_height_unit,        parent_height)); 
-        box.max_height =                (uint16_t)max(0, ParentPercentToPx(box.max_height,       box.max_height_unit,        parent_height)); 
+        parent_height = Max(0, parent_height);
+        box.height =                    (uint16_t)Max(0, ParentPercentToPx(box.height,           box.height_unit,            parent_height)); 
+        box.gap_row =                   (uint16_t)Max(0, ParentPercentToPx(box.gap_row,          box.gap_row_unit,           parent_height)); 
+        box.min_height =                (uint16_t)Max(0, ParentPercentToPx(box.min_height,       box.min_height_unit,        parent_height)); 
+        box.max_height =                (uint16_t)Max(0, ParentPercentToPx(box.max_height,       box.max_height_unit,        parent_height)); 
         box.y =                                 (int16_t)ParentPercentToPx(box.y,                box.y_unit,                 parent_height); 
-        box.grid_cell_height =          (uint16_t)max(0, ParentPercentToPx(box.grid_cell_height, box.grid_cell_height_unit,  parent_height)); 
+        box.grid_cell_height =          (uint16_t)Max(0, ParentPercentToPx(box.grid_cell_height, box.grid_cell_height_unit,  parent_height)); 
     }
     
 
@@ -998,7 +982,7 @@ namespace UI
                 ComputeParentWidthPercent(box, parent_box.width);
                 if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
                 {
-                    box.width = clamp(box.min_width, box.max_width, box.width);
+                    box.width = Clamp(box.width, box.min_width, box.max_width);
                     available_width -= box.GetBoxModelWidth() + parent_box.gap_column;
                 }
                 else
@@ -1022,13 +1006,13 @@ namespace UI
                     if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
                         continue;
                     //Calculates what the size would be
-                    int new_width = available_width * box.width / max(100, total_percent); //Anything below 100% will not fill in the entire space
+                    int new_width = available_width * box.width / Max(100, total_percent); //Anything below 100% will not fill in the entire space
                     //Clamps size if its not within bounds and changes unit to PIXEL
                     if(new_width < box.min_width || new_width > box.max_width)
                     {
                         new_total_percent -= box.width;
                         box.width_unit = Unit::Type::PIXEL;
-                        box.width = clamp(box.min_width, box.max_width, (uint16_t)max(0 ,new_width));
+                        box.width = Clamp((uint16_t)Max(0 ,new_width), box.min_width, box.max_width);
                         new_available_width -= box.width;
                         complete = false;
                     }
@@ -1042,7 +1026,7 @@ namespace UI
             {
                 Box& box = temp->value.val;
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.width = available_width * box.width / max(100, total_percent); //Anything below 100% will not fill in the entire space
+                    box.width = available_width * box.width / Max(100, total_percent); //Anything below 100% will not fill in the entire space
                 WidthPass(&temp->value);
             }
 
@@ -1055,7 +1039,7 @@ namespace UI
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.width_unit = Unit::Type::PARENT_PERCENT;
                 ComputeParentWidthPercent(box, parent_box.width);
-                box.width = clamp(box.min_width, box.max_width, box.width);
+                box.width = Clamp(box.width, box.min_width, box.max_width);
                 WidthPass(&temp->value);
             }
         } //End vertical
@@ -1089,7 +1073,7 @@ namespace UI
                 if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.height_unit = Unit::Type::PARENT_PERCENT;
                 ComputeParentHeightPercent(box, parent_box.height);
-                box.height = clamp(box.min_height, box.max_height, box.height);
+                box.height = Clamp(box.height, box.min_height, box.max_height);
                 HeightPass(&temp->value);
             }
         } 
@@ -1103,7 +1087,7 @@ namespace UI
                 ComputeParentHeightPercent(box, parent_box.height);
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
                 {
-                    box.height = clamp(box.min_height, box.max_height, box.height);
+                    box.height = Clamp(box.height, box.min_height, box.max_height);
                     available_height -= box.GetBoxModelHeight() + parent_box.gap_row;
                 }
                 else
@@ -1127,13 +1111,13 @@ namespace UI
                     if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
                         continue;
                     //Calculates what the size would be
-                    int new_height = available_height * box.height / max(100, total_percent); //Any thing below 100% will not fill in the entire space
+                    int new_height = available_height * box.height / Max(100, total_percent); //Any thing below 100% will not fill in the entire space
                     //Clamps size if its not within bounds and changes unit to PIXEL
                     if(new_height < box.min_height || new_height > box.max_height)
                     {
                         new_total_percent -= box.height;
                         box.height_unit = Unit::Type::PIXEL;
-                        box.height = clamp(box.min_height, box.max_height, (uint16_t)max(0 ,new_height));
+                        box.height = Clamp((uint16_t)Max(0 ,new_height), box.min_height, box.max_height);
                         new_available_height -= box.height;
                         complete = false;
                     }
@@ -1147,8 +1131,8 @@ namespace UI
             {
                 Box& box = temp->value.val;
                 if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.height = available_height * box.height / max(100, total_percent);  //Anything below 100% will not fill in the entire space
-                box.height = clamp(box.min_height, box.max_height, box.height);
+                    box.height = available_height * box.height / Max(100, total_percent);  //Anything below 100% will not fill in the entire space
+                box.height = Clamp(box.height, box.min_height, box.max_height);
                 HeightPass(&temp->value);
             }
         } //End vertical
@@ -1188,7 +1172,7 @@ namespace UI
                 {
                     Markdown md;
                     //Width should be computed by this point
-                    box.width = min(parent_box.width, box.width);
+                    box.width = Min(parent_box.width, box.width);
                     md.SetInput(box.text, box.width, INT_MAX);
                     while(md.ComputeNextTextRun()){}
                     box.height = md.GetMeasuredHeight();
@@ -1209,7 +1193,7 @@ namespace UI
                 {
                     Markdown md;
                     //Width should be computed by this point
-                    box.width = min(parent_box.width, box.width);
+                    box.width = Min(parent_box.width, box.width);
                     md.SetInput(box.text, box.width, INT_MAX);
                     while(md.ComputeNextTextRun()){}
                     box.height = md.GetMeasuredHeight();
@@ -1728,8 +1712,8 @@ namespace UI
                 }
                 int render_width =    box.GetRenderingWidth();
                 int render_height =   box.GetRenderingHeight();
-                int render_x =        x + cursor_x + parent_box.scroll_x + box.margin.left + parent_box.padding.left;
-                int render_y =        y + cursor_y + parent_box.scroll_y + box.margin.top + parent_box.padding.top;
+                int render_x =        x + cursor_x - parent_box.scroll_x + box.margin.left + parent_box.padding.left;
+                int render_y =        y + cursor_y - parent_box.scroll_y + box.margin.top + parent_box.padding.top;
                 int corner_radius =   box.corner_radius;
                 int border_size =     box.border_width;
                 Color border_c =        box.border_color;
@@ -1824,8 +1808,8 @@ namespace UI
                 }
                 int render_width =    box.GetRenderingWidth();
                 int render_height =   box.GetRenderingHeight();
-                int render_x =        x + cursor_x + parent_box.scroll_x + box.margin.left + parent_box.padding.left;
-                int render_y =        y + cursor_y + parent_box.scroll_y + box.margin.top + parent_box.padding.top;
+                int render_x =        x + cursor_x - parent_box.scroll_x + box.margin.left + parent_box.padding.left;
+                int render_y =        y + cursor_y - parent_box.scroll_y + box.margin.top + parent_box.padding.top;
                 int corner_radius =   box.corner_radius;
                 int border_size =     box.border_width;
                 Color border_c =        box.border_color;
