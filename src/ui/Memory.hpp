@@ -24,11 +24,14 @@ namespace UI
     template<typename T>
     class ArenaLL;
 
-    void StringCopy(char* dst, const char* src, uint32_t buffer_size)
+    template<typename T>
+    class Map;
+
+    void StringCopy(char* dst, const char* src, uint32_t size)
     {
-        if(!buffer_size || !src || !dst) return;
+        if(!size || !src || !dst) return;
         uint32_t i;
-        for(i = 0; i<buffer_size-1 && src[i] != '\0'; i++)
+        for(i = 0; i<size-1 && src[i] != '\0'; i++)
             dst[i] = src[i];
         dst[i] = '\0';
     }
@@ -44,8 +47,8 @@ namespace UI
             s2++;
         }
         return *s1 == *s2;
-        //return true; //Temporary fix for ui
     }
+
 
 }
 
@@ -128,6 +131,8 @@ namespace UI
         template<typename T>
         inline T* New();
 
+        inline void Rewind(void* ptr);
+
         inline void Reset();
         inline uint64_t Capacity() const;
     };
@@ -150,38 +155,6 @@ namespace UI
     };
 
 
-    /*
-    template<typename T>
-    class IndexArena
-    {
-        T* data = nullptr;
-        int capacity = 0;
-        int current_index = 0;
-    public:
-        IndexArena(int obj_count, MemoryArena* arena);
-        int NewIndex();
-        T* Data();
-        T& operator[](int index);
-    };
-
-    template<typename T>    
-    class ArrayLL
-    {
-    public:
-        struct Node
-        {
-            T value;
-            int next = -1;
-        };
-    private:
-        int head = -1;
-        int tail = -1;
-    public:
-        void Add(const T& value, IndexArena<Node>* index_arena);
-        int GetHead();
-    };
-    */
-
     template<typename T>
     class ArenaLL
     {
@@ -198,12 +171,55 @@ namespace UI
         //returns address or nullptr if arena is out of space
         T* Add(const T& value, MemoryArena* arena);
         bool IsEmpty() const;
+        //Just sets head/tail to nullptr
         void Clear();
         Node* GetHead();
     };
 
-}
 
+
+    template<typename T>
+    class Map
+    {
+    public:
+        struct Item
+        {
+            uint64_t key = 0;
+            int next = -1;
+            T value;
+        };
+        bool AllocateCapacity(uint32_t count, MemoryArena* arena);
+        bool Insert(uint64_t key, const T& value);
+        T* GetValue(uint64_t key);
+        void Reset();
+        bool ShouldResize() const;
+        uint32_t Capacity() const;
+        float GetLoadFactor() const;
+    private:
+        Item* data = nullptr;
+        uint32_t cap1 = 0;
+        uint32_t cap2 = 0;
+        uint32_t size1 = 0;
+        uint32_t size2 = 0;
+    };
+
+
+    template<typename T>
+    class DoubleBufferMap
+    {
+    
+        Map<T> front;
+        Map<T> back;
+    public:
+        uint32_t Capacity() const;
+        bool ShouldResize() const;
+        bool AllocateBufferCapacity(uint32_t capacity, MemoryArena* arena);
+        bool Insert(uint64_t key, const T& value);
+        T* BackValue(uint64_t key);
+        T* FrontValue(uint64_t key);
+        void SwapBuffer();
+    };
+}
 
 
 
@@ -364,12 +380,8 @@ namespace UI
     {
         return size == 0;
     }
-}
 
-//Memory Pool
-namespace UI
-{
-
+    //MemoryArena Implementation
     inline MemoryArena::MemoryArena(uint64_t bytes) 
         : capacity(bytes), current_offset(0), data(new char[bytes])
     {
@@ -390,7 +402,6 @@ namespace UI
     }
     inline void* MemoryArena::Allocate(uint64_t bytes)
     {
-        //(address + (ALIGNMENT - 1)) & ~(ALIGNMENT - 1)
         uint64_t aligned_bytes = (bytes + 7) & ~7;
         uint64_t new_offset = current_offset + aligned_bytes; 
         if(new_offset <= capacity)
@@ -420,6 +431,15 @@ namespace UI
         *temp = T();
         return temp;
     }
+    inline void MemoryArena::Rewind(void* ptr)
+    {
+        if(ptr == nullptr)
+            return;
+        assert(ptr >= data && ptr <= data + capacity);
+        assert((uintptr_t)ptr % 8 == 0);
+        uint64_t new_offset = ((char*)ptr - data);
+        current_offset = new_offset; 
+    }
     inline void MemoryArena::Reset()
     {
         current_offset = 0;
@@ -429,13 +449,9 @@ namespace UI
         return capacity;
     }
 
-}
 
 
-
-//ObjectPool
-namespace UI
-{
+    //ObjectPool Implementation
     template<typename T>
     inline ObjectPool<T>::ObjectPool(uint32_t obj_count, MemoryArena* arena): free_list(obj_count, arena)
     {
@@ -497,60 +513,8 @@ namespace UI
         return free_list.Capacity();
     }
     
-}
 
-/*
-namespace UI
-{
-    template<typename T>
-    inline IndexArena<T>::IndexArena(int obj_count, MemoryArena* arena)
-        :   data(nullptr), current_index(0), capacity(obj_count)
-    {
-        assert(arena);
-        data = arena->New<T>(obj_count);
-        assert(data);
-    }
-    template<typename T>
-    inline int IndexArena<T>::NewIndex()
-    {
-        if(current_index >= capacity)
-            return -1;
-        current_index++;
-        return current_index - 1;
-    }
-    template<typename T>
-    inline T* IndexArena<T>::Data()
-    {
-        return data;
-    }
-    template<typename T>
-    inline T& IndexArena<T>::operator[](int index)
-    {
-        assert(index >= 0 && index <= capacity);
-    }
-}
-
-namespace UI
-{
-    template<typename T>
-    inline void ArrayLL<T>::Add(const T& value, IndexArena<Node>* index_arena)
-    {
-        assert(index_arena);
-        int index = index_arena->NewIndex(); 
-        assert(index != -1);
-        index_arena.Data()[index] = value;
-    }
-    template<typename T>
-    inline int ArrayLL<T>::GetHead()
-    {
-        return head;
-    }
-}
-
-*/
-
-namespace UI
-{
+    //ArenaLL Implementation
     template<typename T>
     inline T* ArenaLL<T>::Add(const T& value, MemoryArena* arena)
     {
@@ -587,5 +551,134 @@ namespace UI
     inline bool ArenaLL<T>::IsEmpty() const
     {
         return head == nullptr;
+    }
+
+
+
+    //Map Implementation
+    template<typename T>
+    bool Map<T>::AllocateCapacity(uint32_t capacity, MemoryArena* arena)
+    {
+        assert(arena);
+        data = arena->New<Item>(capacity);
+        if(data == nullptr)
+        {
+            cap1 = 0;
+            cap2 = 0;
+            size1 = 0;
+            size2 = 0;
+            return false;
+        }
+        cap2 = capacity * 37 / 100;
+        cap1 = capacity - cap2;
+        return true;
+    }
+    template<typename T>
+    bool Map<T>::Insert(uint64_t key, const T& value)
+    {
+        if(!key || data == nullptr)
+            return false; //key should never be 0
+        
+        int index = key % cap1;
+        if(data[index].key == 0)
+        {
+            data[index] = Item{key, -1, value};
+            size1++;
+            return true;
+        }
+        int prev = index;
+        for(;index != -1; index = data[index].next)
+        {
+            if(data[index].key == key)
+            {
+                data[index].value = value;
+                return true;
+            }
+            prev = index;
+        }
+        if(size2 < cap2)
+        {
+            int index2 = size2 + cap1;
+            data[prev].next = index2;
+            data[index2] = Item{key, -1, value};
+            size2++;
+            return true;
+        }
+        return false;
+    }
+    template<typename T>
+    T* Map<T>::GetValue(uint64_t key)
+    {
+        if(data == nullptr)
+            return nullptr;
+        for(int index = key % cap1; index != -1; index = data[index].next)
+        {
+            if(data[index].key == key)
+                return &data[index].value;
+        }
+        return nullptr;
+    }
+    template<typename T>
+    void Map<T>::Reset()
+    {
+        for(uint32_t i = 0; i<cap1 + cap2; i++)
+            data[i] = Item();
+        size1 = 0;
+        size2 = 0;
+    }
+    template<typename T>
+    bool Map<T>::ShouldResize() const
+    {
+        return size2 >= cap2;
+    }
+    template<typename T>
+    uint32_t Map<T>::Capacity() const
+    {
+        return cap1 + cap2;
+    }
+    template<typename T>
+    float Map<T>::GetLoadFactor() const
+    {
+        return (float)size1/cap1;
+    }
+
+
+    template<typename T>
+    bool DoubleBufferMap<T>::AllocateBufferCapacity(uint32_t capacity, MemoryArena* arena)
+    {
+        return front.AllocateCapacity(capacity, arena) && back.AllocateCapacity(capacity, arena);
+    }
+    template<typename T>
+    bool DoubleBufferMap<T>::Insert(uint64_t key, const T& value)
+    {
+        return back.Insert(key, value);
+    }
+    template<typename T>
+    T* DoubleBufferMap<T>::FrontValue(uint64_t key)
+    {
+        return front.GetValue(key);
+    }
+    template<typename T>
+    T* DoubleBufferMap<T>::BackValue(uint64_t key)
+    {
+        return back.GetValue(key);
+    }
+    template<typename T>
+    void DoubleBufferMap<T>::SwapBuffer()
+    {
+        Map<T> temp = back;
+        back = front;
+        front = temp;
+        back.Reset();
+    }
+    template<typename T>
+    bool DoubleBufferMap<T>::ShouldResize() const
+    {
+        return front.ShouldResize() || back.ShouldResize();
+    }
+    template<typename T>
+    uint32_t DoubleBufferMap<T>::Capacity() const
+    {
+        return front.Capacity();
     }
 }

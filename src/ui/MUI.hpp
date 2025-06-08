@@ -64,7 +64,7 @@ namespace UI
         unsigned char top = 0;
         unsigned char bottom = 0;
     };
-    struct StyleSheet
+    struct BoxStyle
     {
         //container
         Positioning positioning = Positioning::RELATIVE;
@@ -112,18 +112,24 @@ namespace UI
 //Main UI Functions
 namespace UI
 {
-    struct MouseInfo
+    struct BoxInfo
     {
-        int pos_x = 0;
-        int pos_y = 0;
-        int mouse_rel_x = 0;
-        int mouse_rel_y = 0;
-        bool on_mouse_hover = 0;
+        int draw_x =             0;
+        int draw_y =             0;
+        int draw_width =         0;
+        int draw_height =        0;
+        int content_width =     0;
+        int content_height =    0;
+        bool valid =            false;
+        bool is_hover =         false;
+        bool is_direct_hover =  false;
+        int MinScrollX() const { return draw_width - content_width;}
+        int MinScrollY() const { return draw_height - content_height;}
     };
-    MouseInfo GetMouseInfo(const char* label);
+    BoxInfo GetBoxInfo(const char* label);
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
-    void BeginBox(const UI::StyleSheet* div_style_sheet, const char* label = nullptr, UI::MouseInfo* get_info = nullptr);
+    void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr);
     void InsertText(const char* text, bool copy_text = true);
     void EndBox();
     void Draw();

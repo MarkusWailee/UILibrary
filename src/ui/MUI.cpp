@@ -6,7 +6,7 @@ namespace UI
 {
     struct Box
     {
-        const char* label = nullptr;
+        uint64_t label_hash =       0; 
         const char* text = nullptr;
         Color background_color = UI::Color{0, 0, 0, 0}; //used for debugging
         Color border_color = UI::Color{0, 0, 0, 0};
@@ -107,9 +107,9 @@ namespace UI
         inline static int node_number = 0;
     };
     void DisplayError(const Error& error);
-    Error CheckUnitErrors(const StyleSheet& style);
+    Error CheckUnitErrors(const BoxStyle& style);
     Error CheckLeafNodeContradictions(const Box& leaf);
-    Error CheckRootNodeConflicts(const StyleSheet& root);
+    Error CheckRootNodeConflicts(const BoxStyle& root);
     Error CheckNodeContradictions(const Box& child, const Box& parent);
     bool HasInternalError();
     //Returns false and does nothing if no error
@@ -139,7 +139,12 @@ namespace UI
     T clamp(T minimum, T maximum, T value);
 
     //Used during tree descending
-    Box ComputeStyleSheet(const StyleSheet& style, const Box& root);
+    Box ComputeStyleSheet(const BoxStyle& style, const Box& root);
+
+
+    //UserInput
+    //Returns 0 if str is nullptr. Otherwise it will never return 0
+    uint64_t Hash(const char* str);
 
 
 
@@ -217,13 +222,7 @@ namespace UI
 
 
     //User input 
-    struct UserInput
-    {
-        char label[128] = "";
-        MouseInfo mouse_info;
-    };
     //Tests if mouse position is within rect
-    void HandleUserInput(const char* label, const Rect& rect);
 
 
     //Calculates all PARENT_PERCENT, AVAILABLE_PERCENT, and min/max units
@@ -240,19 +239,19 @@ namespace UI
 
 
     //Not in use anymore
-    void SizePass(TreeNode<Box>* node);
 }
 
 
 //GLOBALS
 namespace UI
 {
+    uint64_t internal_key = 0;
     Error internal_error;
-    StyleSheet default_style_sheet;
-    UserInput user;
+    BoxStyle default_style_sheet;
     int mouse_x = 0, mouse_y = 0;
     float dpi = 96.0f;
     MemoryArena arena(32768);
+    DoubleBufferMap<BoxInfo> double_buffer_map;
     TreeNode<Box>* root_node = nullptr;
     FixedStack<TreeNode<Box>*, 100> stack; //elements should never nest over 100 layers deep
 }
@@ -268,10 +267,20 @@ namespace UI
         UI::mouse_y = mouse_y;
         if(HasInternalError())
             return;
-        arena.Reset(); 
+
+        double_buffer_map.SwapBuffer();
+        arena.Rewind(root_node);
         stack.Clear();
         root_node = nullptr;
         Error::node_number = 1;
+        if(double_buffer_map.ShouldResize())
+        {
+            arena.Reset();
+            //Double the capacity for hash map
+            uint32_t capacity = double_buffer_map.Capacity() * 2;
+            capacity = capacity? capacity: 32;
+            double_buffer_map.AllocateBufferCapacity(capacity, &arena);
+        }
 
         assert(stack.IsEmpty());
         Box root_box;
@@ -314,12 +323,11 @@ namespace UI
             return;
         }
     }
-    void BeginBox(const UI::StyleSheet* style_sheet, const char* label, UI::MouseInfo* get_info)
+    void BeginBox(const UI::BoxStyle& style, const char* label)
     {
         if(HasInternalError())
             return;
         Error::node_number++;
-        StyleSheet style = style_sheet? *style_sheet: default_style_sheet;
 
         //Check for unit type errors
         //Could be moved into creating style sheets for more performance, but this is good enough for now
@@ -327,12 +335,10 @@ namespace UI
             return;
 
         //Input Handling
+        uint64_t label_hash = Hash(label);
         if(label)
         {
-            if(get_info)
-            {
-                *get_info = GetMouseInfo(label);
-            }
+            assert(double_buffer_map.Insert(label_hash, BoxInfo()));
         }
 
         if(!stack.IsEmpty())  // should add to parent
@@ -343,7 +349,7 @@ namespace UI
 
             TreeNode<Box> child_node;
             child_node.val = ComputeStyleSheet(style, root_node->val);
-            child_node.val.label = label;
+            child_node.val.label_hash = label_hash;
             TreeNode<Box>* child_ptr = parent_node->children.Add(child_node, &arena); 
             assert(child_ptr && "Arena out of memory");
             stack.Push(child_ptr);
@@ -572,32 +578,6 @@ namespace UI
 //Common helpers and error checking
 namespace UI
 {
-    MouseInfo GetMouseInfo(const char* label)
-    {
-        if(label && StringCompare(label, user.label))
-        {
-            return user.mouse_info;
-        }
-        else
-        {
-            return MouseInfo();
-        }
-    }
-    void HandleUserInput(const char* label, const Rect& rect)
-    {
-        if(!label)
-            return;
-
-        if(Rect::Contains(rect, mouse_x, mouse_y))
-        {
-            StringCopy(user.label, label, 128);
-            user.mouse_info = MouseInfo{rect.x, rect.y, rect.width, rect.height, true};
-        }
-        else if(StringCompare(user.label, label))
-        {
-            user = UserInput();
-        }
-    }
     void DisplayError(const Error& error)
     {
         /*
@@ -648,7 +628,7 @@ namespace UI
     #define UNIT_CONFLICT(value, unit_type, error_type)\
         if(value == unit_type) return Error{error_type, #value " = " #unit_type}
 
-    Error CheckUnitErrors(const StyleSheet& style)
+    Error CheckUnitErrors(const BoxStyle& style)
     {
         //The following units cannot equal the specified Unit Types 
 
@@ -692,7 +672,7 @@ namespace UI
         return Error();
     }
 
-    Error CheckRootNodeConflicts(const StyleSheet& root)
+    Error CheckRootNodeConflicts(const BoxStyle& root)
     {
         //Root node style sheet cannot equal any of these Unit types
         //The following errors are contradictions
@@ -842,7 +822,7 @@ namespace UI
                 return unit.value; //Only meant for width/height
         }
     }
-    Box ComputeStyleSheet(const StyleSheet& style, const Box& root)
+    Box ComputeStyleSheet(const BoxStyle& style, const Box& root)
     {
         int root_width = root.width - style.margin.left - style.margin.right - style.padding.left - style.padding.right;
         int root_height = root.height - style.margin.top - style.margin.bottom - style.padding.top - style.padding.bottom;
@@ -903,6 +883,34 @@ namespace UI
         box.SetFlowAxis(style.flow.axis);
         box.SetScissor(style.scissor);
         return box;
+    }
+
+
+    BoxInfo GetBoxInfo(const char* label)
+    {
+        uint64_t key = Hash(label);
+        BoxInfo* info = double_buffer_map.FrontValue(key);
+        if(info)
+        {
+            info->valid = true;
+            if(internal_key == key)
+                info->is_direct_hover = true;
+            return *info;
+        }
+        return BoxInfo();
+    }
+    inline uint64_t Hash(const char* str)
+    {
+        if(str == nullptr)
+            return 0;
+        uint64_t hash = 14695981039346656037ULL;
+        while (*str) 
+        {
+            hash ^= static_cast<uint64_t>(*str++);
+            hash *= 1099511628211ULL;
+        }
+        //avoiding returning 0
+        return !hash? 1: hash;
     }
 
 }
@@ -1614,6 +1622,31 @@ namespace UI
         if(node == nullptr || node->children.IsEmpty())
             return;
         const Box& box = node->val;
+
+        //Handling Next Frame info
+        if(box.label_hash != 0)
+        {
+            BoxInfo* info = double_buffer_map.BackValue(box.label_hash);
+            if(info)
+            {
+                info->draw_width = box.GetRenderingWidth();
+                info->draw_height = box.GetRenderingHeight();
+                info->draw_x = x;
+                info->draw_y = y;
+                //Handling mouse hover next frame
+                if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{x, y, info->draw_width, info->draw_height}), mouse_x, mouse_y))
+                {
+                    internal_key = box.label_hash;
+                    info->is_hover = true;
+                }
+                else if(internal_key == box.label_hash)
+                {
+                    internal_key = 0;
+                }
+            }
+        }
+
+        //Next Recurse
         if(box.GetLayout() == Layout::FLOW)
         {
             DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y, parent_aabb);
@@ -1648,6 +1681,7 @@ namespace UI
             int cursor_x = 0;
             int offset_x = 0;
             int available_width = parent_box.width - content_width;
+            //handling alignment 
             switch(parent_box.flow_horizontal_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
             {
                 case Flow::Alignment::START:
@@ -1668,20 +1702,28 @@ namespace UI
                         offset_x = available_width/(count - 1);
                     break;
             }
+            int content_height = 0;
             for(temp = child; temp!=nullptr; temp = temp->next)
             {
                 const Box& box = temp->value.val;
                 int cursor_y = 0;
+
+                //Computing content_height
+                int box_model_height = box.GetBoxModelHeight();
+                if(content_height < box_model_height)
+                    content_height = box_model_height;
+
+                //Handling alignment
                 switch(parent_box.flow_vertical_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
                 {
                     case Flow::Alignment::START:
                         cursor_y = 0;
                         break;
                     case Flow::Alignment::END:
-                        cursor_y = parent_box.height - box.GetBoxModelHeight();
+                        cursor_y = parent_box.height - box_model_height;
                         break;
                     default:
-                        cursor_y = parent_box.height/2 - box.GetBoxModelHeight()/2;
+                        cursor_y = parent_box.height/2 - box_model_height/2;
                         break;
                 }
                 int render_width =    box.GetRenderingWidth();
@@ -1707,9 +1749,17 @@ namespace UI
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
                 if(box.text)
                     DrawTextNode(box.text, box.width, box.height, render_x, render_y);
-                HandleUserInput(box.label, Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}));
                 DrawPass(&temp->value, render_x, render_y, parent_aabb);
                 cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
+            }
+            if(parent_box.label_hash != 0) //next frame info
+            {
+                BoxInfo* info = double_buffer_map.BackValue(parent_box.label_hash);
+                if(info)
+                {
+                    info->content_width = content_width;
+                    info->content_height = content_height;
+                }
             }
         }
         else //Vertical
@@ -1747,20 +1797,29 @@ namespace UI
                         offset_y = available_height/(count - 1);
                     break;
             }
+            int content_width = 0;
             for(temp = child; temp!=nullptr; temp = temp->next)
             {
                 const Box& box = temp->value.val;
                 int cursor_x = 0;
+
+
+                //Computing content_height
+                int box_model_width = box.GetBoxModelWidth();
+                if(content_width < box_model_width)
+                    content_width = box_model_width;
+                
+                //Handling alignment
                 switch(parent_box.flow_horizontal_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
                 {
                     case Flow::Alignment::START:
                         cursor_x = 0;
                         break;
                     case Flow::Alignment::END:
-                        cursor_x = parent_box.width - box.GetBoxModelWidth();
+                        cursor_x = parent_box.width - box_model_width;
                         break;
                     default:
-                        cursor_x = parent_box.width/2 - box.GetBoxModelWidth()/2;
+                        cursor_x = parent_box.width/2 - box_model_width/2;
                         break;
                 }
                 int render_width =    box.GetRenderingWidth();
@@ -1786,9 +1845,17 @@ namespace UI
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
                 if(box.text)
                     DrawTextNode(box.text, box.width, box.height, render_x, render_y);
-                HandleUserInput(box.label, Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}));
                 DrawPass(&temp->value, render_x, render_y, parent_aabb);
                 cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;
+            }
+            if(parent_box.label_hash != 0) //next frame info
+            {
+                BoxInfo* info = double_buffer_map.BackValue(parent_box.label_hash);
+                if(info)
+                {
+                    info->content_width = content_width;
+                    info->content_height = content_height;
+                }
             }
         }
         if(parent_box.IsScissor())
