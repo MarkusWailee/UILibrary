@@ -212,26 +212,45 @@ namespace UI
     //Draws text based on custom markup
     void DrawTextNode(const char* text, int max_width, int max_height, int x, int y);
 
+    /* ###### Layout Algorithm Pipeline ######
+    At a high level the algorithm can be broken down into seperate passes.
+    I will talk about some rules that might tell us how this pipeline should be structured.
 
 
-    //User input 
-    //Tests if mouse position is within rect
+    Focusing on computing sizing first
+    - Fixed values like CM, MM, INCH, PIXEL, ROOT_PERCENT(root is always a fixed unit) can all be computed right away. 
+    
+    The tricky part will be special units like 
+        PARENT_PERCENT      parent%
+        CONTENT_PERCENT     content%
+        AVAILABLE_PERCENT   available%
+        WIDTH_PERCENT       width%
+    
+    Here are some rules before designing the algorithm
+    - parent% relies on the parents size to be known
+    - available% relies on the neighboring sizes to be known
+    - content% relies on the children sizes to be known
+    - width% relies on its own width size to be known
 
-
-    //Calculates all PARENT_PERCENT, AVAILABLE_PERCENT, and min/max units
+    Here are some contradictions to think about
+    - content% cannot have a parent% child
+    - content% cannot have a available% child
+    - content% cannot have zero children
+     
+     
+    */
     //Width
     void WidthPass(TreeNode<Box>* node);
     void WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box); //Recurse Helper
+    
     //Height
     void HeightContentPercentPass(TreeNode<Box>* node);
+
     void HeightPass(TreeNode<Box>* node);
     void HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box); //Recurse Helper
 
     //Computes and draw where elements should be. Also computes UserInput
     void DrawPass(TreeNode<Box>* node, int x, int y, const Box& parent_box, Rect parent_aabb);
-
-
-    //Not in use anymore
 }
 
 
@@ -503,17 +522,15 @@ namespace UI
             return;
         }
         const Box& root_box = root_node->val;
-        //SizePass(root_node);
+
+
+        //Layout pipeline
+        //WidthContentPercentPass happens during EndBox()
 
         WidthPass(root_node);
-
         HeightContentPercentPass(root_node);
-
         HeightPass(root_node);
-
         DrawPass(root_node, 0, 0, Box(), Rect{0, 0, root_box.width, root_box.height});
-
-
     }
 }
 
@@ -728,6 +745,24 @@ namespace UI
         if(child.height_unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
             return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
 
+        if(child.min_width_unit == Unit::Type::PARENT_PERCENT && p_width)
+            return Error{Error::Type::NODE_CONTRADICTION, "min_width.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.min_height_unit == Unit::Type::PARENT_PERCENT && p_height)
+            return Error{Error::Type::NODE_CONTRADICTION, "min_height.unit = Unit::Type::PARENT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+
+        if(child.max_width_unit == Unit::Type::PARENT_PERCENT && p_width)
+            return Error{Error::Type::NODE_CONTRADICTION, "max_width.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.max_height_unit == Unit::Type::PARENT_PERCENT && p_height)
+            return Error{Error::Type::NODE_CONTRADICTION, "max_height.unit = Unit::Type::PARENT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+
+        if(child.min_width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
+            return Error{Error::Type::NODE_CONTRADICTION, "min_width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.min_height_unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
+            return Error{Error::Type::NODE_CONTRADICTION, "min_height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.max_width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
+            return Error{Error::Type::NODE_CONTRADICTION, "max_width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+        if(child.max_height_unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
+            return Error{Error::Type::NODE_CONTRADICTION, "max_height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
         //no error
         return Error();
     }
@@ -941,6 +976,15 @@ namespace UI
         box.y =                                 (int16_t)ParentPercentToPx(box.y,                box.y_unit,                 parent_height); 
         box.grid_cell_height =          (uint16_t)Max(0, ParentPercentToPx(box.grid_cell_height, box.grid_cell_height_unit,  parent_height)); 
     }
+    void ComputeWidthPercentForHeight(Box& box)
+    {
+        if(box.height_unit == Unit::Type::WIDTH_PERCENT)
+            box.height = box.width * box.height / 100;
+        if(box.min_height_unit == Unit::Type::WIDTH_PERCENT)
+            box.min_height = box.width * box.min_height / 100;
+        if(box.max_height_unit == Unit::Type::WIDTH_PERCENT)
+            box.max_height = box.width * box.max_height / 100;
+    }
     
 
 
@@ -957,7 +1001,11 @@ namespace UI
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
-        const Box& box = node->val;
+        Box& box = node->val;
+
+        //Might aswell compute this here since width is all calculated
+        ComputeWidthPercentForHeight(box);
+
         if(box.GetLayout() == Layout::FLOW)
         {
             WidthPass_Flow(node->children.GetHead(), box);

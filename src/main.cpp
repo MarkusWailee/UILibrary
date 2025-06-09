@@ -78,7 +78,7 @@ int playlist_panel_scroll = 0;
 void SpotifyExample()
 {
     UI::BoxStyle h_fill;
-    h_fill.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+    h_fill.width = UI::Unit{60, UI::Unit::AVAILABLE_PERCENT};
 
     UI::BeginRoot(GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
     UI::BoxStyle base_v_panel;
@@ -105,6 +105,7 @@ void SpotifyExample()
                 std::cout<<"Search button\n";
             UI::BeginBox(h_fill);
             UI::EndBox();
+            RoundedButton("[S:18]Options", UI::Color{20, 20, 20, 255}, "Options Button", {9,9,5,5});
             RoundedButton("[S:18]Profile", UI::Color{20, 20, 20, 255}, "Profile Button", {9,9,5,5});
         UI::EndBox();
 
@@ -119,7 +120,9 @@ void SpotifyExample()
             playlist_panel.background_color = UI::Color{18, 18, 18, 255};
             playlist_panel.corner_radius = 10; //pixels
             playlist_panel.height = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
-            playlist_panel.width = UI::Unit{270, UI::Unit::PIXEL};
+            playlist_panel.max_width = UI::Unit{270, UI::Unit::PIXEL};
+            playlist_panel.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+            playlist_panel.min_width = UI::Unit{200, UI::Unit::PIXEL};
 
             UI::BeginBox(playlist_panel);
 
@@ -167,7 +170,7 @@ void SpotifyExample()
                     unsigned char red = 4;
                     unsigned char green = 24;
                     unsigned char blue = 3;
-                    for(int i = 0; i<10; i++)
+                    for(int i = 0; i<16; i++)
                     {
                         red ^= 27;
                         green ^= 7;
@@ -187,7 +190,7 @@ void SpotifyExample()
             song_panel.corner_radius = 10;
             song_panel.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
             song_panel.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
-            song_panel.min_width = UI::Unit{350, UI::Unit::PIXEL};
+            song_panel.min_width = UI::Unit{300, UI::Unit::PIXEL};
             song_panel.scissor = true;
             UI::BoxInfo liked_song_info = UI::GetBoxInfo("Liked Songs Panel");
             if(liked_song_info.valid)
@@ -205,13 +208,14 @@ void SpotifyExample()
                 liked_songs_panel.padding = {20, 20, 20, 20};
                 liked_songs_panel.flow.vertical_alignment = UI::Flow::Alignment::END;
                 liked_songs_panel.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
-                liked_songs_panel.height = UI::Unit{250, UI::Unit::PIXEL};
+                liked_songs_panel.height = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
                 liked_songs_panel.background_color = UI::Color{29, 30, 50, 255};
                 liked_songs_panel.gap_column = UI::Unit{6, UI::Unit::PIXEL};
                 UI::BeginBox(liked_songs_panel);
                     UI::BoxStyle liked_songs_cover;
-                    liked_songs_cover.width = UI::Unit{200, UI::Unit::PIXEL};
-                    liked_songs_cover.height = UI::Unit{200, UI::Unit::PIXEL};
+                    liked_songs_cover.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+                    liked_songs_cover.max_width = UI::Unit{230, UI::Unit::PIXEL};
+                    liked_songs_cover.height = UI::Unit{100, UI::Unit::WIDTH_PERCENT};
                     liked_songs_cover.background_color = UI::Color{18, 18, 255, 255};
                     liked_songs_cover.corner_radius = 10;
                     liked_songs_cover.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
@@ -219,12 +223,12 @@ void SpotifyExample()
                     UI::BeginBox(liked_songs_cover);
                         UI::InsertText("L");
                     UI::EndBox();
-                    UI::InsertText("[S:19]Playlist\n[S:32]Liked Songs\n[S:17]- Markus's ui example [C:555555]100 songs");
+                    UI::InsertText("[S:19]Playlist\n[S:48]Liked Songs\n[S:17]- Markus's ui example [C:555555]100 songs");
                 UI::EndBox();
                 red = 243;
                 green = 33;
                 blue = 22;
-                for(int i = 0; i<10; i++)
+                for(int i = 0; i<16; i++)
                 {
                     red ^= 27;
                     green ^= 7;
@@ -243,7 +247,8 @@ void SpotifyExample()
             discography_panel.corner_radius = 10;
             discography_panel.flow.axis = UI::Flow::Axis::VERTICAL;
             discography_panel.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
-            discography_panel.width = UI::Unit{270, UI::Unit::PIXEL};
+            discography_panel.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+            discography_panel.max_width = UI::Unit{270, UI::Unit::PIXEL};
             discography_panel.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
             discography_panel.gap_row = UI::Unit{20, UI::Unit::PIXEL};
             UI::BeginBox(discography_panel);

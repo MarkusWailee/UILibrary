@@ -32,9 +32,9 @@ namespace UI
             PARENT_PERCENT,
             ROOT_PERCENT,
             CONTENT_PERCENT,   
+            AVAILABLE_PERCENT,
 
-            //Limited to width/height. No min/max
-            AVAILABLE_PERCENT  
+            WIDTH_PERCENT //only be applied to height
         };
 
         float value = 0;
