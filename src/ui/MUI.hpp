@@ -28,14 +28,12 @@ namespace UI
             CM,
             INCH,
 
-            //Try to only use these for width/height or min/max sizing properties
+            //Limited to width/height with min/max
             PARENT_PERCENT,
             ROOT_PERCENT,
-
-            //This option is limited to width/height/min_width/max_width/min_height/max_height
             CONTENT_PERCENT,   
 
-            //This option is limited to width/height
+            //Limited to width/height. No min/max
             AVAILABLE_PERCENT  
         };
 
@@ -47,8 +45,16 @@ namespace UI
         unsigned char r = 0, g = 0, b = 0, a = 0;
     };
 
-    enum class Layout: unsigned char {FLOW, GRID};
-    enum class Positioning: unsigned char {RELATIVE, ABSOLUTE};
+    enum class Layout: unsigned char 
+    {
+        FLOW,
+        GRID
+    };
+    enum class Positioning: unsigned char 
+    {
+        RELATIVE,
+        ABSOLUTE
+    };
     struct Flow
     {
         enum class Axis : unsigned char {HORIZONTAL, VERTICAL};

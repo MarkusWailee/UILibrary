@@ -49,17 +49,6 @@ namespace UI
         return *s1 == *s2;
     }
 
-    uint64_t Hash(const char* str) 
-    {
-        uint64_t hash = 14695981039346656037ULL;
-        while (*str) {
-            hash ^= static_cast<uint64_t>(*str++);
-            hash *= 1099511628211ULL;
-        }
-        //avoiding returning 0
-        return !hash? 1: hash;
-    }
-
 }
 
 //Stack allocated data structures
@@ -558,6 +547,7 @@ namespace UI
         if(head == nullptr)
             return false;
         head = head->next;
+        return true;
     }
     template<typename T>
     inline void ArenaLL<T>::Clear()

@@ -11,11 +11,12 @@ namespace UI
     GlyphInfo font_info[128]{};
     void Init_impl()
     {
-        font = LoadFontEx("assets/fonts/OpenSans-Regular.ttf", 32, 0, 0);
+        font = LoadFontEx("assets/fonts/Roboto-Regular.ttf", 32, 0, 0);
         if(IsFontValid(font))
         {
             for(int i = 32; i<=126; i++) //Printable asci characters
             font_info[i] = GetGlyphInfo(font, i);
+            SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
         }
     }
 }

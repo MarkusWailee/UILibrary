@@ -228,7 +228,7 @@ namespace UI
     void HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box); //Recurse Helper
 
     //Computes and draw where elements should be. Also computes UserInput
-    void DrawPass(TreeNode<Box>* node, int x, int y, Rect parent_aabb);
+    void DrawPass(TreeNode<Box>* node, int x, int y, const Box& parent_box, Rect parent_aabb);
 
 
     //Not in use anymore
@@ -271,7 +271,7 @@ namespace UI
             arena.Reset();
             //Double the capacity for hash map
             uint32_t capacity = double_buffer_map.Capacity() * 2;
-            capacity = capacity? capacity: 32;
+            capacity = capacity? capacity: 64;
             double_buffer_map.AllocateBufferCapacity(capacity, &arena);
         }
 
@@ -511,7 +511,7 @@ namespace UI
 
         HeightPass(root_node);
 
-        DrawPass(root_node, 0, 0, Rect{0, 0, root_box.width, root_box.height});
+        DrawPass(root_node, 0, 0, Box(), Rect{0, 0, root_box.width, root_box.height});
 
 
     }
@@ -1601,11 +1601,37 @@ namespace UI
     //This is a temporary function to test things
     void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
 
-    void DrawPass(TreeNode<Box>* node, int x, int y, Rect parent_aabb)
+    void DrawPass(TreeNode<Box>* node, int x, int y, const Box& parent_box, Rect parent_aabb)
     {
-        if(node == nullptr || node->children.IsEmpty())
+        if(node == nullptr)
             return;
         const Box& box = node->val;
+
+        //Render
+        int render_x = x;
+        int render_y = y;
+        int render_width =    box.GetRenderingWidth();
+        int render_height =   box.GetRenderingHeight();
+        int corner_radius =   box.corner_radius;
+        int border_size =     box.border_width;
+        Color border_c =        box.border_color;
+        Color bg_c =            box.background_color;
+        if(parent_box.IsScissor())
+        {
+            if(!Rect::Overlap(parent_aabb, Rect{render_x, render_y, render_width, render_height}))
+            {
+                return;
+            }
+            else
+            {
+                BeginScissorMode_impl(parent_aabb.x, parent_aabb.y, parent_aabb.width, parent_aabb.height);
+            }
+        }
+        DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
+        if(box.text)
+        {
+            DrawTextNode(box.text, box.width, box.height, render_x, render_y);
+        }
 
         //Handling Next Frame info
         if(box.label_hash != 0)
@@ -1630,6 +1656,8 @@ namespace UI
             }
         }
 
+        if(node->children.IsEmpty())
+            return;
         //Next Recurse
         if(box.GetLayout() == Layout::FLOW)
         {
@@ -1639,6 +1667,9 @@ namespace UI
         {
             assert("Grid has not been added yet");
         }
+
+        if(parent_box.IsScissor())
+            EndScissorMode_impl();
     }
 
     void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb)
@@ -1710,30 +1741,9 @@ namespace UI
                         cursor_y = parent_box.height/2 - box_model_height/2;
                         break;
                 }
-                int render_width =    box.GetRenderingWidth();
-                int render_height =   box.GetRenderingHeight();
-                int render_x =        x + cursor_x - parent_box.scroll_x + box.margin.left + parent_box.padding.left;
-                int render_y =        y + cursor_y - parent_box.scroll_y + box.margin.top + parent_box.padding.top;
-                int corner_radius =   box.corner_radius;
-                int border_size =     box.border_width;
-                Color border_c =        box.border_color;
-                Color bg_c =            box.background_color;
-                if(parent_box.IsScissor())
-                {
-                    if(!Rect::Overlap(parent_aabb, Rect{render_x, render_y, render_width, render_height}))
-                    {
-                        cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
-                        continue;
-                    }
-                    else
-                    {
-                        BeginScissorMode_impl(parent_aabb.x, parent_aabb.y, parent_aabb.width, parent_aabb.height);
-                    }
-                }
-                DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
-                if(box.text)
-                    DrawTextNode(box.text, box.width, box.height, render_x, render_y);
-                DrawPass(&temp->value, render_x, render_y, parent_aabb);
+                int layout_x =        x + cursor_x - parent_box.scroll_x + box.margin.left + parent_box.padding.left;
+                int layout_y =        y + cursor_y - parent_box.scroll_y + box.margin.top + parent_box.padding.top;
+                DrawPass(&temp->value, layout_x, layout_y, parent_box, parent_aabb);
                 cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
             }
             if(parent_box.label_hash != 0) //next frame info
@@ -1806,30 +1816,9 @@ namespace UI
                         cursor_x = parent_box.width/2 - box_model_width/2;
                         break;
                 }
-                int render_width =    box.GetRenderingWidth();
-                int render_height =   box.GetRenderingHeight();
-                int render_x =        x + cursor_x - parent_box.scroll_x + box.margin.left + parent_box.padding.left;
-                int render_y =        y + cursor_y - parent_box.scroll_y + box.margin.top + parent_box.padding.top;
-                int corner_radius =   box.corner_radius;
-                int border_size =     box.border_width;
-                Color border_c =        box.border_color;
-                Color bg_c =            box.background_color;
-                if(parent_box.IsScissor())
-                {
-                    if(!Rect::Overlap(parent_aabb, Rect{render_x, render_y, render_width, render_height}))
-                    {
-                        cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;
-                        continue;
-                    }
-                    else
-                    {
-                        BeginScissorMode_impl(parent_aabb.x, parent_aabb.y, parent_aabb.width, parent_aabb.height);
-                    }
-                }
-                DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
-                if(box.text)
-                    DrawTextNode(box.text, box.width, box.height, render_x, render_y);
-                DrawPass(&temp->value, render_x, render_y, parent_aabb);
+                int layout_x =        x + cursor_x - parent_box.scroll_x + box.margin.left + parent_box.padding.left;
+                int layout_y =        y + cursor_y - parent_box.scroll_y + box.margin.top + parent_box.padding.top;
+                DrawPass(&temp->value, layout_x, layout_y, parent_box, parent_aabb);
                 cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;
             }
             if(parent_box.label_hash != 0) //next frame info
@@ -1842,8 +1831,6 @@ namespace UI
                 }
             }
         }
-        if(parent_box.IsScissor())
-            EndScissorMode_impl();
     }
 
 
