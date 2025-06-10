@@ -13,7 +13,7 @@ bool PlaylistButtonWidget(const char* playlist_title, const char* author, UI::Co
     UI::BoxInfo info = UI::GetBoxInfo(button_id);
     if(info.valid)
     {
-        if(info.is_hover)
+        if(info.is_direct_hover)
         {
             button_style.background_color = UI::Color{90, 90, 90, 100};
             if(IsMouseButtonDown(0))
@@ -51,7 +51,7 @@ bool RoundedButton(const char* text, UI::Color bg, const char* id, UI::Spacing p
     bool result = false;
     if(info.valid)
     {
-        if(info.is_hover)
+        if(info.is_direct_hover)
         {
             int amount = 10;
             if(IsMouseButtonDown(0))
@@ -107,6 +107,27 @@ void SpotifyExample()
             UI::EndBox();
             RoundedButton("[S:18]Options", UI::Color{20, 20, 20, 255}, "Options Button", {9,9,5,5});
             RoundedButton("[S:18]Profile", UI::Color{20, 20, 20, 255}, "Profile Button", {9,9,5,5});
+            UI::BoxInfo option_info = UI::GetBoxInfo("Options Button");
+            if(option_info.is_hover || UI::GetBoxInfo("Pop up").is_hover)
+            {
+                UI::BoxStyle pop_up;
+                pop_up.flow.axis = UI::Flow::Axis::VERTICAL;
+                pop_up.corner_radius = 5;
+                pop_up.x = UI::Unit{(float)option_info.draw_x, UI::Unit::PIXEL};
+                pop_up.y = UI::Unit{(float)option_info.draw_y + option_info.draw_height, UI::Unit::PIXEL};
+                pop_up.width = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
+                pop_up.height = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
+                pop_up.background_color = UI::Color{18, 18, 18, 255};
+                pop_up.detach = true;
+                UI::BeginBox(pop_up, "Pop up");
+                    for(int i = 0; i<10; i++)
+                    {
+                        if(RoundedButton(TextFormat("[S:16]Option%d", i), UI::Color{18, 18, 18, 255}, TextFormat("Option%d", i)))
+                            std::cout<<"Options "<<i + 1<<" Pressed\n";
+                    }
+                UI::EndBox();
+            }
+
         UI::EndBox();
 
         UI::BoxStyle horizontal_box; //Holds playlist, Song list, Artist discography
@@ -190,7 +211,7 @@ void SpotifyExample()
             song_panel.corner_radius = 10;
             song_panel.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
             song_panel.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
-            song_panel.min_width = UI::Unit{300, UI::Unit::PIXEL};
+            //song_panel.min_width = UI::Unit{400, UI::Unit::PIXEL};
             song_panel.scissor = true;
             UI::BoxInfo liked_song_info = UI::GetBoxInfo("Liked Songs Panel");
             if(liked_song_info.valid)
@@ -320,7 +341,7 @@ int main(void)
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
-    SetTargetFPS(60);
+    //SetTargetFPS(60);
 
     UI::Init_impl();
 

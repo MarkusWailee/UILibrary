@@ -59,14 +59,17 @@ namespace UI
         Positioning positioning = Positioning::RELATIVE;
         Flow::Axis flow_axis = Flow::Axis::HORIZONTAL;
         bool scissor = false;
+        bool detach = false;
     public:
         void SetPositioning(Positioning p);
         void SetFlowAxis(Flow::Axis axis);
         void SetScissor(bool flag);
+        void SetDetached(bool flag);
         Layout GetLayout() const;
         Flow::Axis GetFlowAxis() const;
         Positioning GetPositioning() const;
         bool IsScissor() const;
+        bool IsDetached() const;
         int GetBoxExpansionWidth() const;
         int GetBoxExpansionHeight() const;
         int GetBoxModelWidth() const;
@@ -232,13 +235,14 @@ namespace UI
     - content% relies on the children sizes to be known
     - width% relies on its own width size to be known
 
-    Here are some contradictions to think about
+    Here are some potential contradictions to think about.
+        While it may be possible to implement, I decided to not allow these combinations 
+        to avoid confusion, and for implementation limitations
     - content% cannot have a parent% child
     - content% cannot have a available% child
     - content% cannot have zero children
-     
-     
     */
+
     //Width
     void WidthPass(TreeNode<Box>* node);
     void WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box); //Recurse Helper
@@ -264,6 +268,7 @@ namespace UI
     float dpi = 96.0f;
     MemoryArena arena(32768);
     DoubleBufferMap<BoxInfo> double_buffer_map;
+    ArenaLL<TreeNode<Box>*> deferred_element;
     TreeNode<Box>* root_node = nullptr;
     FixedStack<TreeNode<Box>*, 100> stack; //elements should never nest over 100 layers deep
 }
@@ -406,7 +411,7 @@ namespace UI
                         {
                             Box& box = child->value.val;
 
-                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT && !box.IsDetached())
                             {
                                 box.width = Clamp(box.width, box.min_width, box.max_width);
                                 content_width += box.GetBoxModelWidth() + parent_box.gap_column;
@@ -420,7 +425,7 @@ namespace UI
                         for(;child != nullptr; child = child->next)
                         {
                             Box& box = child->value.val;
-                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT && !box.IsDetached())
                             {
                                 int width = box.GetBoxModelWidth();
                                 if(largest_width < width)
@@ -531,6 +536,13 @@ namespace UI
         HeightContentPercentPass(root_node);
         HeightPass(root_node);
         DrawPass(root_node, 0, 0, Box(), Rect{0, 0, root_box.width, root_box.height});
+
+        while(!deferred_element.IsEmpty())
+        {
+            TreeNode<Box>* node = deferred_element.GetHead()->value;
+            DrawPass(node, 0, 0, Box(), UI::Rect{0, 0, INT_MAX, INT_MAX});
+            deferred_element.PopHead();
+        }
     }
 }
 
@@ -541,6 +553,7 @@ namespace UI
     inline void Box::SetPositioning(Positioning p){positioning = p;}
     inline void Box::SetFlowAxis(Flow::Axis axis){flow_axis = axis;}
     inline void Box::SetScissor(bool flag){scissor = flag;}
+    inline void Box::SetDetached(bool flag){detach = flag;}
     inline Layout Box::GetLayout() const
     {
         return layout;
@@ -556,6 +569,10 @@ namespace UI
     inline bool Box::IsScissor() const
     {
         return scissor;
+    }
+    inline bool Box::IsDetached() const
+    {
+        return detach;
     }
     inline int Box::GetBoxExpansionWidth() const
     {
@@ -755,6 +772,7 @@ namespace UI
         if(child.max_height_unit == Unit::Type::PARENT_PERCENT && p_height)
             return Error{Error::Type::NODE_CONTRADICTION, "max_height.unit = Unit::Type::PARENT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
 
+        //Might not need this
         if(child.min_width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
             return Error{Error::Type::NODE_CONTRADICTION, "min_width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
         if(child.min_height_unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
@@ -901,6 +919,7 @@ namespace UI
         box.SetPositioning(style.positioning);
         box.SetFlowAxis(style.flow.axis);
         box.SetScissor(style.scissor);
+        box.SetDetached(style.detach);
         return box;
     }
 
@@ -1028,10 +1047,15 @@ namespace UI
             {
                 Box& box = temp->value.val;
                 ComputeParentWidthPercent(box, parent_box.width);
+
+
                 if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
                 {
                     box.width = Clamp(box.width, box.min_width, box.max_width);
-                    available_width -= box.GetBoxModelWidth() + parent_box.gap_column;
+
+                    //detached boxes cannot be AVAILABLE_PERCENT
+                    if(!box.IsDetached()) //Ignore detached boxes
+                        available_width -= box.GetBoxModelWidth() + parent_box.gap_column;
                 }
                 else
                 {
@@ -1061,6 +1085,8 @@ namespace UI
                         new_total_percent -= box.width;
                         box.width_unit = Unit::Type::PIXEL;
                         box.width = Clamp((uint16_t)Max(0 ,new_width), box.min_width, box.max_width);
+                        //box.width = Clamp((uint16_t)Max(0 ,new_width), (uint16_t)0, (uint16_t)9999);
+                        //box.width = Clamp((uint16_t)Max(0 ,new_width), box.min_width, uint16_t(9999));
                         new_available_width -= box.width;
                         complete = false;
                     }
@@ -1136,7 +1162,10 @@ namespace UI
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
                 {
                     box.height = Clamp(box.height, box.min_height, box.max_height);
-                    available_height -= box.GetBoxModelHeight() + parent_box.gap_row;
+
+                    //Detached boxes cannot be AVAILABLE_PERCENT
+                    if(!box.IsDetached()) //Ignore layout for detached boxes
+                        available_height -= box.GetBoxModelHeight() + parent_box.gap_row;
                 }
                 else
                 {
@@ -1180,7 +1209,6 @@ namespace UI
                 Box& box = temp->value.val;
                 if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.height = available_height * box.height / Max(100, total_percent);  //Anything below 100% will not fill in the entire space
-                box.height = Clamp(box.height, box.min_height, box.max_height);
                 HeightPass(&temp->value);
             }
         } //End vertical
@@ -1216,6 +1244,10 @@ namespace UI
             {
                 HeightContentPercentPass(&temp->value);
                 Box& box = temp->value.val;
+                
+                if(box.IsDetached()) //Ignore layout for detached boxes
+                    continue;
+
                 if(box.text)
                 {
                     Markdown md;
@@ -1237,6 +1269,10 @@ namespace UI
             {
                 HeightContentPercentPass(&temp->value);
                 Box& box = temp->value.val;
+
+                if(box.IsDetached()) //Ignore layout for detached boxes
+                    continue;
+
                 if(box.text)
                 {
                     Markdown md;
@@ -1656,8 +1692,8 @@ namespace UI
         const Box& box = node->val;
 
         //Render
-        int render_x = x;
-        int render_y = y;
+        int render_x = box.GetPositioning() == UI::Positioning::ABSOLUTE? box.x : box.x + x;
+        int render_y = box.GetPositioning() == UI::Positioning::ABSOLUTE? box.y : box.y + y;
         int render_width =    box.GetRenderingWidth();
         int render_height =   box.GetRenderingHeight();
         int corner_radius =   box.corner_radius;
@@ -1676,6 +1712,11 @@ namespace UI
             }
         }
         DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
+
+        #if UI_DEBUG
+            if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{x, y, render_width, render_height}), mouse_x, mouse_y))
+                DrawRectangle_impl(render_x, render_y, render_width, render_height, 0, 2, UI::Color{255, 0, 0, 255}, UI::Color{0, 0, 0, 0});
+        #endif
         if(box.text)
         {
             DrawTextNode(box.text, box.width, box.height, render_x, render_y);
@@ -1687,12 +1728,12 @@ namespace UI
             BoxInfo* info = double_buffer_map.BackValue(box.label_hash);
             if(info)
             {
-                info->draw_width = box.GetRenderingWidth();
-                info->draw_height = box.GetRenderingHeight();
-                info->draw_x = x;
-                info->draw_y = y;
+                info->draw_width = render_width;
+                info->draw_height = render_height;
+                info->draw_x = render_x;
+                info->draw_y = render_y;
                 //Handling mouse hover next frame
-                if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{x, y, info->draw_width, info->draw_height}), mouse_x, mouse_y))
+                if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}), mouse_x, mouse_y))
                 {
                     internal_key = box.label_hash;
                     info->is_hover = true;
@@ -1709,7 +1750,7 @@ namespace UI
         //Next Recurse
         if(box.GetLayout() == Layout::FLOW)
         {
-            DrawPass_FlowNoWrap(node->children.GetHead(), box, x, y, parent_aabb);
+            DrawPass_FlowNoWrap(node->children.GetHead(), box, render_x, render_y, parent_aabb);
         }
         else
         {
@@ -1736,6 +1777,10 @@ namespace UI
             for(temp = child; temp!=nullptr; temp = temp->next)
             {
                 const Box& box = temp->value.val;
+
+                if(box.IsDetached()) //Ignore layout for detached boxes
+                    continue;
+
                 count++;
                 content_width += box.GetBoxModelWidth();
             }
@@ -1769,6 +1814,13 @@ namespace UI
             for(temp = child; temp!=nullptr; temp = temp->next)
             {
                 const Box& box = temp->value.val;
+
+                if(box.IsDetached()) //Ignore layout for detached boxes
+                {
+                    deferred_element.Add(&temp->value, &arena);
+                    continue;
+                }
+
                 int cursor_y = 0;
 
                 //Computing content_height
@@ -1811,6 +1863,10 @@ namespace UI
             for(temp = child; temp!=nullptr; temp = temp->next)
             {
                 const Box& box = temp->value.val;
+
+                if(box.IsDetached()) //Ignore layout for detached boxes
+                    continue;
+
                 count++;
                 content_height += box.GetBoxModelHeight();
             }
@@ -1843,6 +1899,13 @@ namespace UI
             for(temp = child; temp!=nullptr; temp = temp->next)
             {
                 const Box& box = temp->value.val;
+
+                if(box.IsDetached()) //Ignore layout for detached boxes
+                {
+                    deferred_element.Add(&temp->value, &arena);
+                    continue;
+                }
+
                 int cursor_x = 0;
 
 

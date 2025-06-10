@@ -4,6 +4,9 @@
 */
 
 
+
+#define UI_DEBUG 0
+
 namespace UI
 {
     //Math helpers
@@ -113,6 +116,7 @@ namespace UI
 
         //Potentially performance heavy
         bool scissor = false;
+        bool detach = false;
 
 
         //PIXEL VALUES
