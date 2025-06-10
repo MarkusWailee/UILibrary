@@ -211,7 +211,7 @@ void SpotifyExample()
             song_panel.corner_radius = 10;
             song_panel.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
             song_panel.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
-            //song_panel.min_width = UI::Unit{400, UI::Unit::PIXEL};
+            song_panel.min_width = UI::Unit{300, UI::Unit::PIXEL};
             song_panel.scissor = true;
             UI::BoxInfo liked_song_info = UI::GetBoxInfo("Liked Songs Panel");
             if(liked_song_info.valid)
@@ -333,28 +333,81 @@ void SpotifyExample()
     UI::Draw();
 }
 
+
+void AvailableSizeDebug1()
+{
+    UI::BeginRoot(GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
+
+    UI::BoxStyle base;
+    base.margin = {30, 30, 30, 30};
+    base.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
+    base.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
+    base.background_color = UI::Color{40, 40, 60, 255};
+    UI::BeginBox(base);
+        UI::BoxStyle fill1;
+        fill1.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+        fill1.height = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+        fill1.background_color = UI::Color{60,60,60,255};
+        fill1.border_color = UI::Color{100, 100, 100, 255};
+        fill1.border_width = 1;
+        fill1.corner_radius = 10;
+        UI::BoxStyle fill2 = fill1;
+        fill2.background_color = UI::Color{50,50,50,255};
+        UI::BoxStyle fill3 = fill1;
+        fill3.background_color = UI::Color{30, 30, 30, 255};
+
+        fill1.max_width = {50, UI::Unit::PIXEL};
+        fill2.min_width = {100, UI::Unit::PIXEL};
+        UI::BeginBox(fill1);
+        UI::EndBox();
+        UI::BeginBox(fill2);
+        UI::EndBox();
+        UI::BeginBox(fill3);
+        UI::EndBox();
+    UI::EndBox();
+
+    UI::EndRoot();
+    UI::Draw();
+}
+
 int main(void)
 {
-    const int screenWidth = 1000;
-    const int screenHeight = 600;
+    float screenWidth = 1000;
+    float screenHeight = 600;
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
-    //SetTargetFPS(60);
+    SetTargetFPS(60);
 
     UI::Init_impl();
 
     float time = 0;
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
-        time += GetFrameTime() * 20;
+        if(IsKeyDown(KEY_RIGHT))
+        {
+            time += GetFrameTime() * 100;
+            screenWidth += GetFrameTime() * time;
+        }
+        else if(IsKeyDown(KEY_LEFT))
+        {
+            time += GetFrameTime() * 100;
+            screenWidth -= GetFrameTime() * time;
+        }
+        else
+        {
+            time = 0;
+        }
+        SetWindowSize(screenWidth, screenHeight);
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-        SpotifyExample();
+        //SpotifyExample();
+        AvailableSizeDebug1();
 
         DrawText(TextFormat("fps %d", GetFPS()), GetScreenWidth() - 200, 10, 10, WHITE);
+        DrawText(TextFormat("Width: %d\nHeight: %d", GetScreenWidth(), GetScreenHeight()), GetScreenWidth() - 200, 30, 20, WHITE);
         EndDrawing();
     }
 
