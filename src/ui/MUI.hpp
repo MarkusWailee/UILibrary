@@ -5,7 +5,7 @@
 
 
 
-#define UI_DEBUG 0
+#define UI_DEBUG 1
 
 namespace UI
 {

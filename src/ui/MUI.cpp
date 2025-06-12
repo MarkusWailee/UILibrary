@@ -1015,7 +1015,10 @@ namespace UI
 //Size calculations
 namespace UI
 {
-
+    struct APBox {
+        Box* box = nullptr;
+        float result = 0;
+    };
     void WidthPass(TreeNode<Box>* node)
     {
         if(node == nullptr || node->children.IsEmpty())
@@ -1039,9 +1042,12 @@ namespace UI
     {
         assert(child);
         ArenaLL<TreeNode<Box>>::Node* temp;
+
+        ArenaLL<APBox> growing_elements;
+
         if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
-            int available_width = parent_box.width;
+            float available_width = parent_box.width;
             int total_percent = 0;
             for(temp = child; temp != nullptr; temp = temp->next)
             {
@@ -1059,13 +1065,16 @@ namespace UI
                 }
                 else
                 {
+                    assert(growing_elements.Add(APBox{&box, 0}, &arena) && "Arena out of memory");
                     available_width -= box.GetBoxExpansionWidth() + parent_box.gap_column;
                     total_percent += box.width;
                 }
             }
             available_width += parent_box.gap_column;
 
+
             //Solves available_percent with min/max contraints
+            #if 0
             bool complete = false;
             while(!complete && total_percent)
             {
@@ -1094,13 +1103,64 @@ namespace UI
                 available_width = new_available_width;
                 total_percent = new_total_percent;
             }
+            #endif
+
+            #if 1 //New available_percent solver
+            bool complete =  false;
+            while(!complete && available_width > 0)
+            {
+                complete = true;
+                int total_p = 0;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    APBox& var = node->value; assert(var.box);
+                    Box& box = *var.box;
+                    if(var.result < box.max_width)
+                    {
+                        complete = false;
+                        total_p += box.width;
+                    }
+                }
+                float min_p = 1;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    APBox& var = node->value; assert(var.box);
+                    Box& box = *var.box;
+                    if(var.result < box.max_width)
+                    {
+                        float p = (float)(box.max_width - var.result) * total_p / (box.width * available_width);
+                        min_p = Min(p, min_p);
+                    }
+                }
+
+                float delta_total = 0;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    APBox& var = node->value; assert(var.box);
+                    Box& box = *var.box;
+                    if(var.result < box.max_width)
+                    {
+                        float delta = min_p * available_width * box.width / total_p;
+                        var.result += delta;
+                        delta_total += delta;
+                    }
+                }
+                available_width -= delta_total;
+            }
+            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+            {
+                APBox& var = node->value; assert(var.box);
+                Box& box = *var.box;
+                box.width = var.result;
+            }
+            //Clearing arena chunk
+            arena.Rewind(growing_elements.GetHead());
+            growing_elements.Clear();
+            #endif
 
             //Sets all final sizes
             for(temp = child; temp != nullptr; temp = temp->next)
             {
-                Box& box = temp->value.val;
-                if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.width = available_width * box.width / Max(100, total_percent); //Anything below 100% will not fill in the entire space
                 WidthPass(&temp->value);
             }
 
@@ -1715,7 +1775,9 @@ namespace UI
 
         #if UI_DEBUG
             if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{x, y, render_width, render_height}), mouse_x, mouse_y))
+            {
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, 0, 2, UI::Color{255, 0, 0, 255}, UI::Color{0, 0, 0, 0});
+            }
         #endif
         if(box.text)
         {

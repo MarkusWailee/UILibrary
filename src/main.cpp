@@ -343,27 +343,32 @@ void AvailableSizeDebug1()
     base.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
     base.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
     base.background_color = UI::Color{40, 40, 60, 255};
-    UI::BeginBox(base);
-        UI::BoxStyle fill1;
-        fill1.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
-        fill1.height = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
-        fill1.background_color = UI::Color{60,60,60,255};
-        fill1.border_color = UI::Color{100, 100, 100, 255};
-        fill1.border_width = 1;
-        fill1.corner_radius = 10;
-        UI::BoxStyle fill2 = fill1;
-        fill2.background_color = UI::Color{50,50,50,255};
-        UI::BoxStyle fill3 = fill1;
-        fill3.background_color = UI::Color{30, 30, 30, 255};
+    UI::BeginBox(base, "Base");
+        UI::BoxStyle boxA;
+        boxA.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+        boxA.height = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+        boxA.background_color = UI::Color{60,60,60,255};
+        boxA.border_color = UI::Color{100, 100, 100, 255};
+        boxA.border_width = 1;
+        boxA.corner_radius = 10;
+        UI::BoxStyle boxB = boxA;
+        boxB.background_color = UI::Color{50,50,50,255};
+        UI::BoxStyle boxC = boxA;
+        boxC.background_color = UI::Color{30, 30, 30, 255};
 
-        fill1.max_width = {50, UI::Unit::PIXEL};
-        fill2.min_width = {100, UI::Unit::PIXEL};
-        UI::BeginBox(fill1);
+        boxA.max_width = {200, UI::Unit::PIXEL};
+        boxA.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
+        boxB.max_width = {300, UI::Unit::PIXEL};
+        boxB.width = UI::Unit{50, UI::Unit::AVAILABLE_PERCENT};
+        UI::BeginBox(boxA, "A");
+            UI::InsertText("BoxA");
         UI::EndBox();
-        UI::BeginBox(fill2);
+        UI::BeginBox(boxB, "B");
+            UI::InsertText("BoxB");
         UI::EndBox();
-        UI::BeginBox(fill3);
-        UI::EndBox();
+        //UI::BeginBox(boxC, "C");
+        //    UI::InsertText("BoxC");
+        //UI::EndBox();
     UI::EndBox();
 
     UI::EndRoot();
@@ -372,7 +377,7 @@ void AvailableSizeDebug1()
 
 int main(void)
 {
-    float screenWidth = 1000;
+    float screenWidth = 960;
     float screenHeight = 600;
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
@@ -406,8 +411,13 @@ int main(void)
         //SpotifyExample();
         AvailableSizeDebug1();
 
+        UI::BoxInfo base = UI::GetBoxInfo("Base");
+        UI::BoxInfo A = UI::GetBoxInfo("A");
+        UI::BoxInfo B = UI::GetBoxInfo("B");
+        UI::BoxInfo C = UI::GetBoxInfo("C");
+
         DrawText(TextFormat("fps %d", GetFPS()), GetScreenWidth() - 200, 10, 10, WHITE);
-        DrawText(TextFormat("Width: %d\nHeight: %d", GetScreenWidth(), GetScreenHeight()), GetScreenWidth() - 200, 30, 20, WHITE);
+        DrawText(TextFormat("width:%d height:%d\nA:%d B:%d C:%d",base.draw_width, base.draw_height, A.draw_width, B.draw_width, C.draw_width), GetScreenWidth() - 300, 100, 20, WHITE);
         EndDrawing();
     }
 
