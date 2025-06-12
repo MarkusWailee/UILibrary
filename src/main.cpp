@@ -316,7 +316,7 @@ void SpotifyExample()
             UI::BeginBox(load_bar);
                 UI::BoxStyle load_progress = load_bar;
                 load_progress.width = UI::Unit{30, UI::Unit::AVAILABLE_PERCENT};
-                load_progress.background_color = UI::Color{100, 100, 100, 255};
+                load_progress.background_color = UI::Color{255, 100, 100, 255};
                 UI::BeginBox(load_progress);
                 UI::EndBox();
             UI::EndBox();
@@ -356,10 +356,10 @@ void AvailableSizeDebug1()
         UI::BoxStyle boxC = boxA;
         boxC.background_color = UI::Color{30, 30, 30, 255};
 
-        boxA.max_width = {200, UI::Unit::PIXEL};
-        boxA.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
-        boxB.max_width = {300, UI::Unit::PIXEL};
-        boxB.width = UI::Unit{50, UI::Unit::AVAILABLE_PERCENT};
+        //boxA.max_width = {200, UI::Unit::PIXEL};
+        boxA.width = UI::Unit{20, UI::Unit::AVAILABLE_PERCENT};
+        //boxB.max_width = {300, UI::Unit::PIXEL};
+        boxB.width = UI::Unit{30, UI::Unit::AVAILABLE_PERCENT};
         UI::BeginBox(boxA, "A");
             UI::InsertText("BoxA");
         UI::EndBox();
@@ -408,8 +408,8 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-        //SpotifyExample();
-        AvailableSizeDebug1();
+        SpotifyExample();
+        //AvailableSizeDebug1();
 
         UI::BoxInfo base = UI::GetBoxInfo("Base");
         UI::BoxInfo A = UI::GetBoxInfo("A");

@@ -1015,10 +1015,6 @@ namespace UI
 //Size calculations
 namespace UI
 {
-    struct APBox {
-        Box* box = nullptr;
-        float result = 0;
-    };
     void WidthPass(TreeNode<Box>* node)
     {
         if(node == nullptr || node->children.IsEmpty())
@@ -1043,7 +1039,11 @@ namespace UI
         assert(child);
         ArenaLL<TreeNode<Box>>::Node* temp;
 
-        ArenaLL<APBox> growing_elements;
+        struct GrowBox {
+            Box* box = nullptr;
+            float result = 0;
+        };
+        ArenaLL<GrowBox> growing_elements;
 
         if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
@@ -1053,7 +1053,6 @@ namespace UI
             {
                 Box& box = temp->value.val;
                 ComputeParentWidthPercent(box, parent_box.width);
-
 
                 if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
                 {
@@ -1065,47 +1064,14 @@ namespace UI
                 }
                 else
                 {
-                    assert(growing_elements.Add(APBox{&box, 0}, &arena) && "Arena out of memory");
+                    assert(growing_elements.Add(GrowBox{&box, 0}, &arena) && "Arena out of memory");
                     available_width -= box.GetBoxExpansionWidth() + parent_box.gap_column;
                     total_percent += box.width;
                 }
             }
             available_width += parent_box.gap_column;
 
-
-            //Solves available_percent with min/max contraints
-            #if 0
-            bool complete = false;
-            while(!complete && total_percent)
-            {
-                complete = true;
-                int new_available_width = available_width;
-                int new_total_percent = total_percent;
-                for(temp = child; temp != nullptr; temp = temp->next)
-                {
-                    Box& box = temp->value.val;
-                    if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
-                        continue;
-                    //Calculates what the size would be
-                    int new_width = available_width * box.width / Max(100, total_percent); //Anything below 100% will not fill in the entire space
-                    //Clamps size if its not within bounds and changes unit to PIXEL
-                    if(new_width < box.min_width || new_width > box.max_width)
-                    {
-                        new_total_percent -= box.width;
-                        box.width_unit = Unit::Type::PIXEL;
-                        box.width = Clamp((uint16_t)Max(0 ,new_width), box.min_width, box.max_width);
-                        //box.width = Clamp((uint16_t)Max(0 ,new_width), (uint16_t)0, (uint16_t)9999);
-                        //box.width = Clamp((uint16_t)Max(0 ,new_width), box.min_width, uint16_t(9999));
-                        new_available_width -= box.width;
-                        complete = false;
-                    }
-                }
-                available_width = new_available_width;
-                total_percent = new_total_percent;
-            }
-            #endif
-
-            #if 1 //New available_percent solver
+            #if 0 //New available_percent solver
             bool complete =  false;
             while(!complete && available_width > 0)
             {
@@ -1113,7 +1079,7 @@ namespace UI
                 int total_p = 0;
                 for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 {
-                    APBox& var = node->value; assert(var.box);
+                    GrowBox& var = node->value; assert(var.box);
                     Box& box = *var.box;
                     if(var.result < box.max_width)
                     {
@@ -1124,7 +1090,7 @@ namespace UI
                 float min_p = 1;
                 for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 {
-                    APBox& var = node->value; assert(var.box);
+                    GrowBox& var = node->value; assert(var.box);
                     Box& box = *var.box;
                     if(var.result < box.max_width)
                     {
@@ -1136,7 +1102,7 @@ namespace UI
                 float delta_total = 0;
                 for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 {
-                    APBox& var = node->value; assert(var.box);
+                    GrowBox& var = node->value; assert(var.box);
                     Box& box = *var.box;
                     if(var.result < box.max_width)
                     {
@@ -1149,11 +1115,55 @@ namespace UI
             }
             for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
             {
-                APBox& var = node->value; assert(var.box);
+                GrowBox& var = node->value; assert(var.box);
                 Box& box = *var.box;
                 box.width = var.result;
             }
             //Clearing arena chunk
+            arena.Rewind(growing_elements.GetHead());
+            growing_elements.Clear();
+            #endif
+
+            #if 1
+            while(true) 
+            {
+                int total_p = 0;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    GrowBox& b = node->value;
+                    if(b.result < b.box->max_width)
+                    {
+                        total_p += b.box->width;
+                    }
+                }
+                available_width = total_p < 100? available_width * total_p / 100: available_width;
+                float min_p = 1;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    GrowBox& b = node->value;
+                    if(b.result < b.box->max_width)
+                    {
+                        float p = (float)(b.box->max_width - b.result) * total_p / (available_width * b.box->width);
+                        min_p = Min(p, min_p);
+                    }
+                }
+                float total_delta = 0;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    GrowBox& b = node->value;
+                    if(b.result < b.box->max_width)
+                    {
+                        float delta = min_p * available_width * b.box->width / total_p;
+                        b.result += delta;
+                        total_delta += delta;
+                    }
+                }
+                available_width -= total_delta;
+                if(total_delta == 0)
+                    break;
+            }
+            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                node->value.box->width = node->value.result;
             arena.Rewind(growing_elements.GetHead());
             growing_elements.Clear();
             #endif
