@@ -1071,60 +1071,7 @@ namespace UI
             }
             available_width += parent_box.gap_column;
 
-            #if 0 //New available_percent solver
-            bool complete =  false;
-            while(!complete && available_width > 0)
-            {
-                complete = true;
-                int total_p = 0;
-                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
-                {
-                    GrowBox& var = node->value; assert(var.box);
-                    Box& box = *var.box;
-                    if(var.result < box.max_width)
-                    {
-                        complete = false;
-                        total_p += box.width;
-                    }
-                }
-                float min_p = 1;
-                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
-                {
-                    GrowBox& var = node->value; assert(var.box);
-                    Box& box = *var.box;
-                    if(var.result < box.max_width)
-                    {
-                        float p = (float)(box.max_width - var.result) * total_p / (box.width * available_width);
-                        min_p = Min(p, min_p);
-                    }
-                }
-
-                float delta_total = 0;
-                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
-                {
-                    GrowBox& var = node->value; assert(var.box);
-                    Box& box = *var.box;
-                    if(var.result < box.max_width)
-                    {
-                        float delta = min_p * available_width * box.width / total_p;
-                        var.result += delta;
-                        delta_total += delta;
-                    }
-                }
-                available_width -= delta_total;
-            }
-            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
-            {
-                GrowBox& var = node->value; assert(var.box);
-                Box& box = *var.box;
-                box.width = var.result;
-            }
-            //Clearing arena chunk
-            arena.Rewind(growing_elements.GetHead());
-            growing_elements.Clear();
-            #endif
-
-            #if 1
+            #if 0 //Available Percent version
             while(true) 
             {
                 int total_p = 0;
@@ -1160,6 +1107,55 @@ namespace UI
                 }
                 available_width -= total_delta;
                 if(total_delta == 0)
+                    break;
+            }
+            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                node->value.box->width = node->value.result;
+            arena.Rewind(growing_elements.GetHead());
+            growing_elements.Clear();
+            #endif
+
+            #if 1 //Non percent Grow version
+            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+            {
+                node->value.result = node->value.box->min_width;
+                available_width -= node->value.result;
+            }
+            float depth = 0;
+            while(true) 
+            {
+                int n = 0;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    if(node->value.result < node->value.box->max_width && node->value.result <= depth)
+                        n++;
+                }
+                float min_delta = Max(available_width/n, 0.0f);
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    if(depth < node->value.box->min_width)
+                    {
+                        float delta = Max(0.0f, (float)node->value.box->min_width - depth); 
+                        if(delta < min_delta)
+                            min_delta = delta;
+                    }
+                    else if(depth < node->value.box->max_width)
+                    {
+                        float delta = Max(0.0f, (float)node->value.box->max_width - depth); 
+                        if(delta < min_delta)
+                            min_delta = delta;
+                    }
+                }
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    if(node->value.result < node->value.box->max_width && node->value.result <= depth)
+                    {
+                        node->value.result = depth + min_delta;
+                    }
+                }
+                depth += min_delta;
+                available_width -= n * min_delta;
+                if(min_delta == 0)
                     break;
             }
             for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)

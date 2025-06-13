@@ -5,7 +5,7 @@
 
 
 
-#define UI_DEBUG 1
+#define UI_DEBUG 0
 
 namespace UI
 {
@@ -25,13 +25,12 @@ namespace UI
     {
         enum Type : unsigned char 
         {
-            //These units may be used by all units
+
             PIXEL,
             MM,
             CM,
             INCH,
-
-            //Limited to width/height with min/max
+            //Limited to width/height
             PARENT_PERCENT,
             ROOT_PERCENT,
             CONTENT_PERCENT,   
