@@ -1073,28 +1073,50 @@ namespace UI
 
             #if 1 //Available Percent version only with MIN
             //In this version I will use available_width when computing the next min/max value percent
+            float available_space = available_width;
+            int total_p = 0;
+            float min_p = 1.0f;
             for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
             {
-                available_width -= node->value.box->min_width;
+                total_p += node->value.box->width;
+                available_space -= node->value.box->min_width;
             }
-            while(true) 
+            //for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+            //{
+            //    GrowBox& b = node->value;
+            //    float p = (float)b.box->min_width * total_p / (available_width * b.box->width);
+            //    min_p = Min(p, min_p);
+            //}
+            //for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+            //{
+            //    GrowBox& b = node->value;
+            //    b.result = min_p * available_width * b.box->width / total_p;
+            //}
+            while(available_space > 0) 
             {
-                float total_p = 0;
+                total_p = 0;
                 for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 {
                     GrowBox& b = node->value;
-                    if(b.result >= b.box->min_width) 
+                    if(b.result >= b.box->min_width && b.result < b.box->max_width) 
                     {
                         total_p += b.box->width;
                     }
                 }
-                float min_p = 1.0f;
+                min_p = 1.0f;
                 for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 {
                     GrowBox& b = node->value;
                     if(b.result < b.box->min_width)
                     {
-                        float p = ((float)b.box->min_width - b.result) * total_p / (available_width * b.box->width);
+                        float p = ((float)b.box->min_width - b.result) * total_p / (available_space * b.box->width);
+                        //p = Max(0.0f, p);
+                        min_p = Min(p, min_p);
+                    }
+                    else if(b.result < b.box->max_width)
+                    {
+                        float p = ((float)b.box->max_width - b.result) * total_p / (available_space * b.box->width);
+                        //p = Max(0.0f, p);
                         min_p = Min(p, min_p);
                     }
                 }
@@ -1102,17 +1124,21 @@ namespace UI
                 for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 {
                     GrowBox& b = node->value;
-                    float delta = min_p * available_width * b.box->width / total_p;
-                    if(b.result >= b.box->min_width)
-                        total_delta += delta;
-                    b.result += delta;
+                    if(b.result < b.box->max_width)
+                    {
+                        float delta = min_p * available_space * b.box->width / total_p;
+                        //delta = Min(delta, available_width - b.result);
+                        if(b.result >= b.box->min_width)
+                            total_delta += delta;
+                        b.result += delta;
+                    }
                 }
-                available_width -= total_delta;
-                if(total_delta <= 0)
+                available_space -= total_delta;
+                if(total_delta <= 0.0f)
                     break;
             }
             for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
-                node->value.box->width = Clamp((uint16_t)node->value.result, node->value.box->min_width, node->value.box->max_height);
+                node->value.box->width = Max(node->value.box->min_width, (uint16_t)node->value.result);
             arena.Rewind(growing_elements.GetHead());
             growing_elements.Clear();
             #endif

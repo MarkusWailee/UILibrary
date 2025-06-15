@@ -373,21 +373,23 @@ void AvailableSizeDebug1()
 
                 boxA.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
                 boxA.width =     {100, UI::Unit::AVAILABLE_PERCENT};
-                boxA.min_width = {100, UI::Unit::PIXEL};
-                //boxA.max_width = {200, UI::Unit::PIXEL};
+                //boxA.min_width = {100, UI::Unit::PIXEL};
+                boxA.max_width = {119, UI::Unit::PIXEL};
 
                 boxB.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
                 boxB.width =     {100, UI::Unit::AVAILABLE_PERCENT};
-                boxB.min_width = {40, UI::Unit::PIXEL};
-                //boxB.max_width = {60, UI::Unit::PIXEL};
+                boxB.min_width = {120, UI::Unit::PIXEL};
+                boxB.max_width = {300, UI::Unit::PIXEL};
 
                 boxC.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
                 boxC.width =     {100, UI::Unit::AVAILABLE_PERCENT};
-                //boxC.min_width =     {200, UI::Unit::PIXEL};
+                boxC.min_width =     {130, UI::Unit::PIXEL};
+                boxC.max_width =     {400, UI::Unit::PIXEL};
 
                 UI::BeginBox(boxA, "A"); //"A" is element id
                 UI::InsertText("[S:28]A");
                 UI::EndBox();
+
 
                 UI::BeginBox(boxB, "B"); //"B: is element id
                 UI::InsertText("[S:28]B");
