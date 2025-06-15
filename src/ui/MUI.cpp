@@ -1071,7 +1071,65 @@ namespace UI
             }
             available_width += parent_box.gap_column;
 
-            #if 1 //Available Percent version only with MIN
+            #if 1
+            float remaining_space = available_width;
+            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                remaining_space -= node->value.box->min_width;
+            while(remaining_space > 0)
+            {
+                int total_percent_below_min = 0;
+                int total_percent_in_bounds = 0;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    GrowBox& b = node->value;
+                    if(b.result >= b.box->min_width && b.result < b.box->max_width) 
+                        total_percent_in_bounds += b.box->width;
+                    if(b.result < b.box->min_width)
+                        total_percent_below_min += b.box->width;
+                }
+                int total_p = !total_percent_in_bounds? total_percent_below_min: total_percent_in_bounds;
+                remaining_space = total_p < 100? remaining_space * total_p / 100: remaining_space;
+                float min_p = 1.0f;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    GrowBox& b = node->value;
+                    if(b.result < b.box->min_width)
+                    {
+                        float p = ((float)b.box->min_width - b.result) * total_p / (remaining_space * b.box->width);
+                        min_p = Min(p, min_p);
+                    }
+                    if(b.result < b.box->max_width)
+                    {
+                        float p = ((float)b.box->max_width - b.result) * total_p / (remaining_space * b.box->width);
+                        min_p = Min(p, min_p);
+                    }
+                }
+                if(total_percent_in_bounds == 0)
+                {
+                    for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                        if(node->value.result < node->value.box->min_width)
+                            node->value.result += min_p * remaining_space * node->value.box->width / total_p;
+                }
+                else
+                {
+                    float total_delta = 0;
+                    for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                    {
+                        if(node->value.result < node->value.box->max_width)
+                        {
+                            float delta = min_p * remaining_space * node->value.box->width / total_p;
+                            if(node->value.result >= node->value.box->min_width)
+                                total_delta += delta;
+                            node->value.result += delta;
+                        }
+                    }
+                    remaining_space -= total_delta;
+                }
+                if(total_p == 0)
+                    break;
+            }
+            #endif
+            #if 0 //Available Percent working version, but stops working when all results are < min_width
             //In this version I will use available_width when computing the next min/max value percent
             float available_space = available_width;
             int total_p = 0;
@@ -1081,17 +1139,6 @@ namespace UI
                 total_p += node->value.box->width;
                 available_space -= node->value.box->min_width;
             }
-            //for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
-            //{
-            //    GrowBox& b = node->value;
-            //    float p = (float)b.box->min_width * total_p / (available_width * b.box->width);
-            //    min_p = Min(p, min_p);
-            //}
-            //for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
-            //{
-            //    GrowBox& b = node->value;
-            //    b.result = min_p * available_width * b.box->width / total_p;
-            //}
             while(available_space > 0) 
             {
                 total_p = 0;
@@ -1134,13 +1181,10 @@ namespace UI
                     }
                 }
                 available_space -= total_delta;
-                if(total_delta <= 0.0f)
+                //if(total_delta <= 0.0f)
+                if(total_p == 0)
                     break;
             }
-            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
-                node->value.box->width = Max(node->value.box->min_width, (uint16_t)node->value.result);
-            arena.Rewind(growing_elements.GetHead());
-            growing_elements.Clear();
             #endif
 
             #if 0 //Available Percent version only with MAX
@@ -1181,11 +1225,11 @@ namespace UI
                 if(total_delta == 0)
                     break;
             }
+            #endif
             for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
-                node->value.box->width = node->value.result;
+                node->value.box->width = Max(node->value.box->min_width, (uint16_t)node->value.result);
             arena.Rewind(growing_elements.GetHead());
             growing_elements.Clear();
-            #endif
 
             //Sets all final sizes
             for(temp = child; temp != nullptr; temp = temp->next)
