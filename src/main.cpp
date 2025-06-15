@@ -373,16 +373,17 @@ void AvailableSizeDebug1()
 
                 boxA.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
                 boxA.width =     {100, UI::Unit::AVAILABLE_PERCENT};
-                boxA.min_width = {10, UI::Unit::PIXEL};
-                boxA.max_width = {50, UI::Unit::PIXEL};
+                boxA.min_width = {100, UI::Unit::PIXEL};
+                //boxA.max_width = {200, UI::Unit::PIXEL};
 
                 boxB.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
                 boxB.width =     {100, UI::Unit::AVAILABLE_PERCENT};
                 boxB.min_width = {40, UI::Unit::PIXEL};
-                boxB.max_width = {60, UI::Unit::PIXEL};
+                //boxB.max_width = {60, UI::Unit::PIXEL};
 
                 boxC.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
                 boxC.width =     {100, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.min_width =     {200, UI::Unit::PIXEL};
 
                 UI::BeginBox(boxA, "A"); //"A" is element id
                 UI::InsertText("[S:28]A");
@@ -444,8 +445,8 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-        SpotifyExample();
-        //AvailableSizeDebug1();
+        //SpotifyExample();
+        AvailableSizeDebug1();
         
 
         EndDrawing();
