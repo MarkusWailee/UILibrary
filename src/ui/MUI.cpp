@@ -498,13 +498,13 @@ namespace UI
 
         if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
         {
-            box.width = md.GetMeasuredWidth() + 1;
+            box.width = md.GetMeasuredWidth() + 2;
         }
         else
         {
             box.width_unit = Unit::Type::AVAILABLE_PERCENT;
             box.width = 100;
-            box.max_width = md.GetMeasuredWidth() + 1;
+            box.max_width = md.GetMeasuredWidth() + 2;
         }
 
 
@@ -1048,7 +1048,6 @@ namespace UI
         if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
             float available_width = parent_box.width;
-            int total_percent = 0;
             for(temp = child; temp != nullptr; temp = temp->next)
             {
                 Box& box = temp->value.val;
@@ -1066,12 +1065,79 @@ namespace UI
                 {
                     assert(growing_elements.Add(GrowBox{&box, 0}, &arena) && "Arena out of memory");
                     available_width -= box.GetBoxExpansionWidth() + parent_box.gap_column;
-                    total_percent += box.width;
                 }
             }
             available_width += parent_box.gap_column;
 
-            #if 1
+            # if 1
+            float remaining_space = available_width;
+
+            float total_percent = 0;
+            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+            {
+                //total_percent += node->value.box->width;
+                float new_percent = ((float)node->value.box->max_width * 100 / remaining_space);
+                total_percent += Min(new_percent, (float)node->value.box->width);
+            }
+            if(total_percent <= 100.0f)
+                remaining_space = remaining_space * (total_percent / 99.99f);
+
+            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+            {
+                remaining_space -= node->value.box->min_width;
+            }
+            while(remaining_space > 0)
+            {
+                int total_percent_below_min = 0;
+                int total_percent_in_bounds = 0;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    GrowBox& b = node->value;
+                    if(b.result >= b.box->min_width && b.result < b.box->max_width) 
+                        total_percent_in_bounds += b.box->width;
+                    if(b.result < b.box->min_width)
+                        total_percent_below_min += b.box->width;
+                }
+                int total_p = total_percent_in_bounds? total_percent_in_bounds: total_percent_below_min;
+                float min_p = 1.0f;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    GrowBox& b = node->value;
+                    float normalized_weight = (float)total_p / (remaining_space * b.box->width);
+                    float p1 = ((float)b.box->min_width - b.result) * normalized_weight;
+                    float p2 = ((float)b.box->max_width - b.result) * normalized_weight;
+                    min_p = b.result < b.box->min_width? Min(p1, min_p): min_p;
+                    min_p = b.result < b.box->max_width? Min(p2, min_p): min_p;
+                }
+                if(!total_percent_in_bounds)
+                {
+                    for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                        if(node->value.result < node->value.box->min_width)
+                            node->value.result += min_p * remaining_space * ((float)node->value.box->width / total_p);
+                }
+                else
+                {
+                    float total_delta = 0;
+                    for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                    {
+                        if(node->value.result < node->value.box->max_width)
+                        {
+                            float normalized_weight = (float)node->value.box->width / total_p;
+                            float delta = min_p * remaining_space * normalized_weight;
+                            if(node->value.result >= node->value.box->min_width)
+                                total_delta += delta;
+                            node->value.result += delta;
+                        }
+                    }
+                    remaining_space -= total_delta;
+                }
+                if(total_p == 0)
+                    break;
+            }
+
+            #endif
+
+            #if 0
             float remaining_space = available_width;
             for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 remaining_space -= node->value.box->min_width;

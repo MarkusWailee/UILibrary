@@ -212,7 +212,7 @@ void SpotifyExample()
             song_panel.corner_radius = 10;
             song_panel.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
             song_panel.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
-            song_panel.min_width = UI::Unit{300, UI::Unit::PIXEL};
+            song_panel.min_width = UI::Unit{200, UI::Unit::PIXEL};
             song_panel.scissor = true;
             UI::BoxInfo liked_song_info = UI::GetBoxInfo("Liked Songs Panel");
             if(liked_song_info.valid)
@@ -372,20 +372,97 @@ void AvailableSizeDebug1()
             UI::BeginBox(base, "Base"); //Base is Element id
 
                 boxA.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
-                boxA.width =     {100, UI::Unit::AVAILABLE_PERCENT};
-                boxA.min_width =     {100, UI::Unit::PIXEL};
-                boxA.max_width =     {150, UI::Unit::PIXEL};
-
                 boxB.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
-                boxB.width =     {100, UI::Unit::AVAILABLE_PERCENT};
-                boxB.min_width =     {200, UI::Unit::PIXEL};
-                boxB.max_width =     {300, UI::Unit::PIXEL};
-
                 boxC.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
-                boxC.width =     {100, UI::Unit::AVAILABLE_PERCENT};
-                boxC.min_width =     {301, UI::Unit::PIXEL};
-                boxC.max_width =     {400, UI::Unit::PIXEL};
 
+                //Case 1
+                //boxA.width =     {100, UI::Unit::AVAILABLE_PERCENT};
+                //boxA.max_width =     {100, UI::Unit::PIXEL};
+                //boxA.min_width =     {50, UI::Unit::PIXEL};
+                //boxB.width =     {20, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.width =     {20, UI::Unit::AVAILABLE_PERCENT};
+
+                //Case 2
+                //boxA.width = {50, UI::Unit::AVAILABLE_PERCENT};
+                //boxB.width = {25, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.width = {25, UI::Unit::AVAILABLE_PERCENT};
+
+                //case 3
+                //boxA.width = {100, UI::Unit::AVAILABLE_PERCENT};
+                //boxB.width = {20, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.width = {20, UI::Unit::AVAILABLE_PERCENT};
+
+                //Case 4
+                //boxA.width = {100, UI::Unit::AVAILABLE_PERCENT};
+                //boxA.max_width = {100, UI::Unit::PIXEL};
+                //boxA.min_width = {50, UI::Unit::PIXEL};
+                //boxB.width = {20, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.width = {20, UI::Unit::AVAILABLE_PERCENT};
+
+
+                //Case 5
+                //boxA.width = {10, UI::Unit::AVAILABLE_PERCENT};
+                //boxA.min_width = {50, UI::Unit::PIXEL};
+                //boxB.width = {20, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.width = {20, UI::Unit::AVAILABLE_PERCENT};
+
+                //Case 6
+                //boxA.width = {100, UI::Unit::AVAILABLE_PERCENT};
+                //boxA.max_width = {10, UI::Unit::PIXEL};
+                //boxB.width = {10, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.width = {10, UI::Unit::AVAILABLE_PERCENT};
+
+                //Case 7
+                //boxA.width = {70, UI::Unit::AVAILABLE_PERCENT};
+                //boxA.max_width = {100, UI::Unit::PIXEL};
+                //boxB.width = {20, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.width = {20, UI::Unit::AVAILABLE_PERCENT};
+
+                //Case 8
+                //  boxA.width = {60, UI::Unit::AVAILABLE_PERCENT};
+                //  boxA.max_width = {50, UI::Unit::PIXEL};
+                //  boxB.width = {20, UI::Unit::AVAILABLE_PERCENT};
+                //  boxC.width = {20, UI::Unit::AVAILABLE_PERCENT};
+
+                //Case 9
+                //boxA.width = {60, UI::Unit::AVAILABLE_PERCENT};
+                //boxA.min_width = {50, UI::Unit::PIXEL};
+                //boxA.max_width = {150, UI::Unit::PIXEL};
+                //boxB.width = {20, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.width = {20, UI::Unit::AVAILABLE_PERCENT};
+
+                //Case 10
+                //boxA.width = {60, UI::Unit::AVAILABLE_PERCENT};
+                //boxA.min_width = {50, UI::Unit::PIXEL};
+                //boxA.max_width = {150, UI::Unit::PIXEL};
+                //boxB.width = {20, UI::Unit::AVAILABLE_PERCENT};
+                //boxB.min_width = {30, UI::Unit::PIXEL};
+                //boxB.max_width = {120, UI::Unit::PIXEL};
+                //boxC.width = {20, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.min_width = {30, UI::Unit::PIXEL};
+                //boxC.max_width = {120, UI::Unit::PIXEL};
+
+
+                //Case 11
+                //boxA.width = {60, UI::Unit::AVAILABLE_PERCENT};
+                //boxA.max_width = {50, UI::Unit::PIXEL};
+                //boxB.width = {20, UI::Unit::AVAILABLE_PERCENT};
+                //boxB.min_width = {100, UI::Unit::PIXEL};
+                //boxC.width = {20, UI::Unit::AVAILABLE_PERCENT};
+
+                //Case 12
+                //boxA.width = {100, UI::Unit::AVAILABLE_PERCENT};
+                //boxA.max_width = {100, UI::Unit::PIXEL};
+                //boxB.width = {100, UI::Unit::AVAILABLE_PERCENT};
+                //boxC.width = {100, UI::Unit::AVAILABLE_PERCENT};
+
+
+                //Case 13
+                boxA.width = {33.33, UI::Unit::AVAILABLE_PERCENT};
+                boxA.min_width = {100, UI::Unit::PIXEL};
+                boxA.max_width = {200, UI::Unit::PIXEL};
+                boxB.width = {33.33, UI::Unit::AVAILABLE_PERCENT};
+                boxC.width = {33.33, UI::Unit::AVAILABLE_PERCENT};
                 UI::BeginBox(boxA, "A"); //"A" is element id
                 UI::InsertText("[S:28]A");
                 UI::EndBox();
@@ -447,8 +524,8 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-        //SpotifyExample();
-        AvailableSizeDebug1();
+        SpotifyExample();
+        //AvailableSizeDebug1();
         
 
         EndDrawing();
