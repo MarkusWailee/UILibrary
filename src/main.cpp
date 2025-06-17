@@ -554,7 +554,6 @@ int main(void)
         SetWindowSize(screenWidth, screenHeight);
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
-
         SpotifyExample();
         //AvailableSizeDebug1();
         //TestWebsite();

@@ -2,251 +2,13 @@
 #include "Memory.hpp"
 
 
-namespace UI
-{
-    struct Box
-    {
-        uint64_t label_hash =       0; 
-        const char* text = nullptr;
-        Color background_color = UI::Color{0, 0, 0, 0}; //used for debugging
-        Color border_color = UI::Color{0, 0, 0, 0};
-        //type 3
-        int scroll_x =              0;
-        int scroll_y =              0;
-        uint16_t width =            0;
-        uint16_t height =           0;
-        uint16_t gap_row =          0;
-        uint16_t gap_column =       0;
-        uint16_t min_width =        0;
-        uint16_t max_width =        UINT16_MAX;
-        uint16_t min_height =       0;
-        uint16_t max_height =       UINT16_MAX;
-        int16_t x =                 0;
-        int16_t y =                 0;
-        uint16_t grid_cell_width =  0;
-        uint16_t grid_cell_height = 0;
-
-        Unit::Type width_unit =              Unit::Type::PIXEL;
-        Unit::Type height_unit =             Unit::Type::PIXEL;
-        Unit::Type gap_row_unit =            Unit::Type::PIXEL; //might not need
-        Unit::Type gap_column_unit =         Unit::Type::PIXEL; //might not need
-        Unit::Type min_width_unit =          Unit::Type::PIXEL;
-        Unit::Type max_width_unit =          Unit::Type::PIXEL;
-        Unit::Type min_height_unit =         Unit::Type::PIXEL;
-        Unit::Type max_height_unit =         Unit::Type::PIXEL;
-        Unit::Type x_unit =                  Unit::Type::PIXEL;
-        Unit::Type y_unit =                  Unit::Type::PIXEL;
-        Unit::Type grid_cell_width_unit =    Unit::Type::PIXEL;
-        Unit::Type grid_cell_height_unit =   Unit::Type::PIXEL;
-
-        uint8_t grid_row_max = 0;
-        uint8_t grid_column_max = 0;
-        uint8_t grid_row_start = 0;
-        uint8_t grid_column_start = 0; 
-        uint8_t grid_row_end = 0;
-        uint8_t grid_column_end = 0; 
-
-        Flow::Alignment flow_vertical_alignment = Flow::Alignment::START;
-        Flow::Alignment flow_horizontal_alignment = Flow::Alignment::START;
-        //PIXEL VALUES
-        uint8_t corner_radius = 0; //255 sets to circle
-        uint8_t border_width = 0;  
-        Spacing padding;
-        Spacing margin;
-        Layout layout = Layout::FLOW;
-    private:
-        //Values that can potentially use bit array
-        Positioning positioning = Positioning::RELATIVE;
-        Flow::Axis flow_axis = Flow::Axis::HORIZONTAL;
-        bool scissor = false;
-        bool detach = false;
-    public:
-        void SetPositioning(Positioning p);
-        void SetFlowAxis(Flow::Axis axis);
-        void SetScissor(bool flag);
-        void SetDetached(bool flag);
-        Layout GetLayout() const;
-        Flow::Axis GetFlowAxis() const;
-        Positioning GetPositioning() const;
-        bool IsScissor() const;
-        bool IsDetached() const;
-        int GetBoxExpansionWidth() const;
-        int GetBoxExpansionHeight() const;
-        int GetBoxModelWidth() const;
-        int GetBoxModelHeight() const;
-        int GetRenderingWidth() const;
-        int GetRenderingHeight() const;
-
-    };
-    template<typename T>
-    struct TreeNode
-    {
-        T val;
-        ArenaLL<TreeNode> children;
-    };
-
-
-    //Error handling
-    #define ERROR_MSG_SIZE 128
-    struct Error
-    {
-        enum class Type : unsigned char
-        {
-            NO_ERROR,
-            INCORRENT_UNIT_TYPE,
-            NODE_CONTRADICTION,
-            LEAF_NODE_CONTRADICTION,
-            ROOT_NODE_CONTRADICTION,
-            MISSING_END,
-            MISSING_BEGIN,
-            TEXT_NODE_CONTRADICTION,
-            TEXT_UNKOWN_ESCAPE_CODE
-        };
-        Type type = Type::NO_ERROR;
-        char msg[ERROR_MSG_SIZE]{};
-        inline static int node_number = 0;
-    };
-    void DisplayError(const Error& error);
-    Error CheckUnitErrors(const BoxStyle& style);
-    Error CheckLeafNodeContradictions(const Box& leaf);
-    Error CheckRootNodeConflicts(const BoxStyle& root);
-    Error CheckNodeContradictions(const Box& child, const Box& parent);
-    bool HasInternalError();
-    //Returns false and does nothing if no error
-    //Returns true, sets internal error, and displays error if true
-    bool HandleInternalError(const Error& error);
-
-    //Math helpers
-    struct Rect
-    {
-        static bool Overlap(const Rect& r1, const Rect& r2);
-        static bool Contains(const Rect& r ,int x, int y);
-        static Rect Intersection(const Rect& r1, const Rect& r2);
-
-        int x = 0;
-        int y = 0;
-        int width = 0;
-        int height = 0;
-    };
-    float MillimeterToPixels(float mm);
-    float CentimeterToPixels(float cm);
-    float InchToPixels(float inches);
-
-    //Used during tree descending
-    int FixedUnitToPx(Unit unit, int root_size);
-    Box ComputeStyleSheet(const BoxStyle& style, const Box& root);
-
-
-    //UserInput
-    //Returns 0 if str is nullptr. Otherwise it will never return 0
-    uint64_t Hash(const char* str);
-    void StringCopy(char* dst, const char* src, uint32_t size);
-    bool StringCompare(const char* s1, const char* s2);
-    char ToLower(char c);
-
-    //Does not count '\0'
-    int StringLength(const char* text);
-    uint32_t StrToU32(const char* text, bool* error = nullptr);
-    uint32_t HexToU32(const char* text, bool* error = nullptr);
-    Color HexToRGBA(const char* text, bool* error = nullptr);
-
-
-    //Stack allocated string for convenience
-    template<uint32_t CAPACITY>
-    class FixedString
-    {
-        uint32_t size = 0;
-        char data[CAPACITY + 1]{};
-    public:
-        const char* Data() const;
-        uint32_t Size() const; 
-        bool IsEmpty() const;
-        bool IsFull() const;
-        bool Push(char c);
-        bool Pop();
-        void Clear();
-        char& operator[](uint32_t index);
-    };
-
-    //Custom markdown language
-    #define FLUSH_CAP 512
-    class Markdown
-    {
-        struct Attributes
-        {
-            //All the variables the markdown can change
-            int font_size = 32;
-            int line_spacing = 0;
-            int font_spacing = 0;
-            Color font_color = {255, 255, 255, 255};
-        };
-    public:
-        void SetInput(const char* source, int max_width, int max_height);
-        bool ComputeNextTextRun();
-        bool Done();
-        int GetMeasuredWidth() const;
-        int GetMeasuredHeight() const;
-        TextPrimitive GetTextPrimitive(int x, int y);
-    private:
-        void HandleWrap();
-        void PushAndMeasureChar(char c);
-
-        //Go to this function to add more markdown features
-        bool ComputeEscapeCode();
-
-        void ClearBuffers();
-
-        const char* source = nullptr;
-        TextPrimitive p;
-        Attributes state;
-        int cursor_x = 0;
-        int cursor_y = 0;
-        int max_width = INT_MAX;
-        int max_height = INT_MAX;
-        int measured_width = 0;
-        bool escape = false;
-        FixedString<128> code;
-        FixedString<FLUSH_CAP> text;
-    };
-    
-    //Draws text based on custom markup
-    void DrawTextNode(const char* text, int max_width, int max_height, int x, int y);
-
-    //Computing PARENT_PERCENT
-    int ParentPercentToPx(int value , Unit::Type unit_type, int parent_width);
-    void ComputeParentWidthPercent(Box& box, int parent_width);
-    void ComputeParentHeightPercent(Box& box, int parent_width);
-
-    //Width
-    void WidthPass(TreeNode<Box>* node);
-    void WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box); //Recurse Helper
-    
-    //Height
-    void HeightContentPercentPass_Flow(TreeNode<Box>* node);
-    void HeightContentPercentPass(TreeNode<Box>* node);
-
-    void HeightPass(TreeNode<Box>* node);
-    void HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box); //Recurse Helper
-
-    //Computes position and draws.
-    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
-    void DrawPass(TreeNode<Box>* node, int x, int y, const Box& parent_box, Rect parent_aabb);
-}
 
 
 //GLOBALS
 namespace UI
 {
-    uint64_t directly_hovered_element_key = 0;
-    Error internal_error;
-    BoxStyle default_style_sheet;
-    int mouse_x = 0, mouse_y = 0;
     float dpi = 96.0f;
-    MemoryArena arena(32768);
-    DoubleBufferMap<BoxInfo> double_buffer_map;
-    ArenaLL<TreeNode<Box>*> deferred_elements;
-    TreeNode<Box>* root_node = nullptr;
-    FixedStack<TreeNode<Box>*, 100> stack; //elements should never nest over 100 layers deep
+    Context context(32768);
 }
 
 
@@ -254,271 +16,33 @@ namespace UI
 //IMPLEMENTATION
 namespace UI
 {
+    BoxInfo GetBoxInfo(const char* label)
+    {
+        return context.GetBoxInfo(label);
+    }
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
     {
-        UI::mouse_x = mouse_x;
-        UI::mouse_y = mouse_y;
-        if(HasInternalError())
-            return;
-
-        double_buffer_map.SwapBuffer();
-        arena.Rewind(root_node);
-        stack.Clear();
-        root_node = nullptr;
-        Error::node_number = 1;
-        if(double_buffer_map.ShouldResize())
-        {
-            arena.Reset();
-            //Double the capacity for hash map
-            uint32_t capacity = double_buffer_map.Capacity() * 2;
-            capacity = capacity? capacity: 64;
-            double_buffer_map.AllocateBufferCapacity(capacity, &arena);
-        }
-
-        assert(stack.IsEmpty());
-        Box root_box;
-        root_box.width = screen_width;
-        root_box.height = screen_height;
-
-        if(stack.IsEmpty())//Root Node
-        {
-            //Checking errors unique to root node
-            root_node = arena.New<TreeNode<Box>>();
-            assert(root_node && "Arena out of space");
-
-            //compute 
-            root_node->val = root_box;
-            stack.Push(root_node);
-        }
-        else
-        {
-            assert(0);
-            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "There can only be 1 Root node"});
-            return;
-        }
+        context.BeginRoot(screen_width, screen_height, mouse_x, mouse_y);
     }
     void EndRoot()
     {
-        if(HasInternalError())
-            return;
-        if(stack.Size() == 1)
-        {
-            stack.Pop();
-        }
-        else if(stack.Size() < 1)
-        {
-            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "More than one RootEnd() function"});
-            return;
-        }
-        else
-        {
-            HandleInternalError(Error{Error::Type::MISSING_END, "Missing EndBox()"});
-            return;
-        }
+        context.EndRoot();
     }
-    void BeginBox(const UI::BoxStyle& style, const char* label)
+    void BeginBox(const UI::BoxStyle& box_style, const char* label)
     {
-        if(HasInternalError())
-            return;
-        Error::node_number++;
-
-        //Check for unit type errors
-        //Could be moved into creating style sheets for more performance, but this is good enough for now
-        if(HandleInternalError(CheckUnitErrors(style)))
-            return;
-
-        //Input Handling
-        uint64_t label_hash = Hash(label);
-        if(label)
-        {
-            assert(double_buffer_map.Insert(label_hash, BoxInfo()));
-        }
-
-        if(!stack.IsEmpty())  // should add to parent
-        {
-            TreeNode<Box>* parent_node = stack.Peek();
-            assert(parent_node);
-            assert(root_node);
-
-            TreeNode<Box> child_node;
-            child_node.val = ComputeStyleSheet(style, root_node->val);
-            child_node.val.label_hash = label_hash;
-            TreeNode<Box>* child_ptr = parent_node->children.Add(child_node, &arena); 
-            assert(child_ptr && "Arena out of memory");
-            stack.Push(child_ptr);
-        }
-        else
-        {
-            if(HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing BeginRoot()"}))
-                return;
-        }
+        context.BeginBox(box_style, label);
     }
-
+    void InsertText(const char* text, bool copy_text)
+    {
+        context.InsertText(text, copy_text);
+    }
     void EndBox()
     {
-        if(HasInternalError())
-            return;
-        if(stack.Size() <= 1)
-        {
-            HandleInternalError(Error{Error::Type::MISSING_BEGIN, "Missing BeginBox()"});
-            return;
-        }
-        TreeNode<Box>* node = stack.Peek();
-        assert(node);
-        Box& parent_box = node->val;
-        if(node->children.IsEmpty())
-        {
-            if(HandleInternalError(CheckLeafNodeContradictions(parent_box)))
-                return;
-        }
-        else //Calculate all CONTENT_PERCENT
-        {
-            ArenaLL<TreeNode<Box>>::Node* child = node->children.GetHead();  
-            int content_width = 0;
-            //only handles content_percent for width
-            //This is done for dynamic text wrapping with different Unit types
-            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
-            {
-                if(parent_box.GetLayout() == Layout::FLOW)
-                {
-                    if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
-                    {
-                        for(;child != nullptr; child = child->next)
-                        {
-                            Box& box = child->value.val;
-
-                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT && !box.IsDetached())
-                            {
-                                box.width = Clamp(box.width, box.min_width, box.max_width);
-                                content_width += box.GetBoxModelWidth() + parent_box.gap_column;
-                            }
-                        }
-                        content_width -= parent_box.gap_column;
-                    }
-                    else //VERTICAL
-                    {
-                        int largest_width = 0;
-                        for(;child != nullptr; child = child->next)
-                        {
-                            Box& box = child->value.val;
-                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT && !box.IsDetached())
-                            {
-                                int width = box.GetBoxModelWidth();
-                                if(largest_width < width)
-                                    largest_width = width;
-                            }
-                        }
-                        content_width = largest_width;
-                    }
-                    if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
-                        parent_box.width = content_width * parent_box.width / 100;
-                    if(parent_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
-                        parent_box.min_width = content_width * parent_box.min_width / 100;
-                    if(parent_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
-                        parent_box.max_width = content_width * parent_box.max_width / 100;
-                }
-                else //Grid 
-                {
-                    assert(0 && "Have not added grid");
-                }
-            }
-        }
-        stack.Pop();
-        if(!stack.IsEmpty())
-        {
-            TreeNode<Box>* grand_parent = stack.Peek();
-            assert(grand_parent);
-            if(HandleInternalError(CheckNodeContradictions(parent_box, grand_parent->val)))
-                return;
-        }
-
+        context.EndBox();
     }
-
-
-
-    void InsertText(const char* text, bool should_copy)
-    {
-        if(HasInternalError())
-            return;
-        Error::node_number++;
-        if(stack.IsEmpty())
-        {
-            HandleInternalError(Error{Error::Type::TEXT_NODE_CONTRADICTION, "Text node needs a container"});
-            return;
-        }
-        TreeNode<Box>* parent_node = stack.Peek();
-        assert(parent_node);
-        const Box& parent_box = parent_node->val;
-        TreeNode<Box> text_node;
-        Box box;
-
-        //DEBUGGING TEXT
-        //box.background_color = {0, 0, 0, 50};
-
-
-        if(should_copy && text)
-        {
-            int len = StringLength(text);
-            char* text_copy = (char*)arena.Allocate(len + 1);
-            if(!text_copy)
-                assert(0 && "Arena out of memory");
-            StringCopy(text_copy, text, len + 1); 
-            text = text_copy;
-        }
-        box.text = text;
-
-
-        Markdown md;
-        md.SetInput(text, 9999, 9999);
-        while(md.ComputeNextTextRun()){}
-
-        if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
-        {
-            box.width = md.GetMeasuredWidth() + 1;
-        }
-        else
-        {
-            box.width_unit = Unit::Type::AVAILABLE_PERCENT;
-            box.width = 100;
-            box.max_width = md.GetMeasuredWidth() + 1;
-        }
-
-
-
-        text_node.val = box;
-        TreeNode<Box>* addr = parent_node->children.Add(text_node, &arena);
-        assert(addr);
-    }
-
-
-
     void Draw()
     {
-        if(HasInternalError())
-            return;
-        
-        if(!stack.IsEmpty())
-        {
-            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing EndRoot()"});
-            return;
-        }
-        const Box& root_box = root_node->val;
-
-
-        //Layout pipeline
-        //WidthContentPercentPass happens during EndBox()
-
-        WidthPass(root_node);
-        HeightContentPercentPass(root_node);
-        HeightPass(root_node);
-        DrawPass(root_node, 0, 0, Box(), Rect{0, 0, root_box.width, root_box.height});
-
-        while(!deferred_elements.IsEmpty())
-        {
-            TreeNode<Box>* node = deferred_elements.GetHead()->value;
-            DrawPass(node, 0, 0, Box(), UI::Rect{0, 0, INT_MAX, INT_MAX});
-            deferred_elements.PopHead();
-        }
+        context.Draw();
     }
 }
 
@@ -580,13 +104,6 @@ namespace UI
     //Common helpers and error checking
     void DisplayError(const Error& error)
     {
-        /*
-        This is the only function that uses LogError_impl.
-        I might change how logging works later, but this should suffice for now.
-        Ideally I would like to create my own console using the ui and log info there.
-        This function will stand as an imaginary implementation of this feature.
-        For now it just logs into regular console which is implemented into MUI_raylib.cpp
-        */
         switch(error.type)
         {
             case Error::Type::INCORRENT_UNIT_TYPE:
@@ -758,21 +275,6 @@ namespace UI
         return Error();
     }
 
-    bool HasInternalError()
-    {
-        return internal_error.type != Error::Type::NO_ERROR;
-    }
-    bool HandleInternalError(const Error& error)
-    {
-        if(error.type != Error::Type::NO_ERROR)
-        {
-            internal_error = error;
-            DisplayError(error);
-            return true;
-        }
-        return false;
-    }
-
     bool Rect::Overlap(const Rect& r1, const Rect& r2)
     {
         return (r1.x < r2.x + r2.width && r1.x + r1.width > r2.x &&
@@ -893,19 +395,6 @@ namespace UI
     }
 
 
-    BoxInfo GetBoxInfo(const char* label)
-    {
-        uint64_t key = Hash(label);
-        BoxInfo* info = double_buffer_map.FrontValue(key);
-        if(info)
-        {
-            info->valid = true;
-            if(directly_hovered_element_key == key)
-                info->is_direct_hover = true;
-            return *info;
-        }
-        return BoxInfo();
-    }
     inline uint64_t Hash(const char* str)
     {
         if(str == nullptr)
@@ -1245,7 +734,6 @@ namespace UI
                 PushAndMeasureChar(c);
             }
         }
-
         //Fixing edge case
         bool esc = false;
         int c_x = cursor_x;
@@ -1350,12 +838,317 @@ namespace UI
         if(box.max_height_unit == Unit::Type::WIDTH_PERCENT)
             box.max_height = box.width * box.max_height / 100;
     }
+}
 
 
 
-    //PASS 3
-    //Size calculations
-    void WidthPass(TreeNode<Box>* node)
+
+
+
+
+
+
+
+namespace UI
+{
+    Context::Context(uint64_t arena_bytes) :
+        arena(arena_bytes)
+    {
+    }
+    bool Context::HasInternalError()
+    {
+        return internal_error.type != Error::Type::NO_ERROR;
+    }
+    bool Context::HandleInternalError(const Error& error)
+    {
+        if(error.type != Error::Type::NO_ERROR)
+        {
+            internal_error = error;
+            DisplayError(error);
+            return true;
+        }
+        return false;
+    }
+    BoxInfo Context::GetBoxInfo(const char* label)
+    {
+        uint64_t key = Hash(label);
+        BoxInfo* info = double_buffer_map.FrontValue(key);
+        if(info)
+        {
+            info->valid = true;
+            if(directly_hovered_element_key == key)
+                info->is_direct_hover = true;
+            return *info;
+        }
+        return BoxInfo();
+    }
+    void Context::BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
+    {
+        this->mouse_x = mouse_x;
+        this->mouse_y = mouse_y;
+        if(HasInternalError())
+            return;
+
+        double_buffer_map.SwapBuffer();
+        arena.Rewind(root_node);
+        stack.Clear();
+        root_node = nullptr;
+        Error::node_number = 1;
+        if(double_buffer_map.ShouldResize())
+        {
+            arena.Reset();
+            //Double the capacity for hash map
+            uint32_t capacity = double_buffer_map.Capacity() * 2;
+            capacity = capacity? capacity: 64;
+            double_buffer_map.AllocateBufferCapacity(capacity, &arena);
+        }
+
+        assert(stack.IsEmpty());
+        Box root_box;
+        root_box.width = screen_width;
+        root_box.height = screen_height;
+
+        if(stack.IsEmpty())//Root Node
+        {
+            //Checking errors unique to root node
+            root_node = arena.New<TreeNode<Box>>();
+            assert(root_node && "Arena out of space");
+
+            //compute 
+            root_node->val = root_box;
+            stack.Push(root_node);
+        }
+        else
+        {
+            assert(0);
+            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "There can only be 1 Root node"});
+            return;
+        }
+    }
+    void Context::EndRoot()
+    {
+        if(HasInternalError())
+            return;
+        if(stack.Size() == 1)
+        {
+            stack.Pop();
+        }
+        else if(stack.Size() < 1)
+        {
+            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "More than one RootEnd() function"});
+            return;
+        }
+        else
+        {
+            HandleInternalError(Error{Error::Type::MISSING_END, "Missing EndBox()"});
+            return;
+        }
+    }
+    void Context::BeginBox(const UI::BoxStyle& style, const char* label)
+    {
+        if(HasInternalError())
+            return;
+        Error::node_number++;
+
+        //Check for unit type errors
+        //Could be moved into creating style sheets for more performance, but this is good enough for now
+        if(HandleInternalError(CheckUnitErrors(style)))
+            return;
+
+        //Input Handling
+        uint64_t label_hash = Hash(label);
+        if(label)
+        {
+            assert(double_buffer_map.Insert(label_hash, BoxInfo()));
+        }
+
+        if(!stack.IsEmpty())  // should add to parent
+        {
+            TreeNode<Box>* parent_node = stack.Peek();
+            assert(parent_node);
+            assert(root_node);
+
+            TreeNode<Box> child_node;
+            child_node.val = ComputeStyleSheet(style, root_node->val);
+            child_node.val.label_hash = label_hash;
+            TreeNode<Box>* child_ptr = parent_node->children.Add(child_node, &arena); 
+            assert(child_ptr && "Arena out of memory");
+            stack.Push(child_ptr);
+        }
+        else
+        {
+            if(HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing BeginRoot()"}))
+                return;
+        }
+    }
+
+    void Context::EndBox()
+    {
+        if(HasInternalError())
+            return;
+        if(stack.Size() <= 1)
+        {
+            HandleInternalError(Error{Error::Type::MISSING_BEGIN, "Missing BeginBox()"});
+            return;
+        }
+        TreeNode<Box>* node = stack.Peek();
+        assert(node);
+        Box& parent_box = node->val;
+        if(node->children.IsEmpty())
+        {
+            if(HandleInternalError(CheckLeafNodeContradictions(parent_box)))
+                return;
+        }
+        else //Calculate all CONTENT_PERCENT
+        {
+            ArenaLL<TreeNode<Box>>::Node* child = node->children.GetHead();  
+            int content_width = 0;
+            //only handles content_percent for width
+            //This is done for dynamic text wrapping with different Unit types
+            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+            {
+                if(parent_box.GetLayout() == Layout::FLOW)
+                {
+                    if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
+                    {
+                        for(;child != nullptr; child = child->next)
+                        {
+                            Box& box = child->value.val;
+
+                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT && !box.IsDetached())
+                            {
+                                box.width = Clamp(box.width, box.min_width, box.max_width);
+                                content_width += box.GetBoxModelWidth() + parent_box.gap_column;
+                            }
+                        }
+                        content_width -= parent_box.gap_column;
+                    }
+                    else //VERTICAL
+                    {
+                        int largest_width = 0;
+                        for(;child != nullptr; child = child->next)
+                        {
+                            Box& box = child->value.val;
+                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT && !box.IsDetached())
+                            {
+                                int width = box.GetBoxModelWidth();
+                                if(largest_width < width)
+                                    largest_width = width;
+                            }
+                        }
+                        content_width = largest_width;
+                    }
+                    if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+                        parent_box.width = content_width * parent_box.width / 100;
+                    if(parent_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
+                        parent_box.min_width = content_width * parent_box.min_width / 100;
+                    if(parent_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
+                        parent_box.max_width = content_width * parent_box.max_width / 100;
+                }
+                else //Grid 
+                {
+                    assert(0 && "Have not added grid");
+                }
+            }
+        }
+        stack.Pop();
+        if(!stack.IsEmpty())
+        {
+            TreeNode<Box>* grand_parent = stack.Peek();
+            assert(grand_parent);
+            if(HandleInternalError(CheckNodeContradictions(parent_box, grand_parent->val)))
+                return;
+        }
+
+    }
+
+
+
+    void Context::InsertText(const char* text, bool should_copy)
+    {
+        if(HasInternalError())
+            return;
+        Error::node_number++;
+        if(stack.IsEmpty())
+        {
+            HandleInternalError(Error{Error::Type::TEXT_NODE_CONTRADICTION, "Text node needs a container"});
+            return;
+        }
+        TreeNode<Box>* parent_node = stack.Peek();
+        assert(parent_node);
+        const Box& parent_box = parent_node->val;
+        TreeNode<Box> text_node;
+        Box box;
+
+        //DEBUGGING TEXT
+        //box.background_color = {0, 0, 0, 50};
+
+
+        if(should_copy && text)
+        {
+            int len = StringLength(text);
+            char* text_copy = (char*)arena.Allocate(len + 1);
+            if(!text_copy)
+                assert(0 && "Arena out of memory");
+            StringCopy(text_copy, text, len + 1); 
+            text = text_copy;
+        }
+        box.text = text;
+
+
+        Markdown md;
+        md.SetInput(text, 9999, 9999);
+        while(md.ComputeNextTextRun()){}
+
+        if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+        {
+            box.width = md.GetMeasuredWidth() + 1;
+        }
+        else
+        {
+            box.width_unit = Unit::Type::AVAILABLE_PERCENT;
+            box.width = 100;
+            box.max_width = md.GetMeasuredWidth() + 1;
+        }
+
+
+
+        text_node.val = box;
+        TreeNode<Box>* addr = parent_node->children.Add(text_node, &arena);
+        assert(addr);
+    }
+
+
+
+    void Context::Draw()
+    {
+        if(HasInternalError())
+            return;
+        
+        if(!stack.IsEmpty())
+        {
+            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing EndRoot()"});
+            return;
+        }
+        const Box& root_box = root_node->val;
+
+
+        //Layout pipeline
+        //WidthContentPercentPass happens during EndBox()
+
+        WidthPass(root_node);
+        HeightContentPercentPass(root_node);
+        HeightPass(root_node);
+        DrawPass(root_node, 0, 0, Box(), Rect{0, 0, root_box.width, root_box.height});
+
+        while(!deferred_elements.IsEmpty())
+        {
+            TreeNode<Box>* node = deferred_elements.GetHead()->value;
+            DrawPass(node, 0, 0, Box(), UI::Rect{0, 0, INT_MAX, INT_MAX});
+            deferred_elements.PopHead();
+        }
+    }
+    void Context::WidthPass(TreeNode<Box>* node)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
@@ -1374,7 +1167,7 @@ namespace UI
         }
     }
 
-    void WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
+    void Context::WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
     {
         assert(child);
         ArenaLL<TreeNode<Box>>::Node* temp;
@@ -1537,7 +1330,7 @@ namespace UI
 
 
 
-    void HeightPass(TreeNode<Box>* node)
+    void Context::HeightPass(TreeNode<Box>* node)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
@@ -1551,7 +1344,7 @@ namespace UI
             assert("have not added grid");
         }
     }
-    void HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
+    void Context::HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
     {
         assert(child);
         ArenaLL<TreeNode<Box>>::Node* temp;
@@ -1670,7 +1463,7 @@ namespace UI
     }
 
 
-    void HeightContentPercentPass_Flow(TreeNode<Box>* node)
+    void Context::HeightContentPercentPass_Flow(TreeNode<Box>* node)
     {
         assert(node);
         Box& parent_box = node->val;
@@ -1733,7 +1526,7 @@ namespace UI
             parent_box.max_height = parent_box.max_height * content_height / 100;
     }
 
-    void HeightContentPercentPass(TreeNode<Box>* node)
+    void Context::HeightContentPercentPass(TreeNode<Box>* node)
     {
         if(!node)    
             return;
@@ -1751,7 +1544,7 @@ namespace UI
 
 
 
-    void DrawPass(TreeNode<Box>* node, int x, int y, const Box& parent_box, Rect parent_aabb)
+    void Context::DrawPass(TreeNode<Box>* node, int x, int y, const Box& parent_box, Rect parent_aabb)
     {
         if(node == nullptr)
             return;
@@ -1827,7 +1620,7 @@ namespace UI
 
     } //end of DrawPass()
 
-    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb)
+    void Context::DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb)
     {
         ArenaLL<TreeNode<Box>>::Node* temp = child;
         assert(temp);
