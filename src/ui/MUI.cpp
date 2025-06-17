@@ -1215,7 +1215,107 @@ namespace UI
     {
         assert(child);
         ArenaLL<TreeNode<Box>>::Node* temp;
-        if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL) //Computed horizontal in earlier pass
+
+        struct GrowBox {
+            Box* box = nullptr;
+            float result = 0;
+        };
+        ArenaLL<GrowBox> growing_elements;
+
+        if(parent_box.GetFlowAxis() == Flow::Axis::VERTICAL)
+        {
+            float available_height = parent_box.height;
+            float total_percent = 0;
+            for(temp = child; temp != nullptr; temp = temp->next)
+            {
+                Box& box = temp->value.val;
+                ComputeParentHeightPercent(box, parent_box.height);
+
+                if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
+                {
+                    box.height = Clamp(box.height, box.min_height, box.max_height);
+
+                    //detached boxes cannot be AVAILABLE_PERCENT
+                    if(!box.IsDetached()) //Ignore detached boxes
+                        available_height -= box.GetBoxModelHeight() + parent_box.gap_row;
+                }
+                else
+                {
+                    assert(growing_elements.Add(GrowBox{&box, 0}, &arena) && "Arena out of memory");
+                    available_height -= box.GetBoxExpansionHeight() + parent_box.gap_row;
+                    total_percent += box.height;
+                }
+            }
+            available_height += parent_box.gap_row;
+
+            float remaining_space = available_height;
+            if(total_percent < 100.0f)
+                remaining_space = remaining_space * (total_percent / 99.99f);
+
+            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                remaining_space -= node->value.box->min_height;
+
+            while(remaining_space > 0)
+            {
+                int total_percent_below_min = 0;
+                int total_percent_in_bounds = 0;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    GrowBox& b = node->value;
+                    if(b.result >= b.box->min_height && b.result < b.box->max_height) 
+                        total_percent_in_bounds += b.box->height;
+                    if(b.result < b.box->min_height)
+                        total_percent_below_min += b.box->height;
+                }
+                int total_p = total_percent_in_bounds? total_percent_in_bounds: total_percent_below_min;
+                float min_p = 1.0f;
+                for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                {
+                    GrowBox& b = node->value;
+                    float normalized_weight = (float)total_p / (remaining_space * b.box->height);
+                    float p1 = ((float)b.box->min_height - b.result) * normalized_weight;
+                    float p2 = ((float)b.box->max_height - b.result) * normalized_weight;
+                    min_p = b.result < b.box->min_height? Min(p1, min_p): min_p;
+                    min_p = b.result < b.box->max_height? Min(p2, min_p): min_p;
+                }
+                if(!total_percent_in_bounds)
+                {
+                    for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                        if(node->value.result < node->value.box->min_height)
+                            node->value.result += min_p * remaining_space * ((float)node->value.box->height / total_p);
+                }
+                else
+                {
+                    float total_delta = 0;
+                    for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                    {
+                        if(node->value.result < node->value.box->max_height)
+                        {
+                            float normalized_weight = (float)node->value.box->height / total_p;
+                            float delta = min_p * remaining_space * normalized_weight;
+                            if(node->value.result >= node->value.box->min_height)
+                                total_delta += delta;
+                            node->value.result += delta;
+                        }
+                    }
+                    remaining_space -= total_delta;
+                }
+                if(total_p == 0)
+                    break;
+            }
+            for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
+                node->value.box->height = Max(node->value.box->min_height, (uint16_t)node->value.result);
+            arena.Rewind(growing_elements.GetHead());
+            growing_elements.Clear();
+
+            //Sets all final sizes
+            for(temp = child; temp != nullptr; temp = temp->next)
+            {
+                HeightPass(&temp->value);
+            }
+
+        } //End Vertical
+        else // Horizontal
         {
             for(temp = child; temp != nullptr; temp = temp->next)
             {
@@ -1226,68 +1326,7 @@ namespace UI
                 box.height = Clamp(box.height, box.min_height, box.max_height);
                 HeightPass(&temp->value);
             }
-        } 
-        else //Vertical
-        {
-            int available_height = parent_box.height;
-            int total_percent = 0;
-            for(temp = child; temp != nullptr; temp = temp->next)
-            {
-                Box& box = temp->value.val;
-                ComputeParentHeightPercent(box, parent_box.height);
-                if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
-                {
-                    box.height = Clamp(box.height, box.min_height, box.max_height);
-
-                    //Detached boxes cannot be AVAILABLE_PERCENT
-                    if(!box.IsDetached()) //Ignore layout for detached boxes
-                        available_height -= box.GetBoxModelHeight() + parent_box.gap_row;
-                }
-                else
-                {
-                    available_height -= box.GetBoxExpansionHeight() + parent_box.gap_row;
-                    total_percent += box.height;
-                }
-            }
-            available_height += parent_box.gap_row;
-
-            //Solves available_percent with min/max contraints
-            bool complete = false;
-            while(!complete && total_percent)
-            {
-                complete = true;
-                int new_available_height = available_height;
-                int new_total_percent = total_percent;
-                for(temp = child; temp != nullptr; temp = temp->next)
-                {
-                    Box& box = temp->value.val;
-                    if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
-                        continue;
-                    //Calculates what the size would be
-                    int new_height = available_height * box.height / Max(100, total_percent); //Any thing below 100% will not fill in the entire space
-                    //Clamps size if its not within bounds and changes unit to PIXEL
-                    if(new_height < box.min_height || new_height > box.max_height)
-                    {
-                        new_total_percent -= box.height;
-                        box.height_unit = Unit::Type::PIXEL;
-                        box.height = Clamp((uint16_t)Max(0 ,new_height), box.min_height, box.max_height);
-                        new_available_height -= box.height;
-                        complete = false;
-                    }
-                }
-                available_height = new_available_height;
-                total_percent = new_total_percent;
-            }
-
-            //Sets all final sizes
-            for(temp = child; temp != nullptr; temp = temp->next)
-            {
-                Box& box = temp->value.val;
-                if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
-                    box.height = available_height * box.height / Max(100, total_percent);  //Anything below 100% will not fill in the entire space
-                HeightPass(&temp->value);
-            }
-        } //End vertical
+        }
     }
 
 
@@ -1987,7 +2026,7 @@ namespace UI
                 int cursor_x = 0;
 
 
-                //Computing content_height
+                //Computing content_width
                 int box_model_width = box.GetBoxModelWidth();
                 if(content_width < box_model_width)
                     content_width = box_model_width;
