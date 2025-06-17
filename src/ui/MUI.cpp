@@ -86,8 +86,6 @@ namespace UI
     };
 
 
-
-
     //Error handling
     #define ERROR_MSG_SIZE 128
     struct Error
@@ -1827,8 +1825,6 @@ namespace UI
             assert("Grid has not been added yet");
         }
 
-        if(parent_box.IsScissor())
-            EndScissorMode_impl();
     } //end of DrawPass()
 
     void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb)
@@ -2012,5 +2008,7 @@ namespace UI
                 }
             }
         }
+        if(parent_box.IsScissor())
+            EndScissorMode_impl();
     } //End of DrawPass_FlowNoWrap()
 }
