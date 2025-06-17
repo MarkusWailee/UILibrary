@@ -419,6 +419,14 @@ void AvailableSizeDebug1()
     UI::Draw();
 }
 
+
+class A
+{
+public:
+    void DoSomething();
+private:
+    void PrivateFunction();
+};
 int main(void)
 {
     float screenWidth = 960;
@@ -456,12 +464,12 @@ int main(void)
         {
             time = 0;
         }
-        SetWindowSize(screenWidth, screenHeight);
+        //SetWindowSize(screenWidth, screenHeight);
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-        //SpotifyExample();
-        AvailableSizeDebug1();
+        SpotifyExample();
+        //AvailableSizeDebug1();
         DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
 
         EndDrawing();

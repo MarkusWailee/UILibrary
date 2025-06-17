@@ -135,17 +135,15 @@ namespace UI
     float InchToPixels(float inches);
 
     //Used during tree descending
+    int FixedUnitToPx(Unit unit, int root_size);
     Box ComputeStyleSheet(const BoxStyle& style, const Box& root);
 
 
     //UserInput
     //Returns 0 if str is nullptr. Otherwise it will never return 0
     uint64_t Hash(const char* str);
-
-
-
-    //Text Handling
-
+    void StringCopy(char* dst, const char* src, uint32_t size);
+    bool StringCompare(const char* s1, const char* s2);
     char ToLower(char c);
 
     //Does not count '\0'
@@ -194,14 +192,15 @@ namespace UI
     private:
         void HandleWrap();
         void PushAndMeasureChar(char c);
-        bool ComputeEscapeCode();
-        void ClearBuffers();
-        const char* source = nullptr;
 
+        //Go to this function to add more markdown features
+        bool ComputeEscapeCode();
+
+        void ClearBuffers();
+
+        const char* source = nullptr;
         TextPrimitive p;
         Attributes state;
-
-
         int cursor_x = 0;
         int cursor_y = 0;
         int max_width = INT_MAX;
@@ -215,45 +214,24 @@ namespace UI
     //Draws text based on custom markup
     void DrawTextNode(const char* text, int max_width, int max_height, int x, int y);
 
-    /* ###### Layout Algorithm Pipeline ######
-    At a high level the algorithm can be broken down into seperate passes.
-    I will talk about some rules that might tell us how this pipeline should be structured.
-
-
-    Focusing on computing sizing first
-    - Fixed values like CM, MM, INCH, PIXEL, ROOT_PERCENT(root is always a fixed unit) can all be computed right away. 
-    
-    The tricky part will be special units like 
-        PARENT_PERCENT      parent%
-        CONTENT_PERCENT     content%
-        AVAILABLE_PERCENT   available%
-        WIDTH_PERCENT       width%
-    
-    Here are some rules before designing the algorithm
-    - parent% relies on the parents size to be known
-    - available% relies on the neighboring sizes to be known
-    - content% relies on the children sizes to be known
-    - width% relies on its own width size to be known
-
-    Here are some potential contradictions to think about.
-        While it may be possible to implement, I decided to not allow these combinations 
-        to avoid confusion, and for implementation limitations
-    - content% cannot have a parent% child
-    - content% cannot have a available% child
-    - content% cannot have zero children
-    */
+    //Computing PARENT_PERCENT
+    int ParentPercentToPx(int value , Unit::Type unit_type, int parent_width);
+    void ComputeParentWidthPercent(Box& box, int parent_width);
+    void ComputeParentHeightPercent(Box& box, int parent_width);
 
     //Width
     void WidthPass(TreeNode<Box>* node);
     void WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box); //Recurse Helper
     
     //Height
+    void HeightContentPercentPass_Flow(TreeNode<Box>* node);
     void HeightContentPercentPass(TreeNode<Box>* node);
 
     void HeightPass(TreeNode<Box>* node);
     void HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box); //Recurse Helper
 
-    //Computes and draw where elements should be. Also computes UserInput
+    //Computes position and draws.
+    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
     void DrawPass(TreeNode<Box>* node, int x, int y, const Box& parent_box, Rect parent_aabb);
 }
 
@@ -261,14 +239,14 @@ namespace UI
 //GLOBALS
 namespace UI
 {
-    uint64_t internal_key = 0;
+    uint64_t directly_hovered_element_key = 0;
     Error internal_error;
     BoxStyle default_style_sheet;
     int mouse_x = 0, mouse_y = 0;
     float dpi = 96.0f;
     MemoryArena arena(32768);
     DoubleBufferMap<BoxInfo> double_buffer_map;
-    ArenaLL<TreeNode<Box>*> deferred_element;
+    ArenaLL<TreeNode<Box>*> deferred_elements;
     TreeNode<Box>* root_node = nullptr;
     FixedStack<TreeNode<Box>*, 100> stack; //elements should never nest over 100 layers deep
 }
@@ -537,11 +515,11 @@ namespace UI
         HeightPass(root_node);
         DrawPass(root_node, 0, 0, Box(), Rect{0, 0, root_box.width, root_box.height});
 
-        while(!deferred_element.IsEmpty())
+        while(!deferred_elements.IsEmpty())
         {
-            TreeNode<Box>* node = deferred_element.GetHead()->value;
+            TreeNode<Box>* node = deferred_elements.GetHead()->value;
             DrawPass(node, 0, 0, Box(), UI::Rect{0, 0, INT_MAX, INT_MAX});
-            deferred_element.PopHead();
+            deferred_elements.PopHead();
         }
     }
 }
@@ -600,11 +578,8 @@ namespace UI
         return padding.top + height + padding.bottom;
     }
 
-}
 
-//Common helpers and error checking
-namespace UI
-{
+    //Common helpers and error checking
     void DisplayError(const Error& error)
     {
         /*
@@ -835,14 +810,10 @@ namespace UI
     {
         return inches * dpi;
     }
-}
-
 
 
 //Pass 1
 //Compute unit CM, MM, INCH, ROOT_PERCENT
-namespace UI
-{
     int FixedUnitToPx(Unit unit, int root_size)
     {
         switch(unit.unit)
@@ -931,7 +902,7 @@ namespace UI
         if(info)
         {
             info->valid = true;
-            if(internal_key == key)
+            if(directly_hovered_element_key == key)
                 info->is_direct_hover = true;
             return *info;
         }
@@ -950,20 +921,397 @@ namespace UI
         //avoiding returning 0
         return !hash? 1: hash;
     }
+    void StringCopy(char* dst, const char* src, uint32_t size)
+    {
+        if(!size || !src || !dst) return;
+        uint32_t i;
+        for(i = 0; i<size-1 && src[i] != '\0'; i++)
+            dst[i] = src[i];
+        dst[i] = '\0';
+    }
+    bool StringCompare(const char* s1, const char* s2)
+    {
+        if(s1 == nullptr || s2 == nullptr)
+            return false;
+        while(*s1 && *s2)
+        {
+            if(*s1 != *s2)
+                return false;
+            s1++;
+            s2++;
+        }
+        return *s1 == *s2;
+    }
 
-}
+    //TEXT RENDERING
+    inline char ToLower(char c)
+    {
+        return (c >= 'A' && c <= 'Z')? c + 32: c;
+    }
+    int StringLength(const char* text)
+    {
+        if(!text)
+            return -1;
+        int i;
+        for(i = 0; text[i]; i++);
+        return i;
+    }
+    inline uint32_t StrToU32(const char* text, bool* error)
+    {
+        if(!text)
+        {
+            if(error)
+                *error = true;
+            return 0;
+        }
+        uint32_t result = 0;
+        for(;*text; text++)
+        {
+            char c = *text;
+            if(c >= '0' && c <= '9')
+            {
+                uint32_t digit = c - '0';
+                if(result > (0xFFFFFFFF - digit)/10)
+                {
+                    if(error)
+                        *error = true;
+                    return 0;
+                }
+                result = result * 10 + digit;
+            }
+            else
+            {
+                if(error)
+                    *error = true;
+                return 0;
+            }
+        }
+        return result;
+    }
+    inline uint32_t HexToU32(const char* text, bool* error)
+    {
+        if(!text)
+        {
+            if(error)
+                *error = true;
+            return 0;
+        }
+        uint32_t result = 0;
+        for(; *text; text++)
+        {
+            result <<= 4;
+            char c = *text;
+            c = ToLower(c);
+            if(c >= '0' && c <= '9')
+                result |= c - '0';
+            else if(c >= 'a' && c<= 'f')
+                result |= c - 87;
+            else
+            {
+                if(error)
+                    *error = true;
+                return 0;
+            }
+        }
+        return result;
+    }
+    inline Color HexToRGBA(const char* text, bool* error)
+    {
+        bool err = false;
+        if(!text)
+            err = true;
+        char hex[3]{};
+        Color result = {0, 0, 0, 255};
+        for(int i = 0; i<6; i++)
+        {
+            if(text[i] == '\0')
+                err = true;
+        }
+        hex[0] = text[0]; hex[1] = text[1]; hex[2] = '\0';
+        result.r = HexToU32(hex, &err);
+        hex[0] = text[2]; hex[1] = text[3]; hex[2] = '\0';
+        result.g = HexToU32(hex, &err);
+        hex[0] = text[4]; hex[1] = text[5]; hex[2] = '\0';
+        result.b = HexToU32(hex, &err);
+        if(text[6] == '\0')
+        {
+            if(error)
+                *error = err;
+            return err? Color() : result;
+        }
+        if(text[7] == '\0')
+        {
+            if(error)
+                *error = true;
+            return Color();
+        }
+        hex[0] = text[6]; hex[1] = text[7]; hex[2] = '\0';
+        result.a = HexToU32(hex, &err);
+        if(text[8] != '\0')
+            err = true;
+        if(error)
+            *error = err;
+        return err? Color(): result;
+    }
+    //FixedString
+    template<uint32_t CAPACITY>
+    const char* FixedString<CAPACITY>::Data() const
+    {
+        return data;
+    }
+    template<uint32_t CAPACITY>
+    uint32_t FixedString<CAPACITY>::Size() const
+    {
+        return size;
+    }
+    template<uint32_t CAPACITY>
+    bool FixedString<CAPACITY>::IsEmpty() const
+    {
+        return size == 0;
+    }
+    template<uint32_t CAPACITY>
+    bool FixedString<CAPACITY>::IsFull() const
+    {
+        return size >= CAPACITY;
+    }
+    template<uint32_t CAPACITY>
+    bool FixedString<CAPACITY>::Push(char c)
+    {
+        if(size >= CAPACITY)
+            return false;
+        data[size++] = c;
+        data[size] = '\0';
+        return true;
+    }
+    template<uint32_t CAPACITY>
+    bool FixedString<CAPACITY>::Pop()
+    {
+        if(size > 0)
+        {
+            size--;
+            data[size] = '\0';
+            return true;
+        }
+        return false;
+    }
+    template<uint32_t CAPACITY>
+    void FixedString<CAPACITY>::Clear()
+    {
+        data[0] = '\0';
+        size = 0;
+    }
+    template<uint32_t CAPACITY>
+    char& FixedString<CAPACITY>::operator[](uint32_t index)
+    {
+        assert(index < size && "FixedString operator[] out of scope");
+        return data[index];
+    }
+    void Markdown::SetInput(const char* source, int max_width, int max_height)
+    {
+        assert(source);
+        this->source = source; 
+        this->max_width = max_width;
+    }
+    bool Markdown::Done()
+    {
+        if(source == nullptr)
+            return true;
+        return *source == '\0';
+    }
+    bool Markdown::ComputeEscapeCode()
+    {
+        if(code.IsEmpty())
+            return false;
+
+        switch(code[0])
+        {
+            case 'C':
+            {
+                if(code[1] != ':')
+                    return false;
+                bool err = false;
+                state.font_color = HexToRGBA(&code[2], &err);
+                return !err;
+            }
+            case 'S':
+            {
+                if(code[1] != ':')
+                    return false;
+                bool err = false;
+                state.font_size = StrToU32(&code[2], &err);
+                return !err;
+            }
+            default:
+            {
+                return false;
+                break;
+            }
+        }
+    }
+    void Markdown::HandleWrap()
+    {
+        if(text.Size() <= 1)
+            return;
+        int index = text.Size() - 1;
+        int offset = 0;
+        for(;index >= 0; index--)
+        {
+            if(text[index] == ' ')
+            {
+                text[index] = '\n';
+                cursor_x = 0;
+                cursor_y += state.font_size + state.line_spacing;
+                break;
+            }
+            offset += MeasureChar_impl(text[index], state.font_size, state.font_spacing);
+        }
+        cursor_x += offset;
+    }
+    void Markdown::PushAndMeasureChar(char c)
+    {
+        text.Push(c);
+        if(c == '\n')
+        {
+            cursor_x = 0;
+            cursor_y += state.font_size + state.line_spacing;
+        }
+        else
+        {
+            cursor_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
+        }
+        if(cursor_x >= max_width)
+        {
+            HandleWrap();
+        }
+        if(cursor_x >= measured_width)
+            measured_width = cursor_x;
+    }
+    bool Markdown::ComputeNextTextRun()
+    {
+        if(!source || *source == '\0')
+            return false;
+
+        ClearBuffers();
+        p.text = text.Data();
+        p.cursor_x = cursor_x;
+        p.cursor_y = cursor_y;
+        p.font_size = state.font_size;
+        p.line_spacing = state.line_spacing;
+        p.font_spacing = state.font_spacing;
+        p.font_color = state.font_color;
+        bool should_ignore = false;
+        for(;;source++)
+        {
+            char c = *source; 
+            if(c == '\0')
+            {
+                break;
+            }
+            else if(should_ignore)
+            {
+                //Inserting text
+                if(text.IsFull()) 
+                    break;
+                PushAndMeasureChar(c);
+                should_ignore = false;
+            }
+            else if(c == '\\' && !escape)
+            {
+                should_ignore = true;
+            }
+            else if(c == '[')
+            {
+                escape = true;
+            }
+            else if(c == ']' && escape)
+            {
+                if(!ComputeEscapeCode())
+                {
+                    assert(0 && "unknown escape code");
+                }
+                escape = false;
+                source++;
+                break;
+            }
+            else if(escape)
+            {
+                if(c == ' ')
+                    continue;
+                code.Push(c);
+            }
+            else
+            {
+                //Inserting text
+                if(text.IsFull())
+                    break;
+                PushAndMeasureChar(c);
+            }
+        }
+
+        //Fixing edge case
+        bool esc = false;
+        int c_x = cursor_x;
+        for(int i = 0;; i++)
+        {
+            char c = source[i];
+            if(c == '\0')
+                break;
+            else if(should_ignore)
+            {
+                c_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
+                should_ignore = false;
+            }
+            else if(c == '\\' && !esc)
+                should_ignore = true;
+            else if(c == '[')
+                esc = true;
+            else if(c == ']' && esc)
+                esc = false;
+            else if(c == ' ')
+                break;
+            else if(!esc)
+                c_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
+        }
+        if(c_x >= max_width)
+            HandleWrap();
+        return true;
+    }
+    TextPrimitive Markdown::GetTextPrimitive(int x, int y)
+    {
+        p.x = x;
+        p.y = y;
+        return p;
+    }
+    int Markdown::GetMeasuredWidth() const
+    {
+        return measured_width;
+    }
+    int Markdown::GetMeasuredHeight() const
+    {
+        return cursor_y + state.font_size;
+    }
+    void Markdown::ClearBuffers()
+    {
+        text.Clear();
+        code.Clear();
+    }
+
+    void DrawTextNode(const char* text, int max_width, int max_height, int x, int y)
+    {
+        if(!text)
+            return;
+        Markdown md;
+
+        md.SetInput(text, max_width, max_height);
+
+        while(md.ComputeNextTextRun())
+        {
+            TextPrimitive p = md.GetTextPrimitive(x, y);
+            DrawText_impl(p);
+        }
+    }
 
 
-//Parent percent helpers
-namespace UI
-{
-    //Width
-    int ParentPercentToPx(int value , Unit::Type unit_type, int parent_width);
-    void ComputeParentWidthPercent(Box& box, int parent_width);
-
-    //Height
-    int ParentHeightPercentToPx(int value , Unit::Type unit_type, int parent_width);
-    void ComputeParentHeightPercent(Box& box, int parent_width);
 
 
     //Width
@@ -1004,17 +1352,11 @@ namespace UI
         if(box.max_height_unit == Unit::Type::WIDTH_PERCENT)
             box.max_height = box.width * box.max_height / 100;
     }
-    
 
 
-    //NOT IN USE ANYMORE
-}
 
-
-//PASS 3
-//Size calculations
-namespace UI
-{
+    //PASS 3
+    //Size calculations
     void WidthPass(TreeNode<Box>* node)
     {
         if(node == nullptr || node->children.IsEmpty())
@@ -1330,22 +1672,6 @@ namespace UI
     }
 
 
-    void HeightContentPercentPass_Flow(TreeNode<Box>* node);
-    void HeightContentPercentPass(TreeNode<Box>* node)
-    {
-        if(!node)    
-            return;
-        assert(node);
-        const Box& box = node->val;
-        if(box.GetLayout() == Layout::FLOW)
-        {
-            HeightContentPercentPass_Flow(node);
-        }
-        else
-        {
-            assert(0 && "Have not added grid yet");
-        }
-    }
     void HeightContentPercentPass_Flow(TreeNode<Box>* node)
     {
         assert(node);
@@ -1409,396 +1735,23 @@ namespace UI
             parent_box.max_height = parent_box.max_height * content_height / 100;
     }
 
-}
-
-
-//TEXT RENDERING
-namespace UI
-{
-    inline char ToLower(char c)
+    void HeightContentPercentPass(TreeNode<Box>* node)
     {
-        return (c >= 'A' && c <= 'Z')? c + 32: c;
-    }
-    int StringLength(const char* text)
-    {
-        if(!text)
-            return -1;
-        int i;
-        for(i = 0; text[i]; i++);
-        return i;
-    }
-    inline uint32_t StrToU32(const char* text, bool* error)
-    {
-        if(!text)
-        {
-            if(error)
-                *error = true;
-            return 0;
-        }
-        uint32_t result = 0;
-        for(;*text; text++)
-        {
-            char c = *text;
-            if(c >= '0' && c <= '9')
-            {
-                uint32_t digit = c - '0';
-                if(result > (0xFFFFFFFF - digit)/10)
-                {
-                    if(error)
-                        *error = true;
-                    return 0;
-                }
-                result = result * 10 + digit;
-            }
-            else
-            {
-                if(error)
-                    *error = true;
-                return 0;
-            }
-        }
-        return result;
-    }
-    inline uint32_t HexToU32(const char* text, bool* error)
-    {
-        if(!text)
-        {
-            if(error)
-                *error = true;
-            return 0;
-        }
-        uint32_t result = 0;
-        for(; *text; text++)
-        {
-            result <<= 4;
-            char c = *text;
-            c = ToLower(c);
-            if(c >= '0' && c <= '9')
-                result |= c - '0';
-            else if(c >= 'a' && c<= 'f')
-                result |= c - 87;
-            else
-            {
-                if(error)
-                    *error = true;
-                return 0;
-            }
-        }
-        return result;
-    }
-    inline Color HexToRGBA(const char* text, bool* error)
-    {
-        bool err = false;
-        if(!text)
-            err = true;
-        char hex[3]{};
-        Color result = {0, 0, 0, 255};
-        for(int i = 0; i<6; i++)
-        {
-            if(text[i] == '\0')
-                err = true;
-        }
-        hex[0] = text[0]; hex[1] = text[1]; hex[2] = '\0';
-        result.r = HexToU32(hex, &err);
-        hex[0] = text[2]; hex[1] = text[3]; hex[2] = '\0';
-        result.g = HexToU32(hex, &err);
-        hex[0] = text[4]; hex[1] = text[5]; hex[2] = '\0';
-        result.b = HexToU32(hex, &err);
-        if(text[6] == '\0')
-        {
-            if(error)
-                *error = err;
-            return err? Color() : result;
-        }
-        if(text[7] == '\0')
-        {
-            if(error)
-                *error = true;
-            return Color();
-        }
-        hex[0] = text[6]; hex[1] = text[7]; hex[2] = '\0';
-        result.a = HexToU32(hex, &err);
-        if(text[8] != '\0')
-            err = true;
-        if(error)
-            *error = err;
-        return err? Color(): result;
-    }
-    //FixedString
-    template<uint32_t CAPACITY>
-    const char* FixedString<CAPACITY>::Data() const
-    {
-        return data;
-    }
-    template<uint32_t CAPACITY>
-    uint32_t FixedString<CAPACITY>::Size() const
-    {
-        return size;
-    }
-    template<uint32_t CAPACITY>
-    bool FixedString<CAPACITY>::IsEmpty() const
-    {
-        return size == 0;
-    }
-    template<uint32_t CAPACITY>
-    bool FixedString<CAPACITY>::IsFull() const
-    {
-        return size >= CAPACITY;
-    }
-    template<uint32_t CAPACITY>
-    bool FixedString<CAPACITY>::Push(char c)
-    {
-        if(size >= CAPACITY)
-            return false;
-        data[size++] = c;
-        data[size] = '\0';
-        return true;
-    }
-    template<uint32_t CAPACITY>
-    bool FixedString<CAPACITY>::Pop()
-    {
-        if(size > 0)
-        {
-            size--;
-            data[size] = '\0';
-            return true;
-        }
-        return false;
-    }
-    template<uint32_t CAPACITY>
-    void FixedString<CAPACITY>::Clear()
-    {
-        data[0] = '\0';
-        size = 0;
-    }
-    template<uint32_t CAPACITY>
-    char& FixedString<CAPACITY>::operator[](uint32_t index)
-    {
-        assert(index < size && "FixedString operator[] out of scope");
-        return data[index];
-    }
-
-
-
-
-    void Markdown::SetInput(const char* source, int max_width, int max_height)
-    {
-        assert(source);
-        this->source = source; 
-        this->max_width = max_width;
-    }
-    bool Markdown::Done()
-    {
-        if(source == nullptr)
-            return true;
-        return *source == '\0';
-    }
-    bool Markdown::ComputeEscapeCode()
-    {
-        if(code.IsEmpty())
-            return false;
-
-        switch(code[0])
-        {
-            case 'C':
-            {
-                if(code[1] != ':')
-                    return false;
-                bool err = false;
-                state.font_color = HexToRGBA(&code[2], &err);
-                return !err;
-            }
-            case 'S':
-            {
-                if(code[1] != ':')
-                    return false;
-                bool err = false;
-                state.font_size = StrToU32(&code[2], &err);
-                return !err;
-            }
-            default:
-            {
-                return false;
-                break;
-            }
-        }
-    }
-    void Markdown::HandleWrap()
-    {
-        if(text.Size() <= 1)
+        if(!node)    
             return;
-        int index = text.Size() - 1;
-        int offset = 0;
-        for(;index >= 0; index--)
+        assert(node);
+        const Box& box = node->val;
+        if(box.GetLayout() == Layout::FLOW)
         {
-            if(text[index] == ' ')
-            {
-                text[index] = '\n';
-                cursor_x = 0;
-                cursor_y += state.font_size + state.line_spacing;
-                break;
-            }
-            offset += MeasureChar_impl(text[index], state.font_size, state.font_spacing);
-        }
-        cursor_x += offset;
-    }
-    void Markdown::PushAndMeasureChar(char c)
-    {
-        text.Push(c);
-        if(c == '\n')
-        {
-            cursor_x = 0;
-            cursor_y += state.font_size + state.line_spacing;
+            HeightContentPercentPass_Flow(node);
         }
         else
         {
-            cursor_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
-        }
-        if(cursor_x >= max_width)
-        {
-            HandleWrap();
-        }
-        if(cursor_x >= measured_width)
-            measured_width = cursor_x;
-    }
-    bool Markdown::ComputeNextTextRun()
-    {
-        if(!source || *source == '\0')
-            return false;
-
-        ClearBuffers();
-        p.text = text.Data();
-        p.cursor_x = cursor_x;
-        p.cursor_y = cursor_y;
-        p.font_size = state.font_size;
-        p.line_spacing = state.line_spacing;
-        p.font_spacing = state.font_spacing;
-        p.font_color = state.font_color;
-        bool should_ignore = false;
-        for(;;source++)
-        {
-            char c = *source; 
-            if(c == '\0')
-            {
-                break;
-            }
-            else if(should_ignore)
-            {
-                //Inserting text
-                if(text.IsFull()) 
-                    break;
-                PushAndMeasureChar(c);
-                should_ignore = false;
-            }
-            else if(c == '\\' && !escape)
-            {
-                should_ignore = true;
-            }
-            else if(c == '[')
-            {
-                escape = true;
-            }
-            else if(c == ']' && escape)
-            {
-                if(!ComputeEscapeCode())
-                {
-                    assert(0 && "unknown escape code");
-                }
-                escape = false;
-                source++;
-                break;
-            }
-            else if(escape)
-            {
-                if(c == ' ')
-                    continue;
-                code.Push(c);
-            }
-            else
-            {
-                //Inserting text
-                if(text.IsFull())
-                    break;
-                PushAndMeasureChar(c);
-            }
-        }
-
-        //Fixing edge case
-        #if 1
-        bool esc = false;
-        int c_x = cursor_x;
-        for(int i = 0;; i++)
-        {
-            char c = source[i];
-            if(c == '\0')
-                break;
-            else if(should_ignore)
-            {
-                c_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
-                should_ignore = false;
-            }
-            else if(c == '\\' && !esc)
-                should_ignore = true;
-            else if(c == '[')
-                esc = true;
-            else if(c == ']' && esc)
-                esc = false;
-            else if(c == ' ')
-                break;
-            else if(!esc)
-                c_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
-        }
-        if(c_x >= max_width)
-            HandleWrap();
-        #endif
-        return true;
-    }
-    TextPrimitive Markdown::GetTextPrimitive(int x, int y)
-    {
-        p.x = x;
-        p.y = y;
-        return p;
-    }
-    int Markdown::GetMeasuredWidth() const
-    {
-        return measured_width;
-    }
-    int Markdown::GetMeasuredHeight() const
-    {
-        return cursor_y + state.font_size;
-    }
-    void Markdown::ClearBuffers()
-    {
-        text.Clear();
-        code.Clear();
-    }
-
-
-    
-    void DrawTextNode(const char* text, int max_width, int max_height, int x, int y)
-    {
-        if(!text)
-            return;
-        Markdown md;
-
-        md.SetInput(text, max_width, max_height);
-
-        while(md.ComputeNextTextRun())
-        {
-            TextPrimitive p = md.GetTextPrimitive(x, y);
-            DrawText_impl(p);
+            assert(0 && "Have not added grid yet");
         }
     }
-}
 
 
-//Pass 4
-//Draw, position, and send user input data to next frame
-namespace UI
-{
-
-    //This is a temporary function to test things
-    void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
 
     void DrawPass(TreeNode<Box>* node, int x, int y, const Box& parent_box, Rect parent_aabb)
     {
@@ -1852,12 +1805,12 @@ namespace UI
                 //Handling mouse hover next frame
                 if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}), mouse_x, mouse_y))
                 {
-                    internal_key = box.label_hash;
+                    directly_hovered_element_key = box.label_hash;
                     info->is_hover = true;
                 }
-                else if(internal_key == box.label_hash)
+                else if(directly_hovered_element_key == box.label_hash)
                 {
-                    internal_key = 0;
+                    directly_hovered_element_key = 0;
                 }
             }
         }
@@ -1876,7 +1829,7 @@ namespace UI
 
         if(parent_box.IsScissor())
             EndScissorMode_impl();
-    }
+    } //end of DrawPass()
 
     void DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb)
     {
@@ -1934,7 +1887,7 @@ namespace UI
 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                 {
-                    deferred_element.Add(&temp->value, &arena);
+                    deferred_elements.Add(&temp->value, &arena);
                     continue;
                 }
 
@@ -2019,7 +1972,7 @@ namespace UI
 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                 {
-                    deferred_element.Add(&temp->value, &arena);
+                    deferred_elements.Add(&temp->value, &arena);
                     continue;
                 }
 
@@ -2059,7 +2012,5 @@ namespace UI
                 }
             }
         }
-    }
-
-
+    } //End of DrawPass_FlowNoWrap()
 }

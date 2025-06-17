@@ -27,28 +27,6 @@ namespace UI
     template<typename T>
     class Map;
 
-    void StringCopy(char* dst, const char* src, uint32_t size)
-    {
-        if(!size || !src || !dst) return;
-        uint32_t i;
-        for(i = 0; i<size-1 && src[i] != '\0'; i++)
-            dst[i] = src[i];
-        dst[i] = '\0';
-    }
-    bool StringCompare(const char* s1, const char* s2)
-    {
-        if(s1 == nullptr || s2 == nullptr)
-            return false;
-        while(*s1 && *s2)
-        {
-            if(*s1 != *s2)
-                return false;
-            s1++;
-            s2++;
-        }
-        return *s1 == *s2;
-    }
-
 }
 
 //Stack allocated data structures
