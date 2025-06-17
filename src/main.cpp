@@ -336,6 +336,7 @@ void SpotifyExample()
 }
 
 
+float test = 0;
 void AvailableSizeDebug1()
 {
     UI::BoxStyle base;
@@ -343,6 +344,7 @@ void AvailableSizeDebug1()
     base.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
     base.height = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
     base.background_color = UI::Color{40, 40, 40, 255};
+    base.flow.horizontal_alignment = UI::Flow::Alignment::SPACE_AROUND;
     UI::BoxStyle v_container;
     v_container.flow.axis = UI::Flow::Axis::VERTICAL;
     v_container.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
@@ -458,11 +460,10 @@ void AvailableSizeDebug1()
 
 
                 //Case 13
-                boxA.width = {33.33, UI::Unit::AVAILABLE_PERCENT};
-                boxA.min_width = {100, UI::Unit::PIXEL};
-                boxA.max_width = {200, UI::Unit::PIXEL};
-                boxB.width = {33.33, UI::Unit::AVAILABLE_PERCENT};
-                boxC.width = {33.33, UI::Unit::AVAILABLE_PERCENT};
+                boxA.width = {30, UI::Unit::AVAILABLE_PERCENT};
+                boxA.min_width = {test, UI::Unit::PIXEL};
+                boxB.width = {34, UI::Unit::AVAILABLE_PERCENT};
+                boxC.width = {34, UI::Unit::AVAILABLE_PERCENT};
                 UI::BeginBox(boxA, "A"); //"A" is element id
                 UI::InsertText("[S:28]A");
                 UI::EndBox();
@@ -474,6 +475,13 @@ void AvailableSizeDebug1()
 
                 UI::BeginBox(boxC, "C"); //"C" is element id
                 UI::InsertText("[S:28]C");
+                UI::EndBox();
+
+                UI::BoxStyle boxD;
+                boxD.width = {100};
+                boxD.height = {100};
+                boxD.background_color = {255,0,0,255};
+                UI::BeginBox(boxD, "D"); //"C" is element id
                 UI::EndBox();
             UI::EndBox();
             UI::BeginBox(pop_up);
@@ -506,6 +514,14 @@ int main(void)
     float time = 0;
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
+        if(IsKeyDown(KEY_E))
+        {
+            test += GetFrameTime() * 50;
+        }   
+        if(IsKeyDown(KEY_Q))
+        {
+            test -= GetFrameTime() * 100;
+        }
         if(IsKeyDown(KEY_RIGHT))
         {
             time += GetFrameTime() * 300;
@@ -526,7 +542,7 @@ int main(void)
 
         SpotifyExample();
         //AvailableSizeDebug1();
-        
+        DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
 
         EndDrawing();
     }
