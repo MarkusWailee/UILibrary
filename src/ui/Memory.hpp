@@ -4,7 +4,7 @@
 #include <cassert>
 
 
-namespace UI
+namespace UI::Internal
 {
     template<typename T, unsigned int CAPACITY>
     class Array;
@@ -30,24 +30,8 @@ namespace UI
 }
 
 //Stack allocated data structures
-namespace UI
+namespace UI::Internal
 {
-
-
-
-    template<typename T, unsigned int CAPACITY>
-    class Array
-    {
-        T data[CAPACITY];
-        public:
-        inline unsigned int Capacity() const;
-        inline T& operator[](unsigned int index);
-        inline T* Data();
-    };
-
-
-
-
     template<typename T, unsigned int CAPACITY>
     class FixedStack
     {
@@ -64,7 +48,6 @@ namespace UI
         inline T& operator[](unsigned int index) ;
         inline T* Data();
     };
-
 
 
     template<typename T>    
@@ -86,9 +69,6 @@ namespace UI
         bool HasArena() const;
         T& operator[](uint32_t index);
     };
-
-
-
 
 
     class MemoryArena
@@ -114,22 +94,6 @@ namespace UI
         inline uint64_t Capacity() const;
     };
 
-
-    template<typename T>
-    class ObjectPool
-    {
-        Stack<uint32_t> free_list;
-        T* data = nullptr;
-    public:
-        ObjectPool(uint32_t obj_count, MemoryArena* arena = nullptr);
-        ~ObjectPool();
-        T* New();
-        void Free(T* obj);
-        uint32_t Size() const;
-        uint32_t Capacity() const;
-        bool IsExhausted() const;
-
-    };
 
 
     template<typename T>
@@ -200,33 +164,8 @@ namespace UI
 }
 
 
-
-//Array
-namespace UI
-{
-    template<typename T, unsigned int CAPACITY>
-    inline unsigned int Array<T, CAPACITY>::Capacity() const
-    {
-        return CAPACITY;
-    }
-    template<typename T, unsigned int CAPACITY>
-    inline T& Array<T, CAPACITY>::operator[](unsigned int index) 
-    {
-        assert(index < CAPACITY);
-        return data[index];
-    }
-    template<typename T, unsigned int CAPACITY>
-    inline T* Array<T, CAPACITY>::Data()
-    {
-        return data;
-    }
-}
-
-
-
-
 //Fixed Stack
-namespace UI
+namespace UI::Internal
 {
     template<typename T, unsigned int CAPACITY>
     inline void FixedStack<T, CAPACITY>::Push(const T& value)
@@ -279,15 +218,9 @@ namespace UI
         return size == 0;
     }
 
-}
 
 
-
-
-//Stack
-namespace UI
-{
-
+    //Stack
     template<typename T>
     Stack<T>::Stack(uint32_t capacity, MemoryArena* arena)
         : size(0), capacity(capacity), data(nullptr), has_arena(arena)
@@ -426,71 +359,6 @@ namespace UI
     {
         return capacity;
     }
-
-
-
-    //ObjectPool Implementation
-    template<typename T>
-    inline ObjectPool<T>::ObjectPool(uint32_t obj_count, MemoryArena* arena): free_list(obj_count, arena)
-    {
-        if(arena)
-        {
-            data = arena->New<T>(obj_count);
-        }
-        else
-        {
-            data = new T[obj_count]{};
-        }
-
-        //Fill the free list
-        for(uint32_t i = 0; i < free_list.Capacity(); i++)
-            free_list.Push(i);
-
-        //Should contain data
-        assert(data);
-    }
-    template<typename T>
-    inline ObjectPool<T>::~ObjectPool()
-    {
-        if(!free_list.HasArena())
-            delete[] data;
-    }
-    template<typename T>
-    inline T* ObjectPool<T>::New()
-    {
-        if(!free_list.IsEmpty())
-        {
-            uint32_t index = free_list.Peek();
-            free_list.Pop();
-            return (data + index);
-        }
-        return nullptr;
-    }
-    template<typename T>
-    inline void ObjectPool<T>::Free(T* ptr)
-    {
-        assert(ptr);
-        assert((uintptr_t)data <= (uintptr_t)ptr);
-        uintptr_t index = ((uintptr_t)ptr - (uintptr_t)data) / sizeof(T);
-        assert(index < free_list.Capacity());
-        free_list.Push((uint32_t)index);
-    }
-    template<typename T>
-    inline bool ObjectPool<T>::IsExhausted() const
-    {
-        return free_list.IsEmpty();
-    }
-    template<typename T>
-    inline uint32_t ObjectPool<T>::Size() const
-    {
-        return free_list.Size();
-    }
-    template<typename T>
-    inline uint32_t ObjectPool<T>::Capacity() const
-    {
-        return free_list.Capacity();
-    }
-    
 
     //ArenaLL Implementation
     template<typename T>

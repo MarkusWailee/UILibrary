@@ -3,6 +3,9 @@
 #include <math/vec.h>
 
 #include "FunExamples.hpp"
+
+#define UI_BeginBox(style, label) UI::BeginBox(style, label)
+
 bool PlaylistButtonWidget(const char* playlist_title, const char* author, UI::Color album_cover, const char* button_id)
 {
     bool result = false;
@@ -413,107 +416,15 @@ void AvailableSizeDebug1()
                 UI::BoxInfo C = UI::GetBoxInfo("C");
                 UI::InsertText(TextFormat("[S:28]Total width: %d\nBox A: %d\nBox B: %d\nBox C: %d", Base.draw_width, A.draw_width, B.draw_width, C.draw_width));
             UI::EndBox();
+            UI_BeginBox(boxD, nullptr);
+            UI::EndBox();
         UI::EndBox();
     UI::EndRoot();
 
 
     UI::Draw();
 }
-
-
-class A
-{
-public:
-    void DoSomething();
-private:
-    void PrivateFunction();
-};
-
-void TestWebsite()
-{
-    UI::BeginRoot(GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
-    // Root container (vertical)
-UI::BoxStyle root;
-root.layout = UI::Layout::FLOW;
-root.flow.axis = UI::Flow::Axis::VERTICAL;
-root.width = {100, UI::Unit::ROOT_PERCENT};
-root.height = {100, UI::Unit::ROOT_PERCENT};
-UI::BeginBox(root);
-
-// Top Header
-UI::BoxStyle header;
-header.height = {60, UI::Unit::PIXEL};
-header.width = {100, UI::Unit::AVAILABLE_PERCENT};
-header.background_color = {36, 36, 36, 255};
-header.padding = {16, 16, 0, 0};
-header.corner_radius = 0;
-UI::BeginBox(header);
-UI::InsertText("[C:FFFFFF][S:24]ChatGPT");
-UI::EndBox();
-
-// Content Row (sidebar + main chat)
-UI::BoxStyle contentRow;
-contentRow.layout = UI::Layout::FLOW;
-contentRow.flow.axis = UI::Flow::Axis::HORIZONTAL;
-contentRow.width = {100, UI::Unit::AVAILABLE_PERCENT};
-contentRow.height = {100, UI::Unit::AVAILABLE_PERCENT};
-UI::BeginBox(contentRow);
-
-// Sidebar
-UI::BoxStyle sidebar;
-sidebar.width = {260, UI::Unit::PIXEL};
-sidebar.height = {100, UI::Unit::AVAILABLE_PERCENT};
-sidebar.background_color = {52, 53, 65, 255};
-sidebar.padding = {12, 12, 12, 12};
-sidebar.scissor = true;
-sidebar.corner_radius = 8;
-UI::BeginBox(sidebar);
-UI::InsertText("[C:FFFFFF][S:20]New Chat");
-UI::InsertText("[C:AAAAAA][S:16]History 1");
-UI::InsertText("[C:AAAAAA][S:16]History 2");
-UI::EndBox();
-
-// Main Chat Column
-UI::BoxStyle chatColumn;
-chatColumn.layout = UI::Layout::FLOW;
-chatColumn.flow.axis = UI::Flow::Axis::VERTICAL;
-chatColumn.width = {100, UI::Unit::AVAILABLE_PERCENT};
-chatColumn.height = {100, UI::Unit::AVAILABLE_PERCENT};
-chatColumn.background_color = {255, 255, 255, 255};
-chatColumn.padding = {0, 0, 0, 0};
-UI::BeginBox(chatColumn);
-
-// Chat Scrollable Area
-UI::BoxStyle messageArea;
-messageArea.width = {100, UI::Unit::AVAILABLE_PERCENT};
-messageArea.height = {100, UI::Unit::AVAILABLE_PERCENT};
-messageArea.padding = {20, 40, 20, 20};
-messageArea.scissor = true;
-UI::BeginBox(messageArea);
-UI::InsertText("[C:000000][S:16]You: Hello!");
-UI::InsertText("[C:008000][S:16]ChatGPT: Hi! How can I help you today?");
-UI::InsertText("[C:000000][S:16]You: What is a good UI layout?");
-UI::InsertText("[C:008000][S:16]ChatGPT: Something clean and responsive like this.");
-UI::EndBox();
-
-// Input Bar
-UI::BoxStyle inputBar;
-inputBar.height = {64, UI::Unit::PIXEL};
-inputBar.width = {100, UI::Unit::AVAILABLE_PERCENT};
-inputBar.background_color = {245, 245, 245, 255};
-inputBar.padding = {12, 24, 12, 12};
-inputBar.corner_radius = 12;
-UI::BeginBox(inputBar);
-UI::InsertText("[C:999999][S:16]Type your message...");
-UI::EndBox();
-
-UI::EndBox(); // End Chat Column
-UI::EndBox(); // End Content Row
-UI::EndBox(); // End Root
-UI::EndRoot();
-
-UI::Draw();
-}
+//void SomeFatFunction(int line = std::source_location::current().line(), const char* file = std::source_location::current().file_name())
 int main(void)
 {
     float screenWidth = 960;
@@ -524,8 +435,8 @@ int main(void)
     SetExitKey(0);
     SetTargetFPS(60);
 
-    UI::Init_impl();
 
+    UI::Init_impl();
     float time = 0;
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
@@ -556,12 +467,9 @@ int main(void)
         ClearBackground(Color{0, 0, 0, 255});
         SpotifyExample();
         //AvailableSizeDebug1();
-        //TestWebsite();
         //DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
-
         EndDrawing();
     }
-
     CloseWindow();        // Close window and OpenGL context
 
     return 0;

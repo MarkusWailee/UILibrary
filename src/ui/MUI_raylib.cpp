@@ -133,7 +133,8 @@ void UI::EndScissorMode_impl()
 }
 void UI::LogError_impl(const char* msg)
 {
-    std::cout<<msg; 
+    if(msg != nullptr)
+        std::cout<<msg; 
 }
 void UI::LogError_impl(int n)
 {

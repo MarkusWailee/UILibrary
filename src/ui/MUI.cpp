@@ -1,7 +1,99 @@
 #include "MUI.hpp"
 #include "Memory.hpp"
 
+namespace UI
+{
+    using namespace Internal;
+    void DisplayError(const Error& error);
+    Error CheckUnitErrors(const BoxStyle& style);
+    Error CheckLeafNodeContradictions(const Box& leaf);
+    Error CheckRootNodeConflicts(const BoxStyle& root);
+    Error CheckNodeContradictions(const Box& child, const Box& parent);
 
+    //Used during tree descending
+    int FixedUnitToPx(Unit unit, int root_size);
+    Box ComputeStyleSheet(const BoxStyle& style, const Box& root);
+
+    //UserInput
+    //Returns 0 if str is nullptr. Otherwise it will never return 0
+    uint64_t Hash(const char* str);
+    void StringCopy(char* dst, const char* src, uint32_t size);
+    bool StringCompare(const char* s1, const char* s2);
+    char ToLower(char c);
+
+    //Does not count '\0'
+    int StringLength(const char* text);
+    uint32_t StrToU32(const char* text, bool* error = nullptr);
+    uint32_t HexToU32(const char* text, bool* error = nullptr);
+    Color HexToRGBA(const char* text, bool* error = nullptr);
+
+    //Stack allocated string for convenience
+    template<uint32_t CAPACITY>
+    class FixedString
+    {
+        uint32_t size = 0;
+        char data[CAPACITY + 1]{};
+    public:
+        const char* Data() const;
+        uint32_t Size() const; 
+        bool IsEmpty() const;
+        bool IsFull() const;
+        bool Push(char c);
+        bool Pop();
+        void Clear();
+        char& operator[](uint32_t index);
+    };
+
+    //Custom markdown language
+    #define FLUSH_CAP 512
+    class Markdown
+    {
+        struct Attributes
+        {
+            //All the variables the markdown can change
+            int font_size = 32;
+            int line_spacing = 0;
+            int font_spacing = 0;
+            Color font_color = {255, 255, 255, 255};
+        };
+    public:
+        void SetInput(const char* source, int max_width, int max_height);
+        bool ComputeNextTextRun();
+        bool Done();
+        int GetMeasuredWidth() const;
+        int GetMeasuredHeight() const;
+        TextPrimitive GetTextPrimitive(int x, int y);
+    private:
+        void HandleWrap();
+        void PushAndMeasureChar(char c);
+
+        //Go to this function to add more markdown features
+        bool ComputeEscapeCode();
+
+        void ClearBuffers();
+
+        const char* source = nullptr;
+        TextPrimitive p;
+        Attributes state;
+        int cursor_x = 0;
+        int cursor_y = 0;
+        int max_width = INT_MAX;
+        int max_height = INT_MAX;
+        int measured_width = 0;
+        bool escape = false;
+        FixedString<128> code;
+        FixedString<FLUSH_CAP> text;
+    };
+
+
+    //Draws text based on custom markup
+    void DrawTextNode(const char* text, int max_width, int max_height, int x, int y);
+
+    //Computing PARENT_PERCENT
+    int ParentPercentToPx(int value , Unit::Type unit_type, int parent_width);
+    void ComputeParentWidthPercent(Box& box, int parent_width);
+    void ComputeParentHeightPercent(Box& box, int parent_width);
+}
 
 
 //GLOBALS
@@ -28,9 +120,9 @@ namespace UI
     {
         context.EndRoot();
     }
-    void BeginBox(const UI::BoxStyle& box_style, const char* label)
+    void BeginBox(const UI::BoxStyle& box_style, const char* label, DebugInfo debug_info)
     {
-        context.BeginBox(box_style, label);
+        context.BeginBox(box_style, label, debug_info);
     }
     void InsertText(const char* text, bool copy_text)
     {
@@ -944,7 +1036,8 @@ namespace UI
             return;
         }
     }
-    void Context::BeginBox(const UI::BoxStyle& style, const char* label)
+
+    void Context::BeginBox(const UI::BoxStyle& style, const char* label, DebugInfo debug_info)
     {
         if(HasInternalError())
             return;
@@ -1572,7 +1665,7 @@ namespace UI
         }
         DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
 
-        #if UI_DEBUG
+        #if UI_ENABLE_DEBUG
             if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{x, y, render_width, render_height}), mouse_x, mouse_y))
             {
                 DrawRectangle_impl(render_x, render_y, render_width, render_height, 0, 2, UI::Color{255, 0, 0, 255}, UI::Color{0, 0, 0, 0});
