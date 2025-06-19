@@ -180,7 +180,7 @@ namespace UI
     BoxInfo GetBoxInfo(const char* label);
     void SetContext(UI::Context* context);
     Context* GetContext();
-    void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
+    void BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
     void InsertText(const char* text, bool copy_text = true);
@@ -345,7 +345,7 @@ namespace UI
     public:
         Context(uint64_t arena_bytes);
         BoxInfo GetBoxInfo(const char* label);
-        void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
+        void BeginRoot(int x, int y,unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
         void EndRoot();
         void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
         void InsertText(const char* text, bool copy_text = true);

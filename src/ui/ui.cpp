@@ -1,4 +1,4 @@
-#include "MUI.hpp"
+#include "ui.hpp"
 #include "Memory.hpp"
 
 namespace UI
@@ -122,10 +122,10 @@ namespace UI
             return context->GetBoxInfo(label);
         return BoxInfo();
     }
-    void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
+    void BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
     {
         if(context)
-            context->BeginRoot(screen_width, screen_height, mouse_x, mouse_y);
+            context->BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
     }
     void EndRoot()
     {
@@ -972,7 +972,7 @@ namespace UI
         }
         return BoxInfo();
     }
-    void Context::BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
+    void Context::BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
     {
         this->mouse_x = mouse_x;
         this->mouse_y = mouse_y;
@@ -997,6 +997,8 @@ namespace UI
         Box root_box;
         root_box.width = screen_width;
         root_box.height = screen_height;
+        root_box.x = x;
+        root_box.y = y;
 
         if(stack.IsEmpty())//Root Node
         {
