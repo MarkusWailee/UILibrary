@@ -5,7 +5,7 @@
 
 
 //it is recommended to double the memory when debug is enabled
-#define UI_ENABLE_DEBUG 1
+#define UI_ENABLE_DEBUG 0
 
 #if UI_ENABLE_DEBUG
     #if __cplusplus >= 202002L

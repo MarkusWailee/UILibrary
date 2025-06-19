@@ -1051,7 +1051,8 @@ namespace UI
         if(label)
         {
             //BoxInfo will be filled in next frame 
-            assert(double_buffer_map.Insert(label_hash, BoxInfo()));
+            bool err = double_buffer_map.Insert(label_hash, BoxInfo());
+            assert(err);
         }
 
         if(!stack.IsEmpty())  // should add to parent
@@ -1241,7 +1242,7 @@ namespace UI
         WidthPass(root_node);
         HeightContentPercentPass(root_node);
         HeightPass(root_node);
-        DrawPass(root_node, 0, 0, Box(), Rect{0, 0, root_box.width, root_box.height});
+        DrawPass(root_node, 0, 0, Box(), Rect{root_box.x, root_box.y, root_box.width, root_box.height});
 
         while(!deferred_elements.IsEmpty())
         {
@@ -1300,7 +1301,8 @@ namespace UI
                 }
                 else
                 {
-                    assert(growing_elements.Add(GrowBox{&box, 0}, &arena) && "Arena out of memory");
+                    bool err = (bool)growing_elements.Add(GrowBox{&box, 0}, &arena);
+                    assert(err && "Arena out of memory");
                     available_width -= box.GetBoxExpansionWidth() + parent_box.gap_column;
                     total_percent += box.width;
                 }
@@ -1477,7 +1479,8 @@ namespace UI
                 }
                 else
                 {
-                    assert(growing_elements.Add(GrowBox{&box, 0}, &arena) && "Arena out of memory");
+                    bool err = growing_elements.Add(GrowBox{&box, 0}, &arena);
+                    assert(err && "Arena out of memory");
                     available_height -= box.GetBoxExpansionHeight() + parent_box.gap_row;
                     total_percent += box.height;
                 }
@@ -1731,6 +1734,7 @@ namespace UI
         assert(temp);
         if(parent_box.IsScissor())
         {
+            //initially is grandparent_aabb
             parent_aabb = Rect::Intersection(parent_aabb, Rect{x + parent_box.padding.left, y + parent_box.padding.bottom, parent_box.width, parent_box.height});
         }
         //Horizontal
