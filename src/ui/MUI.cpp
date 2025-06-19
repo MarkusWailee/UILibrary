@@ -112,6 +112,10 @@ namespace UI
     {
         UI::context = context;
     }
+    Context* GetContext()
+    {
+        return context;
+    }
     BoxInfo GetBoxInfo(const char* label)
     {
         if(context)
@@ -410,8 +414,8 @@ namespace UI
         
         box.width =                     (uint16_t)Max(0, FixedUnitToPx(style.width, root_width));
         box.height =                    (uint16_t)Max(0, FixedUnitToPx(style.height, root_height));
-        box.gap_row =                    style.gap_column;
-        box.gap_column =                 style.gap_row;
+        box.gap_row =                    style.gap_row;
+        box.gap_column =                 style.gap_column;
         box.min_width =                 (uint16_t)Max(0, FixedUnitToPx(style.min_width, root_width));
         box.max_width =                 (uint16_t)Max(0, FixedUnitToPx(style.max_width, root_width));
         box.min_height =                (uint16_t)Max(0, FixedUnitToPx(style.min_height, root_height));
@@ -937,6 +941,10 @@ namespace UI
             return nullptr;
         return root_node;
     }
+    uint32_t Context::GetElementCount() const
+    {
+        return element_count;
+    }
     bool Context::HasInternalError()
     {
         return internal_error.type != Error::Type::NO_ERROR;
@@ -975,6 +983,7 @@ namespace UI
         arena.Rewind(root_node);
         stack.Clear();
         root_node = nullptr;
+        element_count = 1;
         if(double_buffer_map.ShouldResize())
         {
             arena.Reset();
@@ -1030,6 +1039,7 @@ namespace UI
     {
         if(HasInternalError())
             return;
+        element_count++;
 
         //Check for unit type errors
         //Could be moved into creating style sheets for more performance, but this is good enough for now

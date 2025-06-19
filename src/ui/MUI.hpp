@@ -179,6 +179,7 @@ namespace UI
     // ========== Main Functions ==========
     BoxInfo GetBoxInfo(const char* label);
     void SetContext(UI::Context* context);
+    Context* GetContext();
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
@@ -350,6 +351,7 @@ namespace UI
         void InsertText(const char* text, bool copy_text = true);
         void EndBox();
         void Draw();
+        uint32_t GetElementCount() const;
         Internal::TreeNode* GetInternalTree();
     private:
 
@@ -374,6 +376,7 @@ namespace UI
         void DrawPass_FlowNoWrap(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
         void DrawPass(TreeNode* node, int x, int y, const Box& parent_box, Rect parent_aabb);
     private:
+        uint32_t element_count = 0;
         uint64_t directly_hovered_element_key = 0;
         Error internal_error;
         int mouse_x = 0, mouse_y = 0;

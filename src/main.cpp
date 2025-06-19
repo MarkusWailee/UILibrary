@@ -242,8 +242,8 @@ void SpotifyExample()
                     liked_songs_cover.height = UI::Unit{100, UI::Unit::WIDTH_PERCENT}; //This should be WIDTH_PERCENT
                     liked_songs_cover.background_color = UI::Color{18, 18, 255, 255};
                     liked_songs_cover.corner_radius = 10;
-                    liked_songs_cover.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
-                    liked_songs_cover.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
+                    liked_songs_cover.flow.horizontal_alignment = UI::Flow::CENTERED;
+                    liked_songs_cover.flow.vertical_alignment = UI::Flow::CENTERED;
                     UI::BeginBox(liked_songs_cover);
                         UI::InsertText("L");
                     UI::EndBox();
