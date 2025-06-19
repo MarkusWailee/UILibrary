@@ -435,8 +435,11 @@ int main(void)
     SetExitKey(0);
     SetTargetFPS(60);
 
-
     UI::Init_impl();
+    UI::Context ui_context(32768 *2);
+    UI::SetContext(&ui_context);
+
+
     float time = 0;
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {

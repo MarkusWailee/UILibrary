@@ -100,7 +100,7 @@ namespace UI
 namespace UI
 {
     float dpi = 96.0f;
-    Context context(32768 *2);
+    Context* context = nullptr;
 }
 
 
@@ -108,33 +108,45 @@ namespace UI
 //IMPLEMENTATION
 namespace UI
 {
+    void SetContext(UI::Context* context)
+    {
+        UI::context = context;
+    }
     BoxInfo GetBoxInfo(const char* label)
     {
-        return context.GetBoxInfo(label);
+        if(context)
+            return context->GetBoxInfo(label);
+        return BoxInfo();
     }
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
     {
-        context.BeginRoot(screen_width, screen_height, mouse_x, mouse_y);
+        if(context)
+            context->BeginRoot(screen_width, screen_height, mouse_x, mouse_y);
     }
     void EndRoot()
     {
-        context.EndRoot();
+        if(context)
+            context->EndRoot();
     }
     void BeginBox(const UI::BoxStyle& box_style, const char* label, DebugInfo debug_info)
     {
-        context.BeginBox(box_style, label, debug_info);
+        if(context)
+            context->BeginBox(box_style, label, debug_info);
     }
     void InsertText(const char* text, bool copy_text)
     {
-        context.InsertText(text, copy_text);
+        if(context)
+            context->InsertText(text, copy_text);
     }
     void EndBox()
     {
-        context.EndBox();
+        if(context)
+            context->EndBox();
     }
     void Draw()
     {
-        context.Draw();
+        if(context)
+            context->Draw();
     }
 }
 
@@ -932,6 +944,12 @@ namespace UI
         arena(arena_bytes)
     {
     }
+    Internal::TreeNode* Context::GetInternalTree()
+    {
+        if(!stack.IsEmpty())
+            return nullptr;
+        return root_node;
+    }
     bool Context::HasInternalError()
     {
         return internal_error.type != Error::Type::NO_ERROR;
@@ -987,7 +1005,7 @@ namespace UI
         if(stack.IsEmpty())//Root Node
         {
             //Checking errors unique to root node
-            root_node = arena.New<TreeNode<Box>>();
+            root_node = arena.New<TreeNode>();
             assert(root_node && "Arena out of space");
 
             //compute 
@@ -1039,11 +1057,11 @@ namespace UI
 
         if(!stack.IsEmpty())  // should add to parent
         {
-            TreeNode<Box>* parent_node = stack.Peek();
+            TreeNode* parent_node = stack.Peek();
             assert(parent_node);
             assert(root_node);
 
-            TreeNode<Box> child_node;
+            TreeNode child_node;
             child_node.box = ComputeStyleSheet(style, root_node->box);
             child_node.box.label_hash = label_hash;
 
@@ -1057,7 +1075,7 @@ namespace UI
             if(HandleInternalError(CheckUnitErrors(child_node.box)))
                 return;
 
-            TreeNode<Box>* child_ptr = parent_node->children.Add(child_node, &arena); 
+            TreeNode* child_ptr = parent_node->children.Add(child_node, &arena); 
             assert(child_ptr && "Arena out of memory");
             stack.Push(child_ptr);
         }
@@ -1077,7 +1095,7 @@ namespace UI
             HandleInternalError(Error{Error::Type::MISSING_BEGIN, "Missing BeginBox()"});
             return;
         }
-        TreeNode<Box>* node = stack.Peek();
+        TreeNode* node = stack.Peek();
         assert(node);
         Box& parent_box = node->box;
         if(node->children.IsEmpty())
@@ -1087,7 +1105,7 @@ namespace UI
         }
         else //Calculate all CONTENT_PERCENT
         {
-            ArenaLL<TreeNode<Box>>::Node* child = node->children.GetHead();  
+            ArenaLL<TreeNode>::Node* child = node->children.GetHead();  
             int content_width = 0;
             //only handles content_percent for width
             //This is done for dynamic text wrapping with different Unit types
@@ -1140,7 +1158,7 @@ namespace UI
         stack.Pop();
         if(!stack.IsEmpty())
         {
-            TreeNode<Box>* grand_parent = stack.Peek();
+            TreeNode* grand_parent = stack.Peek();
             assert(grand_parent);
             if(HandleInternalError(CheckNodeContradictions(parent_box, grand_parent->box)))
                 return;
@@ -1159,10 +1177,10 @@ namespace UI
             HandleInternalError(Error{Error::Type::TEXT_NODE_CONTRADICTION, "Text node needs a container"});
             return;
         }
-        TreeNode<Box>* parent_node = stack.Peek();
+        TreeNode* parent_node = stack.Peek();
         assert(parent_node);
         const Box& parent_box = parent_node->box;
-        TreeNode<Box> text_node;
+        TreeNode text_node;
         Box box;
 
         //DEBUGGING TEXT
@@ -1199,7 +1217,7 @@ namespace UI
 
 
         text_node.box = box;
-        TreeNode<Box>* addr = parent_node->children.Add(text_node, &arena);
+        TreeNode* addr = parent_node->children.Add(text_node, &arena);
         assert(addr && "Arena out of memory");
     }
 
@@ -1228,13 +1246,13 @@ namespace UI
 
         while(!deferred_elements.IsEmpty())
         {
-            TreeNode<Box>* node = deferred_elements.GetHead()->value;
+            TreeNode* node = deferred_elements.GetHead()->value;
             DrawPass(node, 0, 0, Box(), UI::Rect{0, 0, INT_MAX, INT_MAX});
             deferred_elements.PopHead();
         }
         //DrawRectangle_impl(debug_hover.x, debug_hover.y, debug_hover.width, debug_hover.height, 0, 2, UI::Color{255, 0, 0, 255}, UI::Color{0, 0, 0, 0});
     }
-    void Context::WidthPass(TreeNode<Box>* node)
+    void Context::WidthPass(TreeNode* node)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
@@ -1253,10 +1271,10 @@ namespace UI
         }
     }
 
-    void Context::WidthPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
+    void Context::WidthPass_Flow(ArenaLL<TreeNode>::Node* child, const Box& parent_box)
     {
         assert(child);
-        ArenaLL<TreeNode<Box>>::Node* temp;
+        ArenaLL<TreeNode>::Node* temp;
 
         struct GrowBox {
             Box* box = nullptr;
@@ -1416,7 +1434,7 @@ namespace UI
 
 
 
-    void Context::HeightPass(TreeNode<Box>* node)
+    void Context::HeightPass(TreeNode* node)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
@@ -1430,10 +1448,10 @@ namespace UI
             assert("have not added grid");
         }
     }
-    void Context::HeightPass_Flow(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box)
+    void Context::HeightPass_Flow(ArenaLL<TreeNode>::Node* child, const Box& parent_box)
     {
         assert(child);
-        ArenaLL<TreeNode<Box>>::Node* temp;
+        ArenaLL<TreeNode>::Node* temp;
 
         struct GrowBox {
             Box* box = nullptr;
@@ -1549,16 +1567,16 @@ namespace UI
     }
 
 
-    void Context::HeightContentPercentPass_Flow(TreeNode<Box>* node)
+    void Context::HeightContentPercentPass_Flow(TreeNode* node)
     {
         assert(node);
         Box& parent_box = node->box;
-        ArenaLL<TreeNode<Box>>::Node* child = node->children.GetHead();
+        ArenaLL<TreeNode>::Node* child = node->children.GetHead();
         int content_height = 0;
         if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
             int largest_height = 0;
-            for(ArenaLL<TreeNode<Box>>::Node* temp = child; temp != nullptr; temp = temp->next)
+            for(ArenaLL<TreeNode>::Node* temp = child; temp != nullptr; temp = temp->next)
             {
                 HeightContentPercentPass(&temp->value);
                 Box& box = temp->value.box;
@@ -1583,7 +1601,7 @@ namespace UI
         }
         else //Vertical
         {
-            for(ArenaLL<TreeNode<Box>>::Node* temp = child; temp != nullptr; temp = temp->next)
+            for(ArenaLL<TreeNode>::Node* temp = child; temp != nullptr; temp = temp->next)
             {
                 HeightContentPercentPass(&temp->value);
                 Box& box = temp->value.box;
@@ -1612,7 +1630,7 @@ namespace UI
             parent_box.max_height = parent_box.max_height * content_height / 100;
     }
 
-    void Context::HeightContentPercentPass(TreeNode<Box>* node)
+    void Context::HeightContentPercentPass(TreeNode* node)
     {
         if(!node)    
             return;
@@ -1630,7 +1648,7 @@ namespace UI
 
 
 
-    void Context::DrawPass(TreeNode<Box>* node, int x, int y, const Box& parent_box, Rect parent_aabb)
+    void Context::DrawPass(TreeNode* node, int x, int y, const Box& parent_box, Rect parent_aabb)
     {
         if(node == nullptr)
             return;
@@ -1708,9 +1726,9 @@ namespace UI
 
     } //end of DrawPass()
 
-    void Context::DrawPass_FlowNoWrap(ArenaLL<TreeNode<Box>>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb)
+    void Context::DrawPass_FlowNoWrap(ArenaLL<TreeNode>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb)
     {
-        ArenaLL<TreeNode<Box>>::Node* temp = child;
+        ArenaLL<TreeNode>::Node* temp = child;
         assert(temp);
         if(parent_box.IsScissor())
         {

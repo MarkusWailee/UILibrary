@@ -22,8 +22,29 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+
 namespace UI
 {
+    class Context;
+    struct Error;
+    struct BoxStyle;
+    struct Grid;
+    struct Flow;
+    struct Color;
+    struct Unit;
+    struct Spacing;
+    struct BoxInfo;
+    struct Rect;
+}
+namespace UI::Internal
+{
+    struct Box;
+    struct TreeNode;
+}
+
+namespace UI
+{
+
     //String Helper
     const char *StringFormat(const char *text, ...);
 
@@ -37,6 +58,18 @@ namespace UI
     inline T Max(T a, T b) {return a >= b? a: b;}
     template<typename T>
     inline T Clamp(T value, T minimum, T maximum) { return Max(Min(value, maximum), minimum); }
+
+    struct Rect
+    {
+        static bool Overlap(const Rect& r1, const Rect& r2);
+        static bool Contains(const Rect& r ,int x, int y);
+        static Rect Intersection(const Rect& r1, const Rect& r2);
+
+        int x = 0;
+        int y = 0;
+        int width = 0;
+        int height = 0;
+    };
 
     //All measurements are based on this Unit
     struct Unit
@@ -64,8 +97,8 @@ namespace UI
     enum class Positioning: unsigned char { RELATIVE, ABSOLUTE };
     struct Flow
     {
-        enum class Axis : unsigned char {HORIZONTAL, VERTICAL};
-        enum class Alignment: unsigned char {START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN};
+        enum Axis : unsigned char {HORIZONTAL, VERTICAL};
+        enum Alignment: unsigned char {START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN};
         Axis axis = Axis::HORIZONTAL;
         Alignment vertical_alignment = Alignment::START;
         Alignment horizontal_alignment = Alignment::START;
@@ -145,6 +178,7 @@ namespace UI
 
     // ========== Main Functions ==========
     BoxInfo GetBoxInfo(const char* label);
+    void SetContext(UI::Context* context);
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
@@ -189,18 +223,6 @@ namespace UI
 namespace UI
 {
     //Internal namespace is just used for seperation in public api
-    //Math helpers
-    struct Rect
-    {
-        static bool Overlap(const Rect& r1, const Rect& r2);
-        static bool Contains(const Rect& r ,int x, int y);
-        static Rect Intersection(const Rect& r1, const Rect& r2);
-
-        int x = 0;
-        int y = 0;
-        int width = 0;
-        int height = 0;
-    };
     namespace Internal
     {
 
@@ -208,13 +230,13 @@ namespace UI
         {
             // ========= Only used when debugging is enabled
             #if UI_ENABLE_DEBUG
-                const char* debug_file;
+                const char* debug_file = nullptr;
                 int         debug_line = -1;
                 BoxStyle    debug_style;
             #endif
             // =============================================
 
-            //By the end of Draw, all final measurements are placed back into box
+            //By the end of UI::Draw(), all final measurements are placed back into box
             uint64_t label_hash =       0; 
             const char* text = nullptr;
             Color background_color = UI::Color{0, 0, 0, 0}; //used for debugging
@@ -287,10 +309,9 @@ namespace UI
             int GetRenderingHeight() const;
 
         };
-        template<typename T>
         struct TreeNode
         {
-            T box;
+            Box box;
             ArenaLL<TreeNode> children;
         };
     }
@@ -329,37 +350,38 @@ namespace UI
         void InsertText(const char* text, bool copy_text = true);
         void EndBox();
         void Draw();
+        Internal::TreeNode* GetInternalTree();
     private:
 
         //These functions are for internals only
         using Box = Internal::Box;
-        using TreeNodeBox = Internal::TreeNode<Box>;
+        using TreeNode = Internal::TreeNode;
         bool HasInternalError();
         //Returns false and does nothing if no error
         //Returns true, sets internal error, and displays error if true
         bool HandleInternalError(const Error& error);
         //Width
-        void WidthPass(TreeNodeBox* node);
-        void WidthPass_Flow(Internal::ArenaLL<TreeNodeBox>::Node* child, const Box& parent_box); //Recurse Helper
+        void WidthPass(TreeNode* node);
+        void WidthPass_Flow(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box); //Recurse Helper
         //Height
-        void HeightContentPercentPass_Flow(TreeNodeBox* node);
-        void HeightContentPercentPass(TreeNodeBox* node);
+        void HeightContentPercentPass_Flow(TreeNode* node);
+        void HeightContentPercentPass(TreeNode* node);
 
-        void HeightPass(TreeNodeBox* node);
-        void HeightPass_Flow(Internal::ArenaLL<TreeNodeBox>::Node* child, const Box& parent_box); //Recurse Helper
+        void HeightPass(TreeNode* node);
+        void HeightPass_Flow(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box); //Recurse Helper
 
         //Computes position and draws.
-        void DrawPass_FlowNoWrap(Internal::ArenaLL<TreeNodeBox>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
-        void DrawPass(TreeNodeBox* node, int x, int y, const Box& parent_box, Rect parent_aabb);
+        void DrawPass_FlowNoWrap(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
+        void DrawPass(TreeNode* node, int x, int y, const Box& parent_box, Rect parent_aabb);
     private:
         uint64_t directly_hovered_element_key = 0;
         Error internal_error;
         int mouse_x = 0, mouse_y = 0;
         Internal::MemoryArena arena;
         Internal::DoubleBufferMap<BoxInfo> double_buffer_map;
-        Internal::ArenaLL<TreeNodeBox*> deferred_elements;
-        TreeNodeBox* root_node = nullptr;
-        Internal::FixedStack<TreeNodeBox*, 100> stack; //elements should never nest over 100 layers deep
+        Internal::ArenaLL<TreeNode*> deferred_elements;
+        TreeNode* root_node = nullptr;
+        Internal::FixedStack<TreeNode*, 100> stack; //elements should never nest over 100 layers deep
 
         #if UI_ENABLE_DEBUG
             Rect debug_hover;
