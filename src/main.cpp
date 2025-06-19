@@ -2,7 +2,6 @@
 #include "ui/MUI.hpp"
 #include <math/vec.h>
 
-#include "FunExamples.hpp"
 
 #define UI_BeginBox(style, label) UI::BeginBox(style, label)
 
@@ -97,7 +96,7 @@ void SpotifyExample()
         top_bar.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
         top_bar.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
         top_bar.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
-        top_bar.gap_column = UI::Unit{5, UI::Unit::PIXEL};
+        top_bar.gap_column = 5;
         top_bar.padding = {10, 10};
         UI::BeginBox(top_bar);
             UI::InsertText("[C:444444]Not Spotify");
@@ -137,7 +136,7 @@ void SpotifyExample()
         UI::BoxStyle horizontal_box; //Holds playlist, Song list, Artist discography
         horizontal_box.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
         horizontal_box.height = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
-        horizontal_box.gap_column = UI::Unit{6, UI::Unit::PIXEL};
+        horizontal_box.gap_column = 6;
         UI::BeginBox(horizontal_box);
 
             UI::BoxStyle playlist_panel;
@@ -163,7 +162,7 @@ void SpotifyExample()
                 UI::BeginBox(your_library_panel); //Your library panel
                     UI::InsertText("[S:26]Your Library");
                     UI::BoxStyle temp;
-                    temp.gap_column = UI::Unit{5, UI::Unit::PIXEL};
+                    temp.gap_column = 5;
                     temp.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
                     temp.height = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
                     UI::BeginBox(temp);
@@ -235,7 +234,7 @@ void SpotifyExample()
                 liked_songs_panel.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
                 liked_songs_panel.height = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
                 liked_songs_panel.background_color = UI::Color{29, 30, 50, 255};
-                liked_songs_panel.gap_column = UI::Unit{6, UI::Unit::PIXEL};
+                liked_songs_panel.gap_column = 6;
                 UI::BeginBox(liked_songs_panel);
                     UI::BoxStyle liked_songs_cover;
                     liked_songs_cover.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
@@ -276,7 +275,7 @@ void SpotifyExample()
             discography_panel.max_width = UI::Unit{270, UI::Unit::PIXEL};
             discography_panel.min_width = UI::Unit{200, UI::Unit::PIXEL};
             discography_panel.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
-            discography_panel.gap_row = UI::Unit{20, UI::Unit::PIXEL};
+            discography_panel.gap_row = 20;
             UI::BeginBox(discography_panel);
                 UI::BoxStyle discography_cover;
                 discography_cover.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};

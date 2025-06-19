@@ -123,8 +123,8 @@ namespace UI
         Flow flow;
         Grid grid;
 
-        Unit gap_row;
-        Unit gap_column;
+        int gap_row = 0;
+        int gap_column = 0;
 
         Unit width =    Unit{50, Unit::Type::PIXEL};
         Unit height =   Unit{50, Unit::Type::PIXEL};
