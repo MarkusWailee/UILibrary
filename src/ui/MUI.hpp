@@ -4,6 +4,7 @@
 */
 
 
+//it is recommended to double the memory when debug is enabled
 #define UI_ENABLE_DEBUG 1
 
 #if UI_ENABLE_DEBUG
@@ -17,8 +18,15 @@
     #define UI_DEBUG {-1, nullptr}
 #endif
 
+//Only used for StringFormat
+#include <stdarg.h>
+#include <stdio.h>
+
 namespace UI
 {
+    //String Helper
+    const char *StringFormat(const char *text, ...);
+
     //Math helpers
     float MillimeterToPixels();
     float CentimeterToPixels(float cm);
@@ -139,7 +147,7 @@ namespace UI
     BoxInfo GetBoxInfo(const char* label);
     void BeginRoot(unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
-    void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
+    void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
     void InsertText(const char* text, bool copy_text = true);
     void EndBox();
     void Draw();
@@ -181,10 +189,32 @@ namespace UI
 namespace UI
 {
     //Internal namespace is just used for seperation in public api
+    //Math helpers
+    struct Rect
+    {
+        static bool Overlap(const Rect& r1, const Rect& r2);
+        static bool Contains(const Rect& r ,int x, int y);
+        static Rect Intersection(const Rect& r1, const Rect& r2);
+
+        int x = 0;
+        int y = 0;
+        int width = 0;
+        int height = 0;
+    };
     namespace Internal
     {
+
         struct Box
         {
+            // ========= Only used when debugging is enabled
+            #if UI_ENABLE_DEBUG
+                const char* debug_file;
+                int         debug_line = -1;
+                BoxStyle    debug_style;
+            #endif
+            // =============================================
+
+            //By the end of Draw, all final measurements are placed back into box
             uint64_t label_hash =       0; 
             const char* text = nullptr;
             Color background_color = UI::Color{0, 0, 0, 0}; //used for debugging
@@ -260,13 +290,13 @@ namespace UI
         template<typename T>
         struct TreeNode
         {
-            T val;
+            T box;
             ArenaLL<TreeNode> children;
         };
     }
 
     //Error handling
-    #define ERROR_MSG_SIZE 128
+    #define ERROR_MSG_SIZE 512
     struct Error
     {
         enum class Type : unsigned char
@@ -283,21 +313,8 @@ namespace UI
         };
         Type type = Type::NO_ERROR;
         char msg[ERROR_MSG_SIZE]{};
-        inline static int node_number = 0;
     };
 
-    //Math helpers
-    struct Rect
-    {
-        static bool Overlap(const Rect& r1, const Rect& r2);
-        static bool Contains(const Rect& r ,int x, int y);
-        static Rect Intersection(const Rect& r1, const Rect& r2);
-
-        int x = 0;
-        int y = 0;
-        int width = 0;
-        int height = 0;
-    };
 
 
 
@@ -343,5 +360,9 @@ namespace UI
         Internal::ArenaLL<TreeNodeBox*> deferred_elements;
         TreeNodeBox* root_node = nullptr;
         Internal::FixedStack<TreeNodeBox*, 100> stack; //elements should never nest over 100 layers deep
+
+        #if UI_ENABLE_DEBUG
+            Rect debug_hover;
+        #endif
     };
 }

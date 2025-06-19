@@ -5,9 +5,9 @@ namespace UI
 {
     using namespace Internal;
     void DisplayError(const Error& error);
-    Error CheckUnitErrors(const BoxStyle& style);
+    Error CheckUnitErrors(const Box& style);
     Error CheckLeafNodeContradictions(const Box& leaf);
-    Error CheckRootNodeConflicts(const BoxStyle& root);
+    Error CheckRootNodeConflicts(const Box& root);
     Error CheckNodeContradictions(const Box& child, const Box& parent);
 
     //Used during tree descending
@@ -100,7 +100,7 @@ namespace UI
 namespace UI
 {
     float dpi = 96.0f;
-    Context context(32768);
+    Context context(32768 *2);
 }
 
 
@@ -196,77 +196,44 @@ namespace UI
     //Common helpers and error checking
     void DisplayError(const Error& error)
     {
-        switch(error.type)
-        {
-            case Error::Type::INCORRENT_UNIT_TYPE:
-                LogError_impl("ERROR: incorrect unit type\n");
-                break;
-            case Error::Type::NODE_CONTRADICTION:
-                LogError_impl("ERROR: node contradiction\n");
-                break;
-            case Error::Type::LEAF_NODE_CONTRADICTION:
-                LogError_impl("ERROR: leaf node contradiction\n");
-                break;
-            case Error::Type::ROOT_NODE_CONTRADICTION:
-                LogError_impl("ERROR: root node contradiction\n");
-                break;
-            case Error::Type::MISSING_END:
-                LogError_impl("ERROR: missing End()\n");
-                break;
-            case Error::Type::MISSING_BEGIN:
-                LogError_impl("ERROR: missing Begin()\n");
-                break;
-            case Error::Type::TEXT_NODE_CONTRADICTION:
-                LogError_impl("ERROR: Text node contradiction\n");
-            case Error::Type::TEXT_UNKOWN_ESCAPE_CODE:
-                LogError_impl("ERROR: Text unknown escape code\n");
-                break;
-            default:
-                return;
-        }
-        LogError_impl("Node #");
-        LogError_impl(error.node_number);
-        LogError_impl("\n");
-
-        LogError_impl("error.msg = '");
         LogError_impl(error.msg);
-        LogError_impl("'");
     }
 
 
-    #define UNIT_CONFLICT(value, unit_type, error_type)\
-        if(value == unit_type) return Error{error_type, #value " = " #unit_type}
 
-    Error CheckUnitErrors(const BoxStyle& style)
+    #define UNIT_CONFLICT(value, illegal_unit, error_type)\
+        if(value == illegal_unit)\
+        {\
+            error.type = error_type;\
+            StringCopy(error.msg, StringFormat(#error_type"\n"#value" = " #illegal_unit"\nFile: %s\nLine: %d\n", file, line), ERROR_MSG_SIZE);\
+        }
+    Error CheckUnitErrors(const Box& style)
     {
         //The following units cannot equal the specified Unit Types 
 
         //Content%
-        UNIT_CONFLICT(style.x.unit,                     Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.y.unit,                     Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.gap_row.unit,               Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.gap_column.unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.grid.cell_width.unit,       Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.grid.cell_height.unit,      Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-
-        //UNIT_CONFLICT(style.min_width.unit,             Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        //UNIT_CONFLICT(style.min_height.unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        //UNIT_CONFLICT(style.max_width.unit,             Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        //UNIT_CONFLICT(style.max_height.unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-
-        //Available%
-        UNIT_CONFLICT(style.x.unit,                     Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.y.unit,                     Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.gap_row.unit,               Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.gap_column.unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.grid.cell_width.unit,       Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.grid.cell_height.unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-
-        UNIT_CONFLICT(style.min_width.unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.min_height.unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.max_width.unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        UNIT_CONFLICT(style.max_height.unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        return Error();
+        Error error;
+        #if UI_ENABLE_DEBUG
+            const char* file = style.debug_file;
+            int line = style.debug_line;
+            UNIT_CONFLICT(style.x_unit,                     Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.y_unit,                     Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.gap_row_unit,               Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.gap_column_unit,            Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.grid_cell_width_unit,       Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.grid_cell_height_unit,      Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.x_unit,                     Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.y_unit,                     Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.gap_row_unit,               Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.gap_column_unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.grid_cell_width_unit,       Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.grid_cell_height_unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.min_width_unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.min_height_unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.max_width_unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+            UNIT_CONFLICT(style.max_height_unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
+        #endif
+        return error;
     }
 
 
@@ -274,97 +241,99 @@ namespace UI
     Error CheckLeafNodeContradictions(const Box& leaf)
     {
         //The Following erros are contradictions
-        if(leaf.width_unit == Unit::Type::CONTENT_PERCENT)
-            return Error{Error::Type::LEAF_NODE_CONTRADICTION, "width.unit = Unit::Type::CONTENT_PERCENT with 0 children"};
-        if(leaf.height_unit == Unit::Type::CONTENT_PERCENT)
-            return Error{Error::Type::LEAF_NODE_CONTRADICTION, "height.unit = Unit::Type::CONTENT_PERCENT with 0 children"};
-        return Error();
+        Error error;
+        #if UI_ENABLE_DEBUG
+            const char* file = leaf.debug_file;
+            int line = leaf.debug_line;
+            if(leaf.width_unit == Unit::Type::CONTENT_PERCENT)
+            {
+                error.type = Error::Type::LEAF_NODE_CONTRADICTION;
+                StringCopy(error.msg, StringFormat("LEAF_NODE_CONTRADICTION\nbox.width_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", file, line), ERROR_MSG_SIZE);
+            }
+            if(leaf.height_unit == Unit::Type::CONTENT_PERCENT)
+            {
+                error.type = Error::Type::LEAF_NODE_CONTRADICTION;
+                StringCopy(error.msg, StringFormat("LEAF_NODE_CONTRADICTION\nbox.height_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", file, line), ERROR_MSG_SIZE);
+            }
+        #endif
+        return error;
     }
 
-    Error CheckRootNodeConflicts(const BoxStyle& root)
+    Error CheckRootNodeConflicts(const Box& root)
     {
         //Root node style sheet cannot equal any of these Unit types
         //The following errors are contradictions
         //Parent%
-        UNIT_CONFLICT(root.width.unit,      Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.height.unit,     Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_height.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_height.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.x.unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.y.unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        
-        //Available%
-        UNIT_CONFLICT(root.width.unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.height.unit,     Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_height.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_height.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.x.unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.y.unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-
-        //Root%
-        UNIT_CONFLICT(root.width.unit,      Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.height.unit,     Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_width.unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.min_height.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_width.unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.max_height.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.x.unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.y.unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_column.unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        UNIT_CONFLICT(root.gap_row.unit,    Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-
-        return Error();
+        Error error;
+        #if UI_ENABLE_DEBUG
+            const char* file = root.debug_file;
+            int line = root.debug_line;
+            UNIT_CONFLICT(root.width_unit,      Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.height_unit,     Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.min_width_unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.min_height_unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.max_width_unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.max_height_unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.x_unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.y_unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.gap_column_unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.gap_row_unit,    Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            //Available%
+            UNIT_CONFLICT(root.width_unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.height_unit,     Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.min_width_unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.min_height_unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.max_width_unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.max_height_unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.x_unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.y_unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.gap_column_unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.gap_row_unit,    Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            //Root%
+            UNIT_CONFLICT(root.width_unit,      Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.height_unit,     Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.min_width_unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.min_height_unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.max_width_unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.max_height_unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.x_unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.y_unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.gap_column_unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+            UNIT_CONFLICT(root.gap_row_unit,    Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
+        #endif
+        return error;
     }
+        
     Error CheckNodeContradictions(const Box& child, const Box& parent)
     {
         //The following errors are contradictions between parent and child
+        Error error;
+        #if UI_ENABLE_DEBUG
 
-        //just checking with and height
-        bool p_width = parent.width_unit == Unit::Type::CONTENT_PERCENT;
-        bool p_height = parent.height_unit == Unit::Type::CONTENT_PERCENT;
+            #define CHILD_PARENT_CONFLICT(child_unit, illegal_unit, parent_unit, error_type)\
+                if(child_unit == illegal_unit && parent_unit == Unit::CONTENT_PERCENT)\
+                {\
+                    error.type = error_type;\
+                    StringCopy(error.msg, StringFormat(#error_type"\n"#child_unit " = " #illegal_unit" and "#parent_unit " = Unit::CONTENT_PERCENT\nFile: %s\nLine: %d\n", file, line), ERROR_MSG_SIZE);\
+                }
 
-        //HORIZONTAL
-        //width
-        if(child.width_unit == Unit::Type::PARENT_PERCENT && p_width)
-            return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
-            return Error{Error::Type::NODE_CONTRADICTION, "width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
+            const char* file = child.debug_file;
+            int line = child.debug_line;
+            CHILD_PARENT_CONFLICT(child.width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.min_width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.min_width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.max_width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.max_width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.min_height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.min_height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.max_height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            CHILD_PARENT_CONFLICT(child.max_height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+        #endif
 
-        //VERTICAL
-        if(child.height_unit == Unit::Type::PARENT_PERCENT && p_height)
-            return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::PARENT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.height_unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
-            return Error{Error::Type::NODE_CONTRADICTION, "height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
-
-        if(child.min_width_unit == Unit::Type::PARENT_PERCENT && p_width)
-            return Error{Error::Type::NODE_CONTRADICTION, "min_width.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.min_height_unit == Unit::Type::PARENT_PERCENT && p_height)
-            return Error{Error::Type::NODE_CONTRADICTION, "min_height.unit = Unit::Type::PARENT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
-
-        if(child.max_width_unit == Unit::Type::PARENT_PERCENT && p_width)
-            return Error{Error::Type::NODE_CONTRADICTION, "max_width.unit = Unit::Type::PARENT_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.max_height_unit == Unit::Type::PARENT_PERCENT && p_height)
-            return Error{Error::Type::NODE_CONTRADICTION, "max_height.unit = Unit::Type::PARENT_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
-
-        //Might not need this
-        if(child.min_width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
-            return Error{Error::Type::NODE_CONTRADICTION, "min_width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.min_height_unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
-            return Error{Error::Type::NODE_CONTRADICTION, "min_height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.max_width_unit == Unit::Type::AVAILABLE_PERCENT && p_width) 
-            return Error{Error::Type::NODE_CONTRADICTION, "max_width.unit = Unit::Type::AVAILABLE_PERCENT && parent.width.unit = Unit::Type::CONTENT_PERCENT"};
-        if(child.max_height_unit == Unit::Type::AVAILABLE_PERCENT && p_height) 
-            return Error{Error::Type::NODE_CONTRADICTION, "max_height.unit = Unit::Type::AVAILABLE_PERCENT && parent.height.unit = Unit::Type::CONTENT_PERCENT"};
-        //no error
-        return Error();
+        return error;
     }
 
     bool Rect::Overlap(const Rect& r1, const Rect& r2)
@@ -523,6 +492,22 @@ namespace UI
     }
 
     //TEXT RENDERING
+    const char *StringFormat(const char *text, ...)
+    {
+        static int index = 0;
+        constexpr uint32_t MAX_LENGTH = 512;
+        constexpr uint32_t MAX_BUFFERS = 4;
+        static char buffer[MAX_BUFFERS][MAX_LENGTH];  // Fixed-size static buffer
+        index = (index + 1) % MAX_BUFFERS;
+
+        va_list args;
+        va_start(args, text);
+        int count = vsnprintf(buffer[index], MAX_LENGTH, text, args);
+        if(count >= MAX_LENGTH) //just for sanity
+            buffer[index][MAX_LENGTH-1] = '\0';
+        va_end(args);
+        return buffer[index];
+    }
     inline char ToLower(char c)
     {
         return (c >= 'A' && c <= 'Z')? c + 32: c;
@@ -985,7 +970,6 @@ namespace UI
         arena.Rewind(root_node);
         stack.Clear();
         root_node = nullptr;
-        Error::node_number = 1;
         if(double_buffer_map.ShouldResize())
         {
             arena.Reset();
@@ -1007,7 +991,7 @@ namespace UI
             assert(root_node && "Arena out of space");
 
             //compute 
-            root_node->val = root_box;
+            root_node->box = root_box;
             stack.Push(root_node);
         }
         else
@@ -1041,17 +1025,15 @@ namespace UI
     {
         if(HasInternalError())
             return;
-        Error::node_number++;
 
         //Check for unit type errors
         //Could be moved into creating style sheets for more performance, but this is good enough for now
-        if(HandleInternalError(CheckUnitErrors(style)))
-            return;
 
         //Input Handling
         uint64_t label_hash = Hash(label);
         if(label)
         {
+            //BoxInfo will be filled in next frame 
             assert(double_buffer_map.Insert(label_hash, BoxInfo()));
         }
 
@@ -1062,8 +1044,19 @@ namespace UI
             assert(root_node);
 
             TreeNode<Box> child_node;
-            child_node.val = ComputeStyleSheet(style, root_node->val);
-            child_node.val.label_hash = label_hash;
+            child_node.box = ComputeStyleSheet(style, root_node->box);
+            child_node.box.label_hash = label_hash;
+
+            // ========= Only enabled with DEBUG mode ==========
+            #if UI_ENABLE_DEBUG
+                child_node.box.debug_file = debug_info.file;
+                child_node.box.debug_line = debug_info.line;
+                child_node.box.debug_style = style;
+            #endif
+            //Might bundle this with macro
+            if(HandleInternalError(CheckUnitErrors(child_node.box)))
+                return;
+
             TreeNode<Box>* child_ptr = parent_node->children.Add(child_node, &arena); 
             assert(child_ptr && "Arena out of memory");
             stack.Push(child_ptr);
@@ -1086,7 +1079,7 @@ namespace UI
         }
         TreeNode<Box>* node = stack.Peek();
         assert(node);
-        Box& parent_box = node->val;
+        Box& parent_box = node->box;
         if(node->children.IsEmpty())
         {
             if(HandleInternalError(CheckLeafNodeContradictions(parent_box)))
@@ -1106,7 +1099,7 @@ namespace UI
                     {
                         for(;child != nullptr; child = child->next)
                         {
-                            Box& box = child->value.val;
+                            Box& box = child->value.box;
 
                             if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT && !box.IsDetached())
                             {
@@ -1121,7 +1114,7 @@ namespace UI
                         int largest_width = 0;
                         for(;child != nullptr; child = child->next)
                         {
-                            Box& box = child->value.val;
+                            Box& box = child->value.box;
                             if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT && !box.IsDetached())
                             {
                                 int width = box.GetBoxModelWidth();
@@ -1149,7 +1142,7 @@ namespace UI
         {
             TreeNode<Box>* grand_parent = stack.Peek();
             assert(grand_parent);
-            if(HandleInternalError(CheckNodeContradictions(parent_box, grand_parent->val)))
+            if(HandleInternalError(CheckNodeContradictions(parent_box, grand_parent->box)))
                 return;
         }
 
@@ -1161,7 +1154,6 @@ namespace UI
     {
         if(HasInternalError())
             return;
-        Error::node_number++;
         if(stack.IsEmpty())
         {
             HandleInternalError(Error{Error::Type::TEXT_NODE_CONTRADICTION, "Text node needs a container"});
@@ -1169,7 +1161,7 @@ namespace UI
         }
         TreeNode<Box>* parent_node = stack.Peek();
         assert(parent_node);
-        const Box& parent_box = parent_node->val;
+        const Box& parent_box = parent_node->box;
         TreeNode<Box> text_node;
         Box box;
 
@@ -1206,9 +1198,9 @@ namespace UI
 
 
 
-        text_node.val = box;
+        text_node.box = box;
         TreeNode<Box>* addr = parent_node->children.Add(text_node, &arena);
-        assert(addr);
+        assert(addr && "Arena out of memory");
     }
 
 
@@ -1223,7 +1215,7 @@ namespace UI
             HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing EndRoot()"});
             return;
         }
-        const Box& root_box = root_node->val;
+        const Box& root_box = root_node->box;
 
 
         //Layout pipeline
@@ -1240,12 +1232,13 @@ namespace UI
             DrawPass(node, 0, 0, Box(), UI::Rect{0, 0, INT_MAX, INT_MAX});
             deferred_elements.PopHead();
         }
+        //DrawRectangle_impl(debug_hover.x, debug_hover.y, debug_hover.width, debug_hover.height, 0, 2, UI::Color{255, 0, 0, 255}, UI::Color{0, 0, 0, 0});
     }
     void Context::WidthPass(TreeNode<Box>* node)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
-        Box& box = node->val;
+        Box& box = node->box;
 
         //Might aswell compute this here since width is all calculated
         ComputeWidthPercentForHeight(box);
@@ -1277,7 +1270,7 @@ namespace UI
             float total_percent = 0;
             for(temp = child; temp != nullptr; temp = temp->next)
             {
-                Box& box = temp->value.val;
+                Box& box = temp->value.box;
                 ComputeParentWidthPercent(box, parent_box.width);
 
                 if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
@@ -1411,7 +1404,7 @@ namespace UI
         {
             for(temp = child; temp != nullptr; temp = temp->next)
             {
-                Box& box = temp->value.val;
+                Box& box = temp->value.box;
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.width_unit = Unit::Type::PARENT_PERCENT;
                 ComputeParentWidthPercent(box, parent_box.width);
@@ -1427,7 +1420,7 @@ namespace UI
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
-        const Box& box = node->val;
+        const Box& box = node->box;
         if(box.GetLayout() == Layout::FLOW)
         {
             HeightPass_Flow(node->children.GetHead(), box);
@@ -1454,7 +1447,7 @@ namespace UI
             float total_percent = 0;
             for(temp = child; temp != nullptr; temp = temp->next)
             {
-                Box& box = temp->value.val;
+                Box& box = temp->value.box;
                 ComputeParentHeightPercent(box, parent_box.height);
 
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
@@ -1545,7 +1538,7 @@ namespace UI
         {
             for(temp = child; temp != nullptr; temp = temp->next)
             {
-                Box& box = temp->value.val;
+                Box& box = temp->value.box;
                 if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.height_unit = Unit::Type::PARENT_PERCENT;
                 ComputeParentHeightPercent(box, parent_box.height);
@@ -1559,7 +1552,7 @@ namespace UI
     void Context::HeightContentPercentPass_Flow(TreeNode<Box>* node)
     {
         assert(node);
-        Box& parent_box = node->val;
+        Box& parent_box = node->box;
         ArenaLL<TreeNode<Box>>::Node* child = node->children.GetHead();
         int content_height = 0;
         if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
@@ -1568,7 +1561,7 @@ namespace UI
             for(ArenaLL<TreeNode<Box>>::Node* temp = child; temp != nullptr; temp = temp->next)
             {
                 HeightContentPercentPass(&temp->value);
-                Box& box = temp->value.val;
+                Box& box = temp->value.box;
                 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                     continue;
@@ -1593,7 +1586,7 @@ namespace UI
             for(ArenaLL<TreeNode<Box>>::Node* temp = child; temp != nullptr; temp = temp->next)
             {
                 HeightContentPercentPass(&temp->value);
-                Box& box = temp->value.val;
+                Box& box = temp->value.box;
 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                     continue;
@@ -1624,7 +1617,7 @@ namespace UI
         if(!node)    
             return;
         assert(node);
-        const Box& box = node->val;
+        const Box& box = node->box;
         if(box.GetLayout() == Layout::FLOW)
         {
             HeightContentPercentPass_Flow(node);
@@ -1641,7 +1634,7 @@ namespace UI
     {
         if(node == nullptr)
             return;
-        const Box& box = node->val;
+        Box& box = node->box;
 
         //Render
         int render_x = box.GetPositioning() == UI::Positioning::ABSOLUTE? box.x : box.x + x;
@@ -1664,13 +1657,15 @@ namespace UI
             }
         }
         DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
+        box.x = render_x;
+        box.y = render_y;
 
-        #if UI_ENABLE_DEBUG
-            if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{x, y, render_width, render_height}), mouse_x, mouse_y))
-            {
-                DrawRectangle_impl(render_x, render_y, render_width, render_height, 0, 2, UI::Color{255, 0, 0, 255}, UI::Color{0, 0, 0, 0});
-            }
-        #endif
+        //#if UI_ENABLE_DEBUG
+        //    if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{x, y, render_width, render_height}), mouse_x, mouse_y))
+        //    {
+        //        debug_hover = Rect{render_x, render_y, render_width, render_height};
+        //    }
+        //#endif
         if(box.text)
         {
             DrawTextNode(box.text, box.width, box.height, render_x, render_y);
@@ -1728,7 +1723,7 @@ namespace UI
             int content_width = 0;
             for(temp = child; temp!=nullptr; temp = temp->next)
             {
-                const Box& box = temp->value.val;
+                const Box& box = temp->value.box;
 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                     continue;
@@ -1765,7 +1760,7 @@ namespace UI
             int content_height = 0;
             for(temp = child; temp!=nullptr; temp = temp->next)
             {
-                const Box& box = temp->value.val;
+                const Box& box = temp->value.box;
 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                 {
@@ -1814,7 +1809,7 @@ namespace UI
             int content_height = 0;
             for(temp = child; temp!=nullptr; temp = temp->next)
             {
-                const Box& box = temp->value.val;
+                const Box& box = temp->value.box;
 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                     continue;
@@ -1850,7 +1845,7 @@ namespace UI
             int content_width = 0;
             for(temp = child; temp!=nullptr; temp = temp->next)
             {
-                const Box& box = temp->value.val;
+                const Box& box = temp->value.box;
 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                 {

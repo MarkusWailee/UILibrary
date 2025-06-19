@@ -240,7 +240,7 @@ void SpotifyExample()
                     UI::BoxStyle liked_songs_cover;
                     liked_songs_cover.width = UI::Unit{100, UI::Unit::AVAILABLE_PERCENT};
                     liked_songs_cover.max_width = UI::Unit{230, UI::Unit::PIXEL};
-                    liked_songs_cover.height = UI::Unit{100, UI::Unit::WIDTH_PERCENT};
+                    liked_songs_cover.height = UI::Unit{100, UI::Unit::WIDTH_PERCENT}; //This should be WIDTH_PERCENT
                     liked_songs_cover.background_color = UI::Color{18, 18, 255, 255};
                     liked_songs_cover.corner_radius = 10;
                     liked_songs_cover.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
