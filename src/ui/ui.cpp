@@ -16,7 +16,6 @@ namespace UI
 
     //UserInput
     //Returns 0 if str is nullptr. Otherwise it will never return 0
-    uint64_t Hash(const char* str);
     void StringCopy(char* dst, const char* src, uint32_t size);
     bool StringCompare(const char* s1, const char* s2);
     char ToLower(char c);

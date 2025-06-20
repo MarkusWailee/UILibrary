@@ -25,9 +25,9 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
         SpotifyExample();
-        DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
 
-        //UI::ToolKit::Inspector(UI::GetContext());
+        UI::ToolKit::Inspector(UI::GetContext());
+        //DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
         EndDrawing();
     }
     CloseWindow();        // Close window and OpenGL context

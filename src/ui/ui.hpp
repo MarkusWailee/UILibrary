@@ -5,7 +5,7 @@
 
 
 //it is recommended to double the memory when debug is enabled
-#define UI_ENABLE_DEBUG 0
+#define UI_ENABLE_DEBUG 1
 
 #if UI_ENABLE_DEBUG
     #if __cplusplus >= 202002L
@@ -21,6 +21,8 @@
 //Only used for StringFormat
 #include <stdarg.h>
 #include <stdio.h>
+
+#include "Memory.hpp"
 
 
 namespace UI
@@ -70,6 +72,7 @@ namespace UI
         int width = 0;
         int height = 0;
     };
+    uint64_t Hash(const char* str);
 
     //All measurements are based on this Unit
     struct Unit
@@ -219,7 +222,6 @@ namespace UI
 }
 
 
-#include "Memory.hpp"
 //Internal
 namespace UI
 {
