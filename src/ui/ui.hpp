@@ -340,8 +340,6 @@ namespace UI
     };
 
 
-
-
     class Context
     {
     public:
@@ -352,6 +350,7 @@ namespace UI
         void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
         void InsertText(const char* text, bool copy_text = true);
         void EndBox();
+        void DrawDebugMenu(bool is_mouse_pressed, bool is_mouse_release, bool esc_key_pressed);
         void Draw();
         uint32_t GetElementCount() const;
         Internal::TreeNode* GetInternalTree();
@@ -377,19 +376,24 @@ namespace UI
         //Computes position and draws.
         void DrawPass_FlowNoWrap(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
         void DrawPass(TreeNode* node, int x, int y, const Box& parent_box, Rect parent_aabb);
+
+        void SetFreeze(bool freeze_ui);
     private:
         uint32_t element_count = 0;
         uint64_t directly_hovered_element_key = 0;
         Error internal_error;
         int mouse_x = 0, mouse_y = 0;
         Internal::MemoryArena arena;
-        Internal::DoubleBufferMap<BoxInfo> double_buffer_map;
+        Internal::ArenaDoubleBufferMap<BoxInfo> double_buffer_map;
         Internal::ArenaLL<TreeNode*> deferred_elements;
         TreeNode* root_node = nullptr;
         Internal::FixedStack<TreeNode*, 100> stack; //elements should never nest over 100 layers deep
+        //bool is_frozen = false;
 
         #if UI_ENABLE_DEBUG
-            Rect debug_hover;
+            Box debug_hover;
+            bool debug_mouse_pressed = false;
+            bool debug_mouse_released = false;
         #endif
     };
 }

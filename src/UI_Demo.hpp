@@ -79,7 +79,7 @@ void SpotifyExample()
     UI::BoxStyle h_fill;
     h_fill.width = UI::Unit{60, UI::Unit::AVAILABLE_PERCENT};
 
-    UI::BeginRoot(310, 0,GetScreenWidth()-310, GetScreenHeight(), GetMouseX(), GetMouseY());
+    UI::BeginRoot(0, 0,GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
     UI::BoxStyle base_v_panel;
     base_v_panel.flow.axis = UI::Flow::Axis::VERTICAL;
     base_v_panel.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};

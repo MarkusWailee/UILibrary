@@ -14,7 +14,6 @@ namespace UI
     int FixedUnitToPx(Unit unit, int root_size);
     Box ComputeStyleSheet(const BoxStyle& style, const Box& root);
 
-    //UserInput
     //Returns 0 if str is nullptr. Otherwise it will never return 0
     void StringCopy(char* dst, const char* src, uint32_t size);
     bool StringCompare(const char* s1, const char* s2);
@@ -934,6 +933,10 @@ namespace UI
         arena(arena_bytes)
     {
     }
+    void Context::SetFreeze(bool freeze_ui)
+    {
+        //is_frozen = freeze_ui;
+    }
     Internal::TreeNode* Context::GetInternalTree()
     {
         if(!stack.IsEmpty())
@@ -973,6 +976,7 @@ namespace UI
     }
     void Context::BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
     {
+
         this->mouse_x = mouse_x;
         this->mouse_y = mouse_y;
         if(HasInternalError())
@@ -1249,7 +1253,6 @@ namespace UI
             DrawPass(node, 0, 0, Box(), UI::Rect{0, 0, INT_MAX, INT_MAX});
             deferred_elements.PopHead();
         }
-        //DrawRectangle_impl(debug_hover.x, debug_hover.y, debug_hover.width, debug_hover.height, 0, 2, UI::Color{255, 0, 0, 255}, UI::Color{0, 0, 0, 0});
     }
     void Context::WidthPass(TreeNode* node)
     {
@@ -1679,12 +1682,12 @@ namespace UI
         box.x = render_x;
         box.y = render_y;
 
-        //#if UI_ENABLE_DEBUG
-        //    if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{x, y, render_width, render_height}), mouse_x, mouse_y))
-        //    {
-        //        debug_hover = Rect{render_x, render_y, render_width, render_height};
-        //    }
-        //#endif
+        #if UI_ENABLE_DEBUG
+            if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}), mouse_x, mouse_y) && render_width > 1 && render_height > 1)
+            {
+                debug_hover = box;
+            }
+        #endif
         if(box.text)
         {
             DrawTextNode(box.text, box.width, box.height, render_x, render_y);

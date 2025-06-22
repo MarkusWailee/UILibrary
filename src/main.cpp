@@ -26,7 +26,7 @@ int main(void)
         ClearBackground(Color{0, 0, 0, 255});
         SpotifyExample();
 
-        UI::ToolKit::Inspector(UI::GetContext());
+        //UI::ToolKit::Inspector(UI::GetContext());
         //DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
         EndDrawing();
     }

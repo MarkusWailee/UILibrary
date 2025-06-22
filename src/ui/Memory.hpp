@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <cstring>
 #include <cassert>
 
 
@@ -12,26 +13,34 @@ namespace UI::Internal
     template<typename T, unsigned int CAPACITY>
     class FixedStack;
 
-    template<typename T>    
-    class Stack;
+    template<typename T>
+    class Map;
 
     class MemoryArena;
-
-    template<typename T>
-    class ObjectPool;
-
 
     template<typename T>
     class ArenaLL;
 
     template<typename T>
-    class Map;
+    class ArenaMap;
 
+    template<typename T>
+    class ArenaDoubleBufferMap;
 }
 
 //Stack allocated data structures
 namespace UI::Internal
 {
+    template<typename T, unsigned int CAPACITY>
+    class Array
+    {
+        T data[CAPACITY];
+        public:
+        inline unsigned int Capacity() const;
+        inline T& operator[](unsigned int index);
+        inline T* Data();
+    };
+
     template<typename T, unsigned int CAPACITY>
     class FixedStack
     {
@@ -50,26 +59,31 @@ namespace UI::Internal
     };
 
 
-    template<typename T>    
-    class Stack
+    template<typename T>
+    class Map
     {
-        T* data = nullptr;
-        uint32_t size = 0;
-        uint32_t capacity = 0;
-        bool has_arena = false;
     public:
-        Stack(uint32_t capacity, MemoryArena* arena = nullptr);
-        ~Stack();
-        void Push(const T& value);
-        void Pop();
-        T& Peek();
-        uint32_t Size() const;
+        struct Item
+        {
+            uint64_t key = 0;
+            T value;
+        };
+        ~Map();
+        void Free();
+        void Clear();
+        void Grow();
         uint32_t Capacity() const;
+        uint32_t Size() const;
         bool IsEmpty() const;
-        bool HasArena() const;
-        T& operator[](uint32_t index);
+        T* Insert(uint64_t key, const T& value);
+        T* GetValue(uint64_t key);
+        void Remove(uint64_t key);
+        bool ShouldResize() const;
+    private:
+        Item* data = nullptr;
+        uint32_t capacity = 0;
+        uint32_t size = 0;
     };
-
 
     class MemoryArena
     {
@@ -121,7 +135,7 @@ namespace UI::Internal
 
 
     template<typename T>
-    class Map
+    class ArenaMap
     {
     public:
         struct Item
@@ -131,7 +145,7 @@ namespace UI::Internal
             T value;
         };
         bool AllocateCapacity(uint32_t count, MemoryArena* arena);
-        bool Insert(uint64_t key, const T& value);
+        T* Insert(uint64_t key, const T& value);
         T* GetValue(uint64_t key);
         void Reset();
         bool ShouldResize() const;
@@ -147,11 +161,11 @@ namespace UI::Internal
 
 
     template<typename T>
-    class DoubleBufferMap
+    class ArenaDoubleBufferMap
     {
     
-        Map<T> front;
-        Map<T> back;
+        ArenaMap<T> front;
+        ArenaMap<T> back;
     public:
         uint32_t Capacity() const;
         bool ShouldResize() const;
@@ -164,9 +178,27 @@ namespace UI::Internal
 }
 
 
-//Fixed Stack
 namespace UI::Internal
 {
+    //Array
+    template<typename T, unsigned int CAPACITY>
+    inline unsigned int Array<T, CAPACITY>::Capacity() const
+    {
+        return CAPACITY;
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline T& Array<T, CAPACITY>::operator[](unsigned int index) 
+    {
+        assert(index < CAPACITY);
+        return data[index];
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline T* Array<T, CAPACITY>::Data()
+    {
+        return data;
+    }
+
+    //Fixed Stack
     template<typename T, unsigned int CAPACITY>
     inline void FixedStack<T, CAPACITY>::Push(const T& value)
     {
@@ -218,79 +250,142 @@ namespace UI::Internal
         return size == 0;
     }
 
-
-
-    //Stack
     template<typename T>
-    Stack<T>::Stack(uint32_t capacity, MemoryArena* arena)
-        : size(0), capacity(capacity), data(nullptr), has_arena(arena)
+    inline Map<T>::~Map()
     {
-        if(!arena)
-        {
-            data = new T[capacity];
-        }
-        else
-        {
-            data = arena->New<T>(capacity);
-        }
-
-        //Should always contain memory
-        assert(data);
+        Free();
     }
     template<typename T>
-    Stack<T>::~Stack()
+    inline void Map<T>::Free()
     {
-        if(!has_arena)
+        if(data)
             delete[] data;
-
+        data = nullptr;
+        size = 0;
+        capacity = 0;
     }
     template<typename T>
-    void Stack<T>::Push(const T& value)
+    inline void Map<T>::Clear()
     {
-        assert(size < capacity);
-        data[size] = value;
-        size++;
+        for(uint32_t i = 0; i<capacity; i++)
+            data[i] = Item();
+        size = 0;
+        capacity = 0;
     }
     template<typename T>
-    void Stack<T>::Pop()
+    inline void Map<T>::Grow()
     {
-        assert(size > 0);
-        size--;
+        uint32_t old_cap = capacity;
+        Item* old_data = data;
+        size = 0;
+        capacity = IsEmpty()? 64: capacity * 2;
+        data = new Item[capacity]{};
+        if(old_data)
+        {
+            for(uint32_t i = 0; i<old_cap; i++)
+            {
+                Item& item = old_data[i];
+                if(item.key != 0)
+                {
+                    Insert(item.key, item.value);
+                }
+            }
+            delete[] old_data;
+        }
     }
     template<typename T>
-    uint32_t Stack<T>::Size() const
+    inline uint32_t Map<T>::Size() const
     {
-        return size;
+        return Size;
     }
-
     template<typename T>
-    uint32_t Stack<T>::Capacity() const
+    inline uint32_t Map<T>::Capacity() const
     {
         return capacity;
     }
     template<typename T>
-    T& Stack<T>::Peek()
+    inline bool Map<T>::IsEmpty() const
     {
-        assert(size > 0);
-        return data[size - 1];
+        return capacity == 0;
+    }
+    template<typename T>
+    inline bool Map<T>::ShouldResize() const
+    {
+        return size >= capacity * 70 / 100;
+    }
+    template<typename T>
+    inline T* Map<T>::Insert(uint64_t key, const T& value)
+    {
+        if(ShouldResize())
+            Grow();
+        for(uint32_t i = 0; i < capacity; i++)
+        {
+            uint32_t index = (key + i) % capacity;
+            Item& item = data[index];
+            if(item.key == key)
+            {
+                item = Item{key, value};
+                return &item.value;
+            }
+            else if(item.key == 0)
+            {
+                size++;
+                item = Item{key, value};
+                return &item.value;
+            }
+        }
+        return nullptr; //most likely wont happen since we should have grown
+    }
+    template<typename T>
+    inline T* Map<T>::GetValue(uint64_t key)
+    {
+        for(uint32_t i = 0; i < capacity; i++)
+        {
+            uint32_t index = (key + i) % capacity;
+            Item& item = data[index];
+            if(item.key == key)
+            {
+                return &item.value;
+            }
+            else if(item.key == 0)
+            {
+                return nullptr;
+            }
+        }
+        return nullptr;
+    }
+    template<typename T>
+    inline void Map<T>::Remove(uint64_t key)
+    {
+        for(uint32_t i = 0; i < capacity; i++)
+        {
+            uint32_t index = (key + i) % capacity;
+            if(data[index].key == 0)
+            {
+                return;
+            }
+            else if(data[index].key == key)
+            {
+                size--;
+                uint32_t prev = index;
+                for(uint32_t j = 1; j < capacity; j++)
+                {
+                    uint32_t index2 = (index + j) % capacity;
+                    if(data[index2].key == 0 || index2 == data[index2].key % capacity)
+                    {
+                        data[index] = data[prev];
+                        data[prev] = Item();
+                        break;
+                    }
+                    prev = index2;
+                }
+                return;
+            }
+        }
+        return;
     }
 
-    template<typename T>
-    T& Stack<T>::operator[](uint32_t index)
-    {
-        assert(index < size);
-        return data[index];
-    }
-    template<typename T>
-    bool Stack<T>::HasArena() const
-    {
-        return has_arena;
-    }
-    template<typename T>
-    bool Stack<T>::IsEmpty() const
-    {
-        return size == 0;
-    }
+
 
     //MemoryArena Implementation
     inline MemoryArena::MemoryArena(uint64_t bytes) 
@@ -305,7 +400,10 @@ namespace UI::Internal
     inline void MemoryArena::ResizeAndReset(uint64_t bytes)
     {
         if(data)
+        {
             delete[] data;
+            data = nullptr;
+        }
         data = new char[bytes];
         capacity = bytes;
         current_offset = 0;
@@ -411,7 +509,7 @@ namespace UI::Internal
 
     //Map Implementation
     template<typename T>
-    bool Map<T>::AllocateCapacity(uint32_t capacity, MemoryArena* arena)
+    bool ArenaMap<T>::AllocateCapacity(uint32_t capacity, MemoryArena* arena)
     {
         assert(arena);
         data = arena->New<Item>(capacity);
@@ -428,17 +526,17 @@ namespace UI::Internal
         return true;
     }
     template<typename T>
-    bool Map<T>::Insert(uint64_t key, const T& value)
+    T* ArenaMap<T>::Insert(uint64_t key, const T& value)
     {
         if(!key || data == nullptr)
-            return false; //key should never be 0
+            return nullptr; //key should never be 0
         
         int index = key % cap1;
         if(data[index].key == 0)
         {
             data[index] = Item{key, -1, value};
             size1++;
-            return true;
+            return &data[index].value;
         }
         int prev = index;
         for(;index != -1; index = data[index].next)
@@ -446,7 +544,7 @@ namespace UI::Internal
             if(data[index].key == key)
             {
                 data[index].value = value;
-                return true;
+                return &data[index].value;
             }
             prev = index;
         }
@@ -456,12 +554,12 @@ namespace UI::Internal
             data[prev].next = index2;
             data[index2] = Item{key, -1, value};
             size2++;
-            return true;
+            return &data[index2].value;
         }
-        return false;
+        return nullptr;
     }
     template<typename T>
-    T* Map<T>::GetValue(uint64_t key)
+    T* ArenaMap<T>::GetValue(uint64_t key)
     {
         if(data == nullptr)
             return nullptr;
@@ -473,7 +571,7 @@ namespace UI::Internal
         return nullptr;
     }
     template<typename T>
-    void Map<T>::Reset()
+    void ArenaMap<T>::Reset()
     {
         for(uint32_t i = 0; i<cap1 + cap2; i++)
             data[i] = Item();
@@ -481,57 +579,57 @@ namespace UI::Internal
         size2 = 0;
     }
     template<typename T>
-    bool Map<T>::ShouldResize() const
+    bool ArenaMap<T>::ShouldResize() const
     {
         return size2 >= cap2;
     }
     template<typename T>
-    uint32_t Map<T>::Capacity() const
+    uint32_t ArenaMap<T>::Capacity() const
     {
         return cap1 + cap2;
     }
     template<typename T>
-    float Map<T>::GetLoadFactor() const
+    float ArenaMap<T>::GetLoadFactor() const
     {
         return (float)size1/cap1;
     }
 
 
     template<typename T>
-    bool DoubleBufferMap<T>::AllocateBufferCapacity(uint32_t capacity, MemoryArena* arena)
+    bool ArenaDoubleBufferMap<T>::AllocateBufferCapacity(uint32_t capacity, MemoryArena* arena)
     {
         return front.AllocateCapacity(capacity, arena) && back.AllocateCapacity(capacity, arena);
     }
     template<typename T>
-    bool DoubleBufferMap<T>::Insert(uint64_t key, const T& value)
+    bool ArenaDoubleBufferMap<T>::Insert(uint64_t key, const T& value)
     {
         return back.Insert(key, value);
     }
     template<typename T>
-    T* DoubleBufferMap<T>::FrontValue(uint64_t key)
+    T* ArenaDoubleBufferMap<T>::FrontValue(uint64_t key)
     {
         return front.GetValue(key);
     }
     template<typename T>
-    T* DoubleBufferMap<T>::BackValue(uint64_t key)
+    T* ArenaDoubleBufferMap<T>::BackValue(uint64_t key)
     {
         return back.GetValue(key);
     }
     template<typename T>
-    void DoubleBufferMap<T>::SwapBuffer()
+    void ArenaDoubleBufferMap<T>::SwapBuffer()
     {
-        Map<T> temp = back;
+        ArenaMap<T> temp = back;
         back = front;
         front = temp;
         back.Reset();
     }
     template<typename T>
-    bool DoubleBufferMap<T>::ShouldResize() const
+    bool ArenaDoubleBufferMap<T>::ShouldResize() const
     {
         return front.ShouldResize() || back.ShouldResize();
     }
     template<typename T>
-    uint32_t DoubleBufferMap<T>::Capacity() const
+    uint32_t ArenaDoubleBufferMap<T>::Capacity() const
     {
         return front.Capacity();
     }
