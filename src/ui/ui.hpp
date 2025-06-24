@@ -236,6 +236,7 @@ namespace UI
             // ========= Only used when debugging is enabled
             #if UI_ENABLE_DEBUG
                 const char* debug_file = nullptr;
+                const char* label = nullptr;
                 int         debug_line = -1;
                 BoxStyle    debug_style;
             #endif
@@ -350,7 +351,7 @@ namespace UI
         void BeginRoot(int x, int y,unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
         void EndRoot();
         void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
-        void InsertText(const char* text, bool copy_text = true);
+        void InsertText(const char* text, bool copy_text = true, DebugInfo info = UI_DEBUG);
         void EndBox();
         void DrawDebugMenu(bool is_mouse_pressed, bool is_mouse_release, bool esc_key_pressed);
         void Draw();

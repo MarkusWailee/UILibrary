@@ -186,7 +186,6 @@ void SpotifyExample()
                 playlist_scroll_box.scroll_y = playlist_panel_scroll;
 
                 UI::BeginBox(playlist_scroll_box, "Playlist Panel");
-                    //random colors
                     unsigned char red = 4;
                     unsigned char green = 24;
                     unsigned char blue = 3;
