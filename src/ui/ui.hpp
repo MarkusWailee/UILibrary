@@ -183,6 +183,8 @@ namespace UI
     BoxInfo GetBoxInfo(const char* label);
     void SetContext(UI::Context* context);
     Context* GetContext();
+    void SetFreeze(bool state);
+    void SetDebugInput(bool mouse_pressed, bool mouse_release, bool activate_pressed);
     void BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
@@ -354,6 +356,7 @@ namespace UI
         void Draw();
         uint32_t GetElementCount() const;
         Internal::TreeNode* GetInternalTree();
+        void SetFreeze(bool freeze_ui);
     private:
 
         //These functions are for internals only
@@ -377,7 +380,6 @@ namespace UI
         void DrawPass_FlowNoWrap(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
         void DrawPass(TreeNode* node, int x, int y, const Box& parent_box, Rect parent_aabb);
 
-        void SetFreeze(bool freeze_ui);
     private:
         uint32_t element_count = 0;
         uint64_t directly_hovered_element_key = 0;
@@ -388,7 +390,7 @@ namespace UI
         Internal::ArenaLL<TreeNode*> deferred_elements;
         TreeNode* root_node = nullptr;
         Internal::FixedStack<TreeNode*, 100> stack; //elements should never nest over 100 layers deep
-        //bool is_frozen = false;
+        bool is_frozen = false;
 
         #if UI_ENABLE_DEBUG
             Box debug_hover;

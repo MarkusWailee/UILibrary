@@ -91,14 +91,35 @@ namespace UI
     int ParentPercentToPx(int value , Unit::Type unit_type, int parent_width);
     void ComputeParentWidthPercent(Box& box, int parent_width);
     void ComputeParentHeightPercent(Box& box, int parent_width);
+
+
+    //Debugger
+    class Debugger
+    {
+    public:
+        TreeNode* selected_node = nullptr;
+        int window_x = 10;
+        int window_y = 10;
+        bool window_drag = false;
+        bool mouse_pressed = false;
+        bool mouse_released = false;
+        bool should_activate = false;
+        bool activate = false;
+    };
+    bool IsDebuggerActive();
+    void RunDebugLayout(TreeNode* node, int& id);
+    void ShowDebugSelectedNode();
 }
 
 
 //GLOBALS
 namespace UI
 {
-    float dpi = 96.0f;
-    Context* context = nullptr;
+    Context debug_ui(64000 * 2);
+    Debugger debugger_state;
+
+    static float dpi = 96.0f;
+    static Context* context = nullptr;
 }
 
 
@@ -106,6 +127,15 @@ namespace UI
 //IMPLEMENTATION
 namespace UI
 {
+    void SetDebugInput(bool mouse_pressed, bool mouse_released, bool activate_pressed)
+    {
+        debugger_state.mouse_pressed = mouse_pressed;
+        debugger_state.mouse_released = mouse_released;
+        if(activate_pressed)
+        {
+            debugger_state.should_activate = !debugger_state.should_activate;
+        }
+    }
     void SetContext(UI::Context* context)
     {
         UI::context = context;
@@ -116,38 +146,54 @@ namespace UI
     }
     BoxInfo GetBoxInfo(const char* label)
     {
-        if(context)
+        if(context && !IsDebuggerActive())
             return context->GetBoxInfo(label);
         return BoxInfo();
     }
     void BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
     {
+        debugger_state.activate = debugger_state.should_activate? true: false;
         if(context)
-            context->BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
+        {
+            if(!IsDebuggerActive())
+            {
+                context->BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
+                debugger_state.selected_node = nullptr;
+            }
+            else
+            {
+                debug_ui.BeginRoot(0, 0, screen_width, screen_height, mouse_x, mouse_y);
+                int count = 0;
+                RunDebugLayout(context->GetInternalTree(), count);
+                ShowDebugSelectedNode();
+                debug_ui.EndRoot();
+                debug_ui.Draw();
+            }
+        }
     }
     void EndRoot()
     {
-        if(context)
+        if(context && !IsDebuggerActive())
             context->EndRoot();
     }
     void BeginBox(const UI::BoxStyle& box_style, const char* label, DebugInfo debug_info)
     {
-        if(context)
+        if(context && !IsDebuggerActive())
             context->BeginBox(box_style, label, debug_info);
     }
     void InsertText(const char* text, bool copy_text)
     {
-        if(context)
+        if(context && !IsDebuggerActive())
             context->InsertText(text, copy_text);
     }
     void EndBox()
     {
-        if(context)
+        if(context && !IsDebuggerActive())
             context->EndBox();
     }
     void Draw()
     {
-        if(context)
+        if(context && !IsDebuggerActive())
             context->Draw();
     }
 }
@@ -916,6 +962,108 @@ namespace UI
         if(box.max_height_unit == Unit::Type::WIDTH_PERCENT)
             box.max_height = box.width * box.max_height / 100;
     }
+
+
+
+    void RunDebugLayout(TreeNode* node, int& id)
+    {
+        if(node == nullptr) 
+            return;
+        Box& box = node->box;
+        BoxStyle& style = node->box.debug_style;
+        const char* element_id = StringFormat("Element id #%d", id);
+        if(box.text)
+        {
+            debug_ui.InsertText(box.text);
+        }
+        else
+        {
+            BoxInfo info = debug_ui.GetBoxInfo(element_id);
+            if(info.valid && info.is_direct_hover)
+            {
+                BoxStyle outline;
+                outline.x = {(float)info.draw_x};
+                outline.y = {(float)info.draw_y};
+                outline.width = {(float)info.draw_width};
+                outline.height = {(float)info.draw_height};
+                outline.border_width = 1;
+                outline.border_color = {200, 200, 200, 200};
+                outline.detach = true;
+                debug_ui.BeginBox(outline); debug_ui.EndBox();
+                if(debugger_state.mouse_pressed)
+                    debugger_state.selected_node = node;
+            }
+            debug_ui.BeginBox(style, element_id);
+            id++;
+            for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+                RunDebugLayout(&temp->value, id);
+            debug_ui.EndBox();
+        }
+    }
+    void ShowDebugSelectedNode()
+    {
+        #if UI_ENABLE_DEBUG
+        if(debugger_state.selected_node == nullptr)
+            return;
+        BoxInfo title_bar_info = debug_ui.GetBoxInfo("debug_title_bar_info");
+        BoxStyle& style = debugger_state.selected_node->box.debug_style;
+        BoxStyle base;
+        base.flow.axis = Flow::VERTICAL;
+        base.x = {(float)debugger_state.window_x};
+        base.y = {(float)debugger_state.window_y};
+        base.width = {300};
+        base.height = {400};
+        base.background_color = {30, 30, 35, 250};
+        base.corner_radius = 5;
+        base.detach = true;
+
+        BoxStyle title;
+        title.flow.horizontal_alignment = Flow::SPACE_BETWEEN;
+        title.flow.vertical_alignment = Flow::CENTERED;
+        title.width = {100, Unit::PARENT_PERCENT};
+        title.height = {100, Unit::CONTENT_PERCENT};
+        title.background_color = {20, 20, 20, 255};
+        title.corner_radius = 5;
+        title.padding = {3,3,4,4};
+
+        BoxStyle close_button;
+        close_button.flow.horizontal_alignment = Flow::CENTERED;
+        close_button.flow.vertical_alignment = Flow::CENTERED;
+        close_button.width = {30};
+        close_button.height = {20};
+        close_button.background_color = {50,40, 40, 255};
+        close_button.corner_radius = 5;
+
+
+        //Red outline
+        TreeNode& selected_node = *debugger_state.selected_node;
+        BoxStyle outline;
+        outline.x = {(float)selected_node.box.x};
+        outline.y = {(float)selected_node.box.y};
+        outline.width = {(float)selected_node.box.GetRenderingWidth()};
+        outline.height = {(float)selected_node.box.GetRenderingHeight()};
+        outline.border_width = 1;
+        outline.border_color = {255, 0, 0, 255};
+        outline.detach = true;
+        debug_ui.BeginBox(outline);
+        debug_ui.EndBox();
+
+        debug_ui.BeginBox(base, "Debugger base");
+            debug_ui.BeginBox(title, "debug_title_bar_info");
+                debug_ui.InsertText("[S:24]Inspector");
+                debug_ui.BeginBox(close_button);
+                    debug_ui.InsertText("[S:20]x");
+                debug_ui.EndBox();
+            debug_ui.EndBox();
+        debug_ui.EndBox();
+
+
+        #endif
+    }
+    bool IsDebuggerActive()
+    {
+        return debugger_state.activate;
+    }
 }
 
 
@@ -935,7 +1083,8 @@ namespace UI
     }
     void Context::SetFreeze(bool freeze_ui)
     {
-        //is_frozen = freeze_ui;
+
+
     }
     Internal::TreeNode* Context::GetInternalTree()
     {
@@ -976,7 +1125,6 @@ namespace UI
     }
     void Context::BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
     {
-
         this->mouse_x = mouse_x;
         this->mouse_y = mouse_y;
         if(HasInternalError())
@@ -992,7 +1140,7 @@ namespace UI
             arena.Reset();
             //Double the capacity for hash map
             uint32_t capacity = double_buffer_map.Capacity() * 2;
-            capacity = capacity? capacity: 64;
+            capacity = capacity? capacity: 256;
             double_buffer_map.AllocateBufferCapacity(capacity, &arena);
         }
 
@@ -1002,6 +1150,16 @@ namespace UI
         root_box.height = screen_height;
         root_box.x = x;
         root_box.y = y;
+        
+        // ========== Debug Mode Only ==========
+        #if UI_ENABLE_DEBUG
+            BoxStyle style;
+            style.width = {(float)screen_width};
+            style.height = {(float)screen_height};
+            style.x = {(float)x};
+            style.y = {(float)y};
+            root_box.debug_style = style;
+        #endif
 
         if(stack.IsEmpty())//Root Node
         {
@@ -1681,6 +1839,7 @@ namespace UI
         DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
         box.x = render_x;
         box.y = render_y;
+        box.SetPositioning(Positioning::ABSOLUTE);
 
         #if UI_ENABLE_DEBUG
             if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}), mouse_x, mouse_y) && render_width > 1 && render_height > 1)
@@ -1915,4 +2074,7 @@ namespace UI
         if(parent_box.IsScissor())
             EndScissorMode_impl();
     } //End of DrawPass_FlowNoWrap()
+
+
+
 }

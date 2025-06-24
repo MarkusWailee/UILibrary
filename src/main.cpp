@@ -4,6 +4,22 @@
 #include "UI_Demo.hpp"
 #include "ui_inspector.hpp"
 
+
+void ExampleDemo()
+{
+    UI::BeginRoot(0, 0, GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
+    UI::BoxStyle base;
+    base.width = {100, UI::Unit::PARENT_PERCENT};
+    base.height = {100, UI::Unit::PARENT_PERCENT};
+    base.margin = {10, 10, 10, 10};
+    base.background_color = {30, 30, 40, 255};
+    UI::BeginBox(base);
+
+    UI::EndBox();
+    UI::EndRoot();
+
+    UI::Draw();
+}
 int main(void)
 {
     float screenWidth = 960;
@@ -20,11 +36,15 @@ int main(void)
 
 
     float time = 0;
+    bool flip = false;
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
+
+        UI::SetDebugInput(IsMouseButtonPressed(0), IsMouseButtonReleased(0), IsKeyPressed(KEY_F));
         SpotifyExample();
+        
 
         //UI::ToolKit::Inspector(UI::GetContext());
         //DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
