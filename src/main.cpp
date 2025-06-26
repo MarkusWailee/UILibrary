@@ -42,7 +42,7 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-        UI::SetDebugInput(IsMouseButtonPressed(0), IsMouseButtonReleased(0), IsKeyPressed(KEY_F));
+        UI::SetDebugInput(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(),IsKeyPressed(KEY_F));
         SpotifyExample();
         
 

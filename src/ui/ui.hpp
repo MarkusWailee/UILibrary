@@ -176,7 +176,7 @@ namespace UI
         bool is_hover =         false;
         bool is_direct_hover =  false;
         int MaxScrollX() const { return Max(0, content_width - draw_width);}
-        int MaxScrollY() const { return Max(0, content_height - draw_height);}
+        int MaxScrollY() const { return Max(0, content_height - draw_height + 20);}
     };
     struct DebugInfo
     {
@@ -189,7 +189,7 @@ namespace UI
     void SetContext(UI::Context* context);
     Context* GetContext();
     void SetFreeze(bool state);
-    void SetDebugInput(bool mouse_pressed, bool mouse_release, bool activate_pressed);
+    void SetDebugInput(bool mouse_pressed, bool mouse_release, int mouse_scroll, bool activate_pressed);
     void BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);

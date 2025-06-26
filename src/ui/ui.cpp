@@ -128,13 +128,13 @@ namespace UI
             {253, 253, 253, 255},   //text_color_hover
             {253, 211, 211, 255},   //faded_button
             {70, 188, 70, 255},    //inserted_text_color
-            {216, 169, 60, 255},   //id_text_color
+            {255, 193, 48, 255},   //id_text_color
             16                      //corner radius
         };
         DebugView(uint64_t memory);
         bool IsActive() const;
         void SetActive(bool flag);
-        void GetUserInput(bool is_mouse_pressed, bool is_mouse_released);
+        void GetUserInput(bool is_mouse_pressed, bool is_mouse_released, int mouse_scroll);
         void RunDebugView(TreeNode* root_node, int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
         void Reset();
     private:
@@ -156,10 +156,12 @@ namespace UI
         int left_panel_width = 125;
         bool left_panel_size_drag = false;
         bool left_panel_scroll_drag = false;
+        int left_panel_scroll = 0;
         Map<bool> tree_state;
         TreeNode* selected_node = nullptr;
         Rect hover_node;
         // ==============================================
+        int mouse_scroll = 0;
         int mouse_x = 0;
         int mouse_y = 0;
         bool mouse_pressed = false;
@@ -183,9 +185,9 @@ namespace UI
 //IMPLEMENTATION
 namespace UI
 {
-    void SetDebugInput(bool mouse_pressed, bool mouse_released, bool activate_pressed)
+    void SetDebugInput(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed)
     {
-        debug_view.GetUserInput(mouse_pressed, mouse_released);
+        debug_view.GetUserInput(mouse_pressed, mouse_released, mouse_scroll);
         if(activate_pressed)
             should_activate_debug_view = !should_activate_debug_view;
     }
@@ -1072,8 +1074,9 @@ namespace UI
             Reset();
         }
     }
-    void DebugView::GetUserInput(bool is_mouse_pressed, bool is_mouse_released)
+    void DebugView::GetUserInput(bool is_mouse_pressed, bool is_mouse_released, int mouse_scroll)
     {
+        this->mouse_scroll = mouse_scroll;
         mouse_pressed = is_mouse_pressed;
         mouse_released = is_mouse_released;
     }
@@ -1281,13 +1284,22 @@ namespace UI
         panel_title.height = {100, Unit::CONTENT_PERCENT};
 
         BoxStyle left_panel;
+        left_panel.padding = {1, 0, 0, 0};
         left_panel.flow.axis = Flow::VERTICAL;
         left_panel.width = {(float)left_panel_new_width};
         left_panel.height = {100, Unit::AVAILABLE_PERCENT};
         left_panel.background_color = theme.left_panel;
         left_panel.corner_radius = theme.corner_radius;
 
+        left_panel_scroll -= mouse_scroll * 20;
+        
+        BoxInfo left_panel_tree_info = ui.GetBoxInfo("left_panel_tree");
         BoxStyle left_panel_tree;
+        if(left_panel_tree_info.valid)
+        {
+            left_panel_scroll = Clamp(left_panel_scroll, 0, left_panel_tree_info.MaxScrollY());
+        }
+        left_panel_tree.scroll_y = left_panel_scroll;
         left_panel_tree.flow.axis = Flow::VERTICAL;
         left_panel_tree.width = {100, Unit::PARENT_PERCENT};
         left_panel_tree.height = {100, Unit::AVAILABLE_PERCENT};
@@ -1324,7 +1336,7 @@ namespace UI
                     ui.BeginBox(panel_title);
                         ui.InsertText(StringFormat("[S:21][C:%s]Navigate", text_color));
                     ui.EndBox();
-                    ui.BeginBox(left_panel_tree);
+                    ui.BeginBox(left_panel_tree, "left_panel_tree");
                         InjectTree(node, 0);
                     ui.EndBox();
                 ui.EndBox();
@@ -1372,14 +1384,16 @@ namespace UI
 
         // ===== Button Properties =====
         BoxStyle button;
+        button.flow.axis = Flow::HORIZONTAL;
         button.flow.vertical_alignment = Flow::CENTERED;
         button.width = {9999};
         button.height = {100, Unit::CONTENT_PERCENT};
         button.background_color = theme.button;
+        button.gap_column = {4};
         HexColor button_text_color = text_color;
 
         BoxStyle filler; 
-        filler.width = {8};
+        filler.width = {4};
         filler.height = {0};
 
         BoxStyle line;
@@ -1480,20 +1494,22 @@ namespace UI
         // ========== Button Text ==========
         HexColor id_text_color = RGBAToHex(theme.id_text_color);
         HexColor inserted_text_color = RGBAToHex(theme.inserted_text_color);
+        BoxStyle inserted_text_box;
+        //inserted_text_box.corner_radius = 6;
+        //inserted_text_box.padding= {3,3,3,3};
+        //inserted_text_box.border_width = 1;
+        //inserted_text_box.border_color = theme.text_color;
+        inserted_text_box.width = {100, Unit::CONTENT_PERCENT};
+        inserted_text_box.height = {100, Unit::CONTENT_PERCENT};
+
         const Box& box = node->box;
-        const char* button_text = nullptr;
-        if(box.text)
-        {
-            button_text = StringFormat("[S:20][C:%s]Text [C:%s][OFF]\"%s\"", button_text_color, inserted_text_color, box.text);
-        }
-        else if(box.debug_label)
-        {
-            button_text = StringFormat("[S:20][C:%s]Box id:[C:%s][OFF] \"%s\"", button_text_color, id_text_color, box.debug_label);
-        }
-        else
-        {
-            button_text = StringFormat("[S:20][C:%s]Box", button_text_color);
-        }
+        BoxStyle color_preview;
+        color_preview.width = {18};
+        color_preview.height = {16};
+        color_preview.background_color = box.background_color;
+        color_preview.border_width = 1;
+        color_preview.border_color = theme.text_color;
+        color_preview.corner_radius = 2;
         // =================================
 
 
@@ -1511,8 +1527,33 @@ namespace UI
                 ui.InsertText(StringFormat("[S:20][C:%s]%c", open_button_text_color, open_icon), true);
             ui.EndBox();
         }// ===================================
-
-            ui.InsertText(button_text, true);
+        // ========= Button Text Box [COLOR] id "Some id" ============
+        if(box.text)
+        {
+            ui.BeginBox(inserted_text_box);
+                ui.InsertText(StringFormat("[S:20][C:%s]Text", button_text_color), true);
+                ui.InsertText(StringFormat("[S:20][C:%s] [OFF]\"%s\"", inserted_text_color, box.text), true);
+            ui.EndBox();
+        }
+        else
+        {
+            ui.InsertText(StringFormat("[S:20][C:%s]Box", button_text_color), true);
+            //Only render a color preview if there is visible color
+            if(box.background_color.a > 0)
+            {
+                ui.BeginBox(color_preview); 
+                ui.EndBox();
+            }
+            if(box.debug_label)
+            {
+                //ui.InsertText(StringFormat("[S:20][C:%s]id:", button_text_color), true);
+                ui.BeginBox(inserted_text_box);
+                    ui.InsertText(StringFormat("[S:20][C:%s]id: [C:%s][OFF] \"%s\"", button_text_color, id_text_color, box.debug_label), true);
+                    //ui.InsertText(StringFormat("[S:20][C:%s][OFF] \"%s\"", id_text_color, box.debug_label), true);
+                ui.EndBox();
+            }
+        }
+        // ===========================================================
         ui.EndBox();
 
         if(is_open && *is_open)
