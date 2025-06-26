@@ -1112,10 +1112,10 @@ namespace UI
         {
             if(info.is_direct_hover)
             {
-                hover_node.width = info.draw_width;
-                hover_node.height = info.draw_height;
-                hover_node.x = info.draw_x;
-                hover_node.y = info.draw_y;
+                hover_node.width = info.DrawWidth();
+                hover_node.height = info.DrawHeight();
+                hover_node.x = info.DrawX();
+                hover_node.y = info.DrawY();
                 if(mouse_pressed)
                 {
                     this->selected_node = node;
@@ -2439,10 +2439,13 @@ namespace UI
             BoxInfo* info = double_buffer_map.BackValue(box.label_hash);
             if(info)
             {
-                info->draw_width = render_width;
-                info->draw_height = render_height;
-                info->draw_x = render_x;
-                info->draw_y = render_y;
+                info->width = box.width;
+                info->height = box.height;
+                info->x = box.x - box.margin.left;
+                info->y = box.y - box.margin.top;
+                info->padding = box.padding;
+                info->margin = box.margin;
+
                 //Handling mouse hover next frame
                 if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}), mouse_x, mouse_y))
                 {

@@ -166,17 +166,24 @@ namespace UI
 
     struct BoxInfo
     {
-        int draw_x =             0;
-        int draw_y =             0;
-        int draw_width =         0;
-        int draw_height =        0;
+        int x = 0;
+        int y = 0;
+        int width = 0;
+        int height = 0;
+        Spacing padding;
+        Spacing margin;
+
         int content_width =     0;
         int content_height =    0;
         bool valid =            false;
         bool is_hover =         false;
         bool is_direct_hover =  false;
-        int MaxScrollX() const { return Max(0, content_width - draw_width);}
-        int MaxScrollY() const { return Max(0, content_height - draw_height + 20);}
+        int DrawX() const { return x + margin.left; };
+        int DrawY() const { return y + margin.top; };
+        int DrawWidth() const { return width + padding.left + padding.right; };
+        int DrawHeight() const { return height + padding.top + padding.bottom; };
+        int MaxScrollX() const { return Max(0, content_width - width);}
+        int MaxScrollY() const { return Max(0, content_height - height);}
     };
     struct DebugInfo
     {

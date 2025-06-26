@@ -112,8 +112,8 @@ void SpotifyExample()
                 UI::BoxStyle pop_up;
                 pop_up.flow.axis = UI::Flow::Axis::VERTICAL;
                 pop_up.corner_radius = 5;
-                pop_up.x = UI::Unit{(float)option_info.draw_x, UI::Unit::PIXEL};
-                pop_up.y = UI::Unit{(float)option_info.draw_y + option_info.draw_height, UI::Unit::PIXEL};
+                pop_up.x = UI::Unit{(float)option_info.DrawX(), UI::Unit::PIXEL};
+                pop_up.y = UI::Unit{(float)option_info.DrawY() + option_info.DrawHeight(), UI::Unit::PIXEL};
                 pop_up.width = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
                 pop_up.height = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
                 pop_up.background_color = UI::Color{18, 18, 18, 255};
