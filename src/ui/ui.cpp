@@ -14,7 +14,7 @@ namespace UI
     int FixedUnitToPx(Unit unit, int root_size);
     Box ComputeStyleSheet(const BoxStyle& style, const Box& root);
 
-    //Returns 0 if str is nullptr. Otherwise it will never return 0
+    //Size should include '\0'
     void StringCopy(char* dst, const char* src, uint32_t size);
     bool StringCompare(const char* s1, const char* s2);
     char ToLower(char c);
@@ -112,6 +112,8 @@ namespace UI
             Color text_color;
             Color text_color_hover;
             Color faded_button;
+            Color inserted_text_color;
+            Color id_text_color;
             unsigned char corner_radius = 1;
         };
         constexpr static Theme light_theme = 
@@ -125,6 +127,8 @@ namespace UI
             {38, 38, 38, 255},      //text_color
             {253, 253, 253, 255},   //text_color_hover
             {253, 211, 211, 255},   //faded_button
+            {70, 188, 70, 255},    //inserted_text_color
+            {216, 169, 60, 255},   //id_text_color
             16                      //corner radius
         };
         DebugView(uint64_t memory);
@@ -1093,7 +1097,7 @@ namespace UI
     }
     void DebugView::ConstructDubLayout(TreeNode* node, int& count)
     {
-        if(node == nullptr || !node->box.debug_valid)
+        if(node == nullptr)
             return;
         
         //hover_outline.width = 
@@ -1266,7 +1270,7 @@ namespace UI
         int left_panel_new_width = left_panel_width;
         if(left_panel_size_drag)
             left_panel_new_width += mouse_delta_x;
-        left_panel_new_width = Clamp(left_panel_new_width, 100, base_dim.width - 150);
+        left_panel_new_width = Clamp(left_panel_new_width, 100, base_dim.width - 100);
         // =============================================
         
         //Holds "Navigation" and "Details"
@@ -1474,15 +1478,17 @@ namespace UI
         // ========================================
 
         // ========== Button Text ==========
+        HexColor id_text_color = RGBAToHex(theme.id_text_color);
+        HexColor inserted_text_color = RGBAToHex(theme.inserted_text_color);
         const Box& box = node->box;
         const char* button_text = nullptr;
         if(box.text)
         {
-            button_text = StringFormat("[S:20][C:%s]Text [OFF]\"%s\"", button_text_color, box.text);
+            button_text = StringFormat("[S:20][C:%s]Text [C:%s][OFF]\"%s\"", button_text_color, inserted_text_color, box.text);
         }
         else if(box.debug_label)
         {
-            button_text = StringFormat("[S:20][C:%s]Box [OFF]id \"%s\"", button_text_color, box.debug_label);
+            button_text = StringFormat("[S:20][C:%s]Box id:[C:%s][OFF] \"%s\"", button_text_color, id_text_color, box.debug_label);
         }
         else
         {
@@ -1714,6 +1720,14 @@ namespace UI
                 child_node.box.debug_file = debug_info.file;
                 child_node.box.debug_line = debug_info.line;
                 child_node.box.debug_style = style;
+                if(label)
+                {
+                    int label_length = StringLength(label) + 1;
+                    char* debug_label = arena.New<char>(label_length);
+                    assert(debug_label && "Arena out of memory");
+                    StringCopy(debug_label, label, label_length);
+                    child_node.box.debug_label = debug_label;
+                }
             #endif
             //Might bundle this with macro
             if(HandleInternalError(CheckUnitErrors(child_node.box)))
@@ -1773,7 +1787,7 @@ namespace UI
                         {
                             Box& box = child->value.box;
 
-                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT && !box.IsDetached())
+                            if(!box.IsDetached())
                             {
                                 box.width = Clamp(box.width, box.min_width, box.max_width);
                                 content_width += box.GetBoxModelWidth() + parent_box.gap_column;
@@ -1787,7 +1801,7 @@ namespace UI
                         for(;child != nullptr; child = child->next)
                         {
                             Box& box = child->value.box;
-                            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT && !box.IsDetached())
+                            if(!box.IsDetached())
                             {
                                 int width = box.GetBoxModelWidth();
                                 if(largest_width < width)
