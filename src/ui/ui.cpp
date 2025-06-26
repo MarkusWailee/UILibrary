@@ -416,18 +416,18 @@ namespace UI
 
             const char* file = child.debug_file;
             int line = child.debug_line;
-            CHILD_PARENT_CONFLICT(child.width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.min_width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.min_width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.max_width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.max_width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.min_height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.min_height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.max_height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-            CHILD_PARENT_CONFLICT(child.max_height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.min_width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.min_width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.max_width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.max_width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.min_height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.min_height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.max_height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
+            //CHILD_PARENT_CONFLICT(child.max_height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
         #endif
 
         return error;
@@ -1384,7 +1384,7 @@ namespace UI
 
         BoxStyle line;
         line.width = {1};
-        line.height = {20};
+        line.height = {100, Unit::PARENT_PERCENT};
         line.background_color = theme.button_hover;
 
         BoxStyle open_button;
@@ -1787,11 +1787,18 @@ namespace UI
                         {
                             Box& box = child->value.box;
 
-                            if(!box.IsDetached())
+                            //Ignore these values
+                            if(box.IsDetached())
+                                continue;
+                            if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
+                            box.width_unit != Unit::Type::PARENT_PERCENT &&
+                            box.max_width_unit != Unit::Type::PARENT_PERCENT &&
+                            box.min_width_unit != Unit::Type::PARENT_PERCENT)
                             {
                                 box.width = Clamp(box.width, box.min_width, box.max_width);
-                                content_width += box.GetBoxModelWidth() + parent_box.gap_column;
+                                content_width += box.GetBoxModelWidth();
                             }
+                            content_width += parent_box.gap_column;
                         }
                         content_width -= parent_box.gap_column;
                     }
@@ -1801,7 +1808,14 @@ namespace UI
                         for(;child != nullptr; child = child->next)
                         {
                             Box& box = child->value.box;
-                            if(!box.IsDetached())
+
+                            //Ignore these values
+                            if(box.IsDetached())
+                                continue;
+                            if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
+                            box.width_unit != Unit::Type::PARENT_PERCENT &&
+                            box.max_width_unit != Unit::Type::PARENT_PERCENT &&
+                            box.min_width_unit != Unit::Type::PARENT_PERCENT)
                             {
                                 int width = box.GetBoxModelWidth();
                                 if(largest_width < width)
@@ -1810,6 +1824,8 @@ namespace UI
                         }
                         content_width = largest_width;
                     }
+                    //Just for sanity
+                    content_width = Max(0, content_width);
                     if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
                         parent_box.width = content_width * parent_box.width / 100;
                     if(parent_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
@@ -2266,9 +2282,17 @@ namespace UI
                     while(md.ComputeNextTextRun()){}
                     box.height = md.GetMeasuredHeight();
                 }
-                int height = box.GetBoxModelHeight();
-                if(largest_height < height)
-                    largest_height = height;
+
+                //Ignore these values
+                if(box.height_unit != Unit::Type::AVAILABLE_PERCENT && 
+                    box.height_unit != Unit::Type::PARENT_PERCENT && 
+                    box.min_height_unit != Unit::Type::PARENT_PERCENT && 
+                    box.max_height_unit != Unit::Type::PARENT_PERCENT)
+                {
+                    int height = box.GetBoxModelHeight();
+                    if(largest_height < height)
+                        largest_height = height;
+                }
             }
             content_height = largest_height;
         }
@@ -2291,7 +2315,15 @@ namespace UI
                     while(md.ComputeNextTextRun()){}
                     box.height = md.GetMeasuredHeight();
                 }
-                content_height += box.GetBoxModelHeight() + parent_box.gap_row;
+                //Ignore these values
+                if(box.height_unit != Unit::Type::AVAILABLE_PERCENT && 
+                    box.height_unit != Unit::Type::PARENT_PERCENT && 
+                    box.min_height_unit != Unit::Type::PARENT_PERCENT && 
+                    box.max_height_unit != Unit::Type::PARENT_PERCENT)
+                {
+                    content_height += box.GetBoxModelHeight();
+                }
+                content_height += parent_box.gap_row;
             }
             content_height -= parent_box.gap_row;
         }
