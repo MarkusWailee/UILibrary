@@ -178,6 +178,7 @@ namespace UI
         bool valid =            false;
         bool is_hover =         false;
         bool is_direct_hover =  false;
+        bool is_rendered =      false;
         int DrawX() const { return x + margin.left; };
         int DrawY() const { return y + margin.top; };
         int DrawWidth() const { return width + padding.left + padding.right; };
@@ -242,7 +243,6 @@ namespace UI
     //Internal namespace is just used for seperation in public api
     namespace Internal
     {
-
         struct Box
         {
             // ========= Only used when debugging is enabled
@@ -370,7 +370,9 @@ namespace UI
         void Draw();
         uint32_t GetElementCount() const;
         Internal::TreeNode* GetInternalTree();
-        void SetFreeze(bool freeze_ui);
+
+        //For Advanced Purposes
+        Internal::MemoryArena& GetMemoryArena();
     private:
 
         //These functions are for internals only
@@ -404,7 +406,6 @@ namespace UI
         Internal::ArenaLL<TreeNode*> deferred_elements;
         TreeNode* root_node = nullptr;
         Internal::FixedStack<TreeNode*, 100> stack; //elements should never nest over 100 layers deep
-        bool is_frozen = false;
 
         #if UI_ENABLE_DEBUG
             Box debug_hover;

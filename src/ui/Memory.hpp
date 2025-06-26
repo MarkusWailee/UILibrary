@@ -145,6 +145,7 @@ namespace UI::Internal
             T value;
         };
         bool AllocateCapacity(uint32_t count, MemoryArena* arena);
+        void RewindArena(MemoryArena* arena); 
         T* Insert(uint64_t key, const T& value);
         T* GetValue(uint64_t key);
         void Reset();
@@ -170,7 +171,8 @@ namespace UI::Internal
         uint32_t Capacity() const;
         bool ShouldResize() const;
         bool AllocateBufferCapacity(uint32_t capacity, MemoryArena* arena);
-        bool Insert(uint64_t key, const T& value);
+        void RewindArena(MemoryArena* arena);
+        T* Insert(uint64_t key, const T& value);
         T* BackValue(uint64_t key);
         T* FrontValue(uint64_t key);
         void SwapBuffer();
@@ -526,6 +528,17 @@ namespace UI::Internal
         return true;
     }
     template<typename T>
+    void ArenaMap<T>::RewindArena(MemoryArena* arena)
+    {
+        assert(arena && "No Arena passed");
+        if(arena)
+        {
+            size1 = size2 = cap1 = cap2 = 0;
+            data = nullptr;
+            arena->Rewind(data);
+        }
+    }
+    template<typename T>
     T* ArenaMap<T>::Insert(uint64_t key, const T& value)
     {
         if(!key || data == nullptr)
@@ -601,7 +614,14 @@ namespace UI::Internal
         return front.AllocateCapacity(capacity, arena) && back.AllocateCapacity(capacity, arena);
     }
     template<typename T>
-    bool ArenaDoubleBufferMap<T>::Insert(uint64_t key, const T& value)
+    void ArenaDoubleBufferMap<T>::RewindArena(MemoryArena* arena)
+    {
+        assert(arena && "No arena sent");
+        back.RewindArena(arena);
+        front.RewindArena(arena);
+    }
+    template<typename T>
+    T* ArenaDoubleBufferMap<T>::Insert(uint64_t key, const T& value)
     {
         return back.Insert(key, value);
     }

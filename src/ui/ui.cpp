@@ -98,6 +98,19 @@ namespace UI
 
 
     //Debugger
+    struct DebugTreeNode
+    {
+        ArenaLL<DebugTreeNode> children;
+        BoxStyle    debug_style;
+        const char* label = nullptr;
+        const char* text = nullptr;
+
+        const char* file = nullptr;
+        int         line = -1;
+
+        bool        is_rendered = false;
+    };
+
     class DebugView
     {
     public:
@@ -143,6 +156,8 @@ namespace UI
         void InjectTree(TreeNode* node, int depth);
         void CustomizeDetails();
         bool SearchNodeAndOpenTree(TreeNode* node);
+
+        MemoryArena arena;
         Context ui;
         TreeNode* root_node = nullptr;
 
@@ -1059,7 +1074,7 @@ namespace UI
     }
 
 
-    DebugView::DebugView(uint64_t memory): ui(memory)
+    DebugView::DebugView(uint64_t memory): ui(memory / 2), arena(memory / 2)
     {
 
     }
@@ -1626,16 +1641,15 @@ namespace UI
         arena(arena_bytes)
     {
     }
-    void Context::SetFreeze(bool freeze_ui)
-    {
-
-
-    }
     Internal::TreeNode* Context::GetInternalTree()
     {
         if(!stack.IsEmpty())
             return nullptr;
         return root_node;
+    }
+    Internal::MemoryArena& Context::GetMemoryArena()
+    {
+        return arena;
     }
     uint32_t Context::GetElementCount() const
     {
@@ -1676,17 +1690,20 @@ namespace UI
             return;
 
         double_buffer_map.SwapBuffer();
+
+        //Clears buffer only up to root_node
         arena.Rewind(root_node);
         stack.Clear();
         root_node = nullptr;
         element_count = 1;
         if(double_buffer_map.ShouldResize())
         {
-            arena.Reset();
-            //Double the capacity for hash map
+            //Rewind back to arena
+            double_buffer_map.RewindArena(&arena);
             uint32_t capacity = double_buffer_map.Capacity() * 2;
             capacity = capacity? capacity: 512;
-            double_buffer_map.AllocateBufferCapacity(capacity, &arena);
+            bool err = double_buffer_map.AllocateBufferCapacity(capacity, &arena);
+            assert(err && "Arena out of memory");
         }
 
         assert(stack.IsEmpty());
@@ -2460,7 +2477,7 @@ namespace UI
                 info->y = box.y - box.margin.top;
                 info->padding = box.padding;
                 info->margin = box.margin;
-
+                info->is_rendered = true;
                 //Handling mouse hover next frame
                 if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}), mouse_x, mouse_y))
                 {
