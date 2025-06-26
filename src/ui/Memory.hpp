@@ -296,7 +296,7 @@ namespace UI::Internal
     template<typename T>
     inline uint32_t Map<T>::Size() const
     {
-        return Size;
+        return size;
     }
     template<typename T>
     inline uint32_t Map<T>::Capacity() const

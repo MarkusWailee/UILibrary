@@ -33,6 +33,7 @@ namespace UI
     struct Grid;
     struct Flow;
     struct Color;
+    struct HexColor;
     struct Unit;
     struct Spacing;
     struct BoxInfo;
@@ -57,7 +58,7 @@ namespace UI
     template<typename T>
     inline T Min(T a, T b) {return a < b? a: b;}
     template<typename T>
-    inline T Max(T a, T b) {return a >= b? a: b;}
+    inline T Max(T a, T b) {return a > b? a: b;}
     template<typename T>
     inline T Clamp(T value, T minimum, T maximum) { return Max(Min(value, maximum), minimum); }
 
@@ -115,6 +116,10 @@ namespace UI
         Unit cell_height;
     };
     struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
+
+    constexpr HexColor RGBAToHex(Color color);
+    struct HexColor { char text[9] = "FFFFFFFF"; };
+
     struct Spacing { unsigned char left = 0, right = 0, top = 0, bottom = 0; };
 
     // ========== Main Box Styling ========== 
@@ -236,9 +241,10 @@ namespace UI
             // ========= Only used when debugging is enabled
             #if UI_ENABLE_DEBUG
                 const char* debug_file = nullptr;
-                const char* label = nullptr;
+                const char* debug_label = nullptr;
                 int         debug_line = -1;
                 BoxStyle    debug_style;
+                bool        debug_valid = false;
             #endif
             // =============================================
 

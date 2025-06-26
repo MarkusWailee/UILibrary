@@ -28,10 +28,10 @@ int main(void)
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
-    //SetTargetFPS(60);
+    SetTargetFPS(255);
 
     UI::Init_impl();
-    UI::Context ui_context(32768 *2);
+    UI::Context ui_context(32768 * 4);
     UI::SetContext(&ui_context);
 
 
