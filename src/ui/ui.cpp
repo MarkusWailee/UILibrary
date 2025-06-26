@@ -139,10 +139,9 @@ namespace UI
         void InjectTree(TreeNode* node, int depth);
         bool SearchNodeAndOpenTree(TreeNode* node);
         Context ui;
-        TreeNode* selected_node = nullptr;
         TreeNode* root_node = nullptr;
 
-        // ========== Debug Window information ==========
+        // ========== Debug Window state ==========
         Theme theme = light_theme;
         Rect window_dim = Rect{10, 10, 400, 400};
         int drag_mouse_x = 0;
@@ -154,6 +153,8 @@ namespace UI
         bool left_panel_size_drag = false;
         bool left_panel_scroll_drag = false;
         Map<bool> tree_state;
+        TreeNode* selected_node = nullptr;
+        Rect hover_node;
         // ==============================================
         int mouse_x = 0;
         int mouse_y = 0;
@@ -586,7 +587,7 @@ namespace UI
     {
         static int index = 0;
         constexpr uint32_t MAX_LENGTH = 512;
-        constexpr uint32_t MAX_BUFFERS = 4;
+        constexpr uint32_t MAX_BUFFERS = 6;
         static char buffer[MAX_BUFFERS][MAX_LENGTH];  // Fixed-size static buffer
         index = (index + 1) % MAX_BUFFERS;
 
@@ -1088,6 +1089,7 @@ namespace UI
     {
         selected_node = nullptr;
         root_node = nullptr;
+        hover_node = Rect();
     }
     void DebugView::ConstructDubLayout(TreeNode* node, int& count)
     {
@@ -1103,15 +1105,10 @@ namespace UI
         {
             if(info.is_direct_hover)
             {
-                BoxStyle hover_outline;
-                hover_outline.width = {(float)info.draw_width};
-                hover_outline.height = {(float)info.draw_height};
-                hover_outline.x = {(float)info.draw_x};
-                hover_outline.y = {(float)info.draw_y};
-                hover_outline.border_color = {200, 200, 200, 255};
-                hover_outline.border_width = 1;
-                hover_outline.detach = true;
-                ui.BeginBox(hover_outline); ui.EndBox();
+                hover_node.width = info.draw_width;
+                hover_node.height = info.draw_height;
+                hover_node.x = info.draw_x;
+                hover_node.y = info.draw_y;
                 if(mouse_pressed)
                 {
                     this->selected_node = node;
@@ -1149,6 +1146,19 @@ namespace UI
             select_outline.border_color = {255, 0, 0, 255};
             ui.BeginBox(select_outline); ui.EndBox();
         }
+        if(hover_node.width > 0)
+        {
+            BoxStyle hover_outline;
+            hover_outline.detach = true;
+            hover_outline.x = {(float)hover_node.x};
+            hover_outline.y = {(float)hover_node.y};
+            hover_outline.width = {(float)hover_node.width};
+            hover_outline.height = {(float)hover_node.height};
+            hover_outline.border_width = 1;
+            hover_outline.border_color = {255, 255, 255, 255};
+            ui.BeginBox(hover_outline); ui.EndBox();
+        }
+        hover_node = Rect();
 
 
         // ========== Window Dragging =========
@@ -1360,12 +1370,13 @@ namespace UI
         BoxStyle button;
         button.flow.vertical_alignment = Flow::CENTERED;
         button.width = {9999};
-        button.height = {20};
+        button.height = {100, Unit::CONTENT_PERCENT};
         button.background_color = theme.button;
         HexColor button_text_color = text_color;
 
         BoxStyle filler; 
         filler.width = {8};
+        filler.height = {0};
 
         BoxStyle line;
         line.width = {1};
@@ -1382,7 +1393,7 @@ namespace UI
         open_button.corner_radius = 2;
         HexColor open_button_text_color = text_color;
 
-        // ========== Faded Out Buttons ===============
+        // ========== Faded Out Buttons =============== not rendered nodes
         if(!node->box.debug_valid)
         {
             button.background_color = theme.faded_button;
@@ -1393,7 +1404,7 @@ namespace UI
         }
         // ============================================
 
-        // ====== Highlight selected Node In Tree =====
+        // ====== Highlight button of selected Node In Tree =====
         if(selected_node == node)
         {
             button.background_color = theme.button_hover;
@@ -1426,15 +1437,10 @@ namespace UI
                 // ========== Outline Node ==========
                 if(node->box.debug_valid)
                 {
-                    BoxStyle outline;
-                    outline.width = {(float)node->box.GetRenderingWidth()};
-                    outline.height = {(float)node->box.GetRenderingHeight()};
-                    outline.x = {(float)node->box.x};
-                    outline.y = {(float)node->box.y};
-                    outline.border_color = {200, 200, 200, 255};
-                    outline.border_width = 1;
-                    outline.detach = true;
-                    ui.BeginBox(outline); ui.EndBox();
+                    hover_node.width = node->box.GetRenderingWidth();
+                    hover_node.height = node->box.GetRenderingHeight();
+                    hover_node.x = node->box.x;
+                    hover_node.y = node->box.y;
                 }
                 // ===================================
             }
@@ -1443,8 +1449,7 @@ namespace UI
 
         // ========== Open Button Logic ===========
         const char* open_button_id = StringFormat("open_button_id: %d", (uintptr_t)node);
-        uint64_t open_button_id_key = Hash(button_id);
-        //uint64_t open_button_id_key = 1;
+        uint64_t open_button_id_key = Hash(open_button_id);
         bool* is_open = tree_state.GetValue(open_button_id_key);
         if(is_open == nullptr)
             is_open = tree_state.Insert(open_button_id_key, false);
@@ -1459,6 +1464,7 @@ namespace UI
                 *is_open = !*is_open;
         }
 
+        //Button Icon
         char open_icon = '+';
         if(is_open && *is_open)
         {
@@ -1467,7 +1473,24 @@ namespace UI
         }
         // ========================================
 
-        // ==============================
+        // ========== Button Text ==========
+        const Box& box = node->box;
+        const char* button_text = nullptr;
+        if(box.text)
+        {
+            button_text = StringFormat("[S:20][C:%s]Text [OFF]\"%s\"", button_text_color, box.text);
+        }
+        else if(box.debug_label)
+        {
+            button_text = StringFormat("[S:20][C:%s]Box [OFF]id \"%s\"", button_text_color, box.debug_label);
+        }
+        else
+        {
+            button_text = StringFormat("[S:20][C:%s]Box", button_text_color);
+        }
+        // =================================
+
+
         ui.BeginBox(button, button_id);
         for(int i = 0; i < depth; i++)
         {
@@ -1481,9 +1504,9 @@ namespace UI
             ui.BeginBox(open_button, open_button_id);
                 ui.InsertText(StringFormat("[S:20][C:%s]%c", open_button_text_color, open_icon), true);
             ui.EndBox();
-        }
-        // ===================================
-            ui.InsertText(StringFormat("[S:20][C:%s]Box", button_text_color), true);
+        }// ===================================
+
+            ui.InsertText(button_text, true);
         ui.EndBox();
 
         if(is_open && *is_open)
@@ -1497,34 +1520,31 @@ namespace UI
     }
     bool DebugView::SearchNodeAndOpenTree(TreeNode* root)
     {
-        //if(root == nullptr)
-        //    return false;
-        //if(root == selected_node)
-        //    return true;
-        //bool has_node = false;
-        //for(auto temp = root->children.GetHead(); temp != nullptr; temp = temp->next)
-        //{
-        //    bool result = SearchNodeAndOpenTree(&temp->value);
-        //    if(result)
-        //        has_node = true;
-        //}
+        if(root == nullptr)
+            return false;
+        if(root == selected_node)
+            return true;
+        bool has_node = false;
+        for(auto temp = root->children.GetHead(); temp != nullptr; temp = temp->next)
+        {
+            bool result = SearchNodeAndOpenTree(&temp->value);
+            if(result)
+                has_node = true;
+        }
 
 
-        //if(has_node)
-        //{
-        //    const char* open_button_id = StringFormat("open_button_id: %d", (uintptr_t)root);
-        //    uint64_t open_button_id_key = Hash(open_button_id);
-        //    tree_state.Insert(open_button_id_key, true);
-        //    return true;
-        //}
-        //return false;
-        //const char* open_button_id = StringFormat("open_button_id: %d", (uintptr_t)root);
-        const char* open_button_id = StringFormat("open_button_id: %d", 1);
+        const char* open_button_id = StringFormat("open_button_id: %d", (uintptr_t)root);
         uint64_t open_button_id_key = Hash(open_button_id);
-        tree_state.Insert(1, false);
-        LogError_impl(tree_state.Size());
-        LogError_impl('\n');
-        return false;
+        if(has_node)
+        {
+            tree_state.Insert(open_button_id_key, true);
+            return true;
+        }
+        else
+        {
+            tree_state.Insert(open_button_id_key, false);
+            return false;
+        }
     }
 
 }
@@ -1603,7 +1623,7 @@ namespace UI
             arena.Reset();
             //Double the capacity for hash map
             uint32_t capacity = double_buffer_map.Capacity() * 2;
-            capacity = capacity? capacity: 256;
+            capacity = capacity? capacity: 512;
             double_buffer_map.AllocateBufferCapacity(capacity, &arena);
         }
 
@@ -1676,7 +1696,7 @@ namespace UI
         {
             //BoxInfo will be filled in next frame 
             bool err = double_buffer_map.Insert(label_hash, BoxInfo());
-            assert(err);
+            assert(err && "HashMap out of memory, go to BeginRoot and change it");
         }
 
         if(!stack.IsEmpty())  // should add to parent
