@@ -141,6 +141,7 @@ namespace UI
         void ConstructDubLayout(TreeNode* node, int& count);
         void ConstructInspector(TreeNode* node);
         void InjectTree(TreeNode* node, int depth);
+        void CustomizeDetails();
         bool SearchNodeAndOpenTree(TreeNode* node);
         Context ui;
         TreeNode* root_node = nullptr;
@@ -1319,6 +1320,12 @@ namespace UI
         right_panel.background_color = theme.right_panel;
         right_panel.corner_radius = theme.corner_radius;
 
+        BoxStyle right_panel_details;
+        right_panel_details.width = {100, Unit::PARENT_PERCENT};
+        right_panel_details.height = {100, Unit::AVAILABLE_PERCENT};
+
+        
+
 
         ui.BeginBox(base, "debug_view_base");
 
@@ -1350,6 +1357,10 @@ namespace UI
                 ui.BeginBox(right_panel);
                     ui.BeginBox(panel_title);
                         ui.InsertText(StringFormat("[S:21][C:%s]Details", text_color_hover), true);
+                    ui.EndBox();
+                    
+                    ui.BeginBox(right_panel_details);
+                        CustomizeDetails();
                     ui.EndBox();
                 ui.EndBox();
                 // =====================
@@ -1564,6 +1575,10 @@ namespace UI
             }
         }
 
+    }
+    void DebugView::CustomizeDetails()
+    {
+        
     }
     bool DebugView::SearchNodeAndOpenTree(TreeNode* root)
     {
