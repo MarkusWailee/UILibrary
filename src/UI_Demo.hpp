@@ -31,7 +31,7 @@ bool PlaylistButtonWidget(const char* playlist_title, const char* author, UI::Co
     UI::BeginBox(button_style, button_id);
         UI::BeginBox(cover);
         UI::EndBox();
-        UI::InsertText(TextFormat("[S:20]%s\n[S:18][C:666666]Playlist - %s", playlist_title, author), true);
+        UI::InsertText(TextFormat("[S:20]%s\n[S:18][C:666666]Playlist - %s", playlist_title, author));
     UI::EndBox();
     return result;
 }

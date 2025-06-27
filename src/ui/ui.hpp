@@ -227,7 +227,7 @@ namespace UI
     void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
-    void InsertText(const char* text, bool copy_text = true, DebugInfo debug_info = UI_DEBUG);
+    void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG);
     void EndBox();
     void Draw();
 
@@ -384,10 +384,11 @@ namespace UI
     public:
         Context(uint64_t arena_bytes);
         BoxInfo GetBoxInfo(const char* label);
+        BoxInfo GetBoxInfo(uint64_t key);
         void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
         void EndRoot();
         void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
-        void InsertText(const char* text, bool copy_text = true, DebugInfo info = UI_DEBUG);
+        void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG);
         void EndBox();
         void DrawDebugMenu(bool is_mouse_pressed, bool is_mouse_release, bool esc_key_pressed);
         void Draw();

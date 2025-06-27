@@ -143,12 +143,12 @@ namespace UI
             {38, 38, 38, 255},  //right_panel_color;
             {253, 253, 253, 255},   //button_color;
             {38, 38, 38, 255},  //button_color_hover;
-            {255, 211, 211, 255}, //invalid_button
+            {255, 230, 230, 255}, //invalid_button
             {200, 200, 200, 255}, //title_bar_color;
             RGBAToHex({38, 38, 38, 255}),//text_color;
             RGBAToHex({253, 253, 253, 255}),//text_color_hover;
             RGBAToHex({70, 188, 70, 255}), //insert_text_color;
-            RGBAToHex({255, 193, 48, 255}), //id_text_color;
+            RGBAToHex({220, 173, 48, 255}), //id_text_color;
             {10, 10, 10, 10}, //base_padding
             16, //base_corner_radius;
             3,  //icon_corner_radius;
@@ -185,11 +185,12 @@ namespace UI
         Rect hovered_element;
         Map<bool> tree_state;
 
-        Rect window_dim = {10, 10, 200, 200};
+        Rect window_dim = {10, 10, 400, 300};
         bool window_pos_drag = false;
         bool window_size_drag = false;
         bool panel_drag = false;
-        int panel_width = 150;
+        int panel_width = 200;
+        int left_panel_scroll = 0;
         // ====================
 
         // ===== User Input =====
@@ -327,7 +328,7 @@ namespace UI
         if(context)
             context->BeginBox(box_style, label, debug_info);
     }
-    void InsertText(const char* text, bool copy_text, DebugInfo debug_info)
+    void InsertText(const char* text, const char* label, bool copy_text, DebugInfo debug_info)
     {
         // ===== DebugView Tree Building =====
         #if UI_ENABLE_DEBUG
@@ -338,7 +339,10 @@ namespace UI
                 DebugBox box;
                 if(text)
                 {
-                    box.text = ArenaCopyString(text, &debug_view.arena);
+                    if(text)
+                        box.text = ArenaCopyString(text, &debug_view.arena);
+                    if(label)
+                        box.label = ArenaCopyString(label, &debug_view.arena);
                     assert(box.text && "DebugView arena out of memory");
                 }
                 box.debug_info = debug_info;
@@ -350,7 +354,7 @@ namespace UI
         #endif // ============================
 
         if(context)
-            context->InsertText(text, copy_text);
+            context->InsertText(text, label, copy_text);
     }
     void EndBox()
     {
@@ -1257,11 +1261,6 @@ namespace UI
     {
         if(node == nullptr)
             return;
-        if(node->box.text)
-        {
-            ui.InsertText(node->box.text);
-            return;
-        }
 
         const char* element_id = StringFormat("mock_element%ld",(uintptr_t)node);
         BoxInfo info = ui.GetBoxInfo(element_id);
@@ -1284,6 +1283,12 @@ namespace UI
                 }
             }
         }
+        if(node->box.text)
+        {
+            ui.InsertText(node->box.text, element_id);
+            return;
+        }
+
         ui.BeginBox(node->box.style, element_id);
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
             ConstructMockUI(&temp->value);
@@ -1394,6 +1399,8 @@ namespace UI
         panel_scroll_box.padding = {1, 1, 1, theme.base_corner_radius};
         panel_scroll_box.scissor = true;
 
+
+
         // ===== Window Dragging =====
         BoxInfo base_title_bar_info = ui.GetBoxInfo("base_title_bar");
         if(base_title_bar_info.valid && base_title_bar_info.is_direct_hover && mouse_pressed)
@@ -1419,6 +1426,19 @@ namespace UI
         // ===========================
 
 
+        // ===== Scroll Logic =====
+        BoxStyle left_panel_scroll_box = panel_scroll_box;
+        BoxInfo left_panel_scroll_info = ui.GetBoxInfo("left_panel_scroll_box");
+        if(left_panel_scroll_info.valid && left_panel_scroll_info.is_hover)
+        {
+            left_panel_scroll -= mouse_scroll * 20;
+        }
+        left_panel_scroll = Clamp(left_panel_scroll, 0, left_panel_scroll_info.MaxScrollY());
+        left_panel_scroll_box.scroll_y = left_panel_scroll;
+
+        BoxStyle right_panel_scroll_box = panel_scroll_box;
+        // ========================
+
         ui.BeginBox(base, "base_element");
             ui.BeginBox(base_title_bar, "base_title_bar");
                 ui.InsertText(StringFormat("[S:24][C:%s]Inspector", theme.text_color));
@@ -1432,7 +1452,7 @@ namespace UI
                     ui.EndBox();
 
                     // ===== Left Size Contents ====
-                    ui.BeginBox(panel_scroll_box);
+                    ui.BeginBox(left_panel_scroll_box, "left_panel_scroll_box");
                     ConstructTree(root_node, 0);
                     ui.EndBox();
                     // =============================
@@ -1449,7 +1469,7 @@ namespace UI
 
 
                     // ===== Left Size Contents ====
-                    ui.BeginBox(panel_scroll_box);
+                    ui.BeginBox(right_panel_scroll_box);
 
                     ui.EndBox();
                     // =============================
@@ -1481,11 +1501,10 @@ namespace UI
         button.width = {9999};
         button.height = {100, Unit::CONTENT_PERCENT};
         button.background_color = theme.button_color;
-        button.gap_column = {4};
 
 
         BoxStyle filler; 
-        filler.width = {4};
+        filler.width = {9};
         filler.height = {0};
 
         BoxStyle line;
@@ -1493,9 +1512,10 @@ namespace UI
         line.height = {100, Unit::PARENT_PERCENT};
         line.background_color = theme.button_color_hover;
 
-        BoxStyle text_box;
-        text_box.width = {100, Unit::CONTENT_PERCENT};
-        text_box.height = {100, Unit::CONTENT_PERCENT};
+        BoxStyle content_box;
+        content_box.width = {100, Unit::CONTENT_PERCENT};
+        content_box.height = {100, Unit::CONTENT_PERCENT};
+        content_box.gap_column = {4};
 
         BoxStyle open_button;
         open_button.flow.horizontal_alignment = Flow::CENTERED;
@@ -1506,15 +1526,30 @@ namespace UI
         open_button.border_color = theme.button_color_hover;
         open_button.corner_radius = 2;
 
+
         HexColor button_text_color = theme.text_color;
         HexColor open_button_text_color = theme.text_color;
 
+        const DebugBox& box = node->box;
+
+        BoxStyle color_icon;
+        color_icon.width = {18};
+        color_icon.height = {18};
+        color_icon.border_width = 1;
+        color_icon.background_color = box.style.background_color;
+        color_icon.border_color = theme.button_color_hover;
+        color_icon.corner_radius = theme.icon_corner_radius;
+
+        //Highlight button red
+        if(!box.is_rendered)
+        {
+            button.background_color = theme.invalid_button;
+        }
 
         // ===== Button Logic =====
         bool change_button_color = false;
 
         //Button Logic
-        const DebugBox& box = node->box;
         const char* button_id = StringFormat("button_id%ld", (uintptr_t)node);
         BoxInfo button_info = ui.GetBoxInfo(button_id);
         if(button_info.valid && button_info.is_direct_hover)
@@ -1546,7 +1581,7 @@ namespace UI
         bool* is_open = tree_state.GetValue(open_button_key);
         if(is_open == nullptr)
             is_open = tree_state.Insert(open_button_key, false);
-        BoxInfo open_button_info = ui.GetBoxInfo(open_button_id);
+        BoxInfo open_button_info = ui.GetBoxInfo(open_button_key);
         if(open_button_info.valid && open_button_info.is_direct_hover)
         {
             open_button.background_color = theme.button_color_hover;
@@ -1562,6 +1597,7 @@ namespace UI
             open_button.background_color = {130, 255, 130, 255};
         }
         // ===============================
+        const char* button_text = node == root_node? "Root": (box.text? "Text": "Box");
 
         ui.BeginBox(button, button_id);
         for(int i = 0; i<depth; i++)
@@ -1576,19 +1612,31 @@ namespace UI
                 ui.InsertText(StringFormat("[S:20][C:%s]%c", open_button_text_color, open_icon));
             ui.EndBox();
         }
-        if(box.text)
+
+
+        // ===== Content =====
+        ui.BeginBox(content_box);
+        ui.InsertText(StringFormat("[S:20][C:%s]%s", button_text_color, button_text));
+        if(box.style.background_color.a > 0)
         {
-            ui.BeginBox(text_box);
-                ui.InsertText(StringFormat("[S:20][C:%s]Text ", button_text_color));
-                ui.InsertText(StringFormat("[S:20][C:%s][OFF]\"%s\"", theme.insert_text_color, box.text));
+            ui.BeginBox(color_icon);
             ui.EndBox();
         }
-        else
+        if(box.text)
         {
-            ui.InsertText(StringFormat("[S:20][C:%s]Box", button_text_color));
+                ui.InsertText(StringFormat("[S:20][C:%s][OFF]\"%s\"", theme.insert_text_color, box.text));
         }
-
+        if(box.label)
+        {
+            ui.InsertText(StringFormat("[S:20][C:%s]id [OFF]\"%s\"", theme.id_text_color, box.label));
+        }
         ui.EndBox();
+        // ===================
+
+
+
+
+        ui.EndBox(); //End button
 
         if(is_open && *is_open)
         {
@@ -1673,9 +1721,8 @@ namespace UI
         }
         return false;
     }
-    BoxInfo Context::GetBoxInfo(const char* label)
+    BoxInfo Context::GetBoxInfo(uint64_t key)
     {
-        uint64_t key = Hash(label);
         BoxInfo* info = double_buffer_map.FrontValue(key);
         if(info)
         {
@@ -1685,6 +1732,11 @@ namespace UI
             return *info;
         }
         return BoxInfo();
+
+    }
+    BoxInfo Context::GetBoxInfo(const char* label)
+    {
+        return GetBoxInfo(Hash(label));
     }
     void Context::ResetAllStates()
     {
@@ -1922,7 +1974,7 @@ namespace UI
 
 
 
-    void Context::InsertText(const char* text, bool should_copy, DebugInfo debug_info)
+    void Context::InsertText(const char* text, const char* label, bool should_copy, DebugInfo debug_info)
     {
         if(HasInternalError())
             return;
@@ -1940,6 +1992,14 @@ namespace UI
         //DEBUGGING TEXT
         //box.background_color = {0, 0, 0, 50};
 
+        uint64_t label_hash = Hash(label);
+        if(label)
+        {
+            //BoxInfo will be filled in next frame 
+            bool err = double_buffer_map.Insert(label_hash, BoxInfo());
+            assert(err && "HashMap out of memory, go to BeginRoot and change it");
+        }
+        box.label_hash = label_hash;
 
         if(should_copy && text)
         {
