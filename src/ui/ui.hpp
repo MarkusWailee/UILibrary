@@ -199,7 +199,7 @@ namespace UI
     Context* GetContext();
     void SetFreeze(bool state);
     void SetDebugInput(bool mouse_pressed, bool mouse_release, int mouse_scroll, bool activate_pressed);
-    void BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
+    void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
     void InsertText(const char* text, bool copy_text = true, DebugInfo debug_info = UI_DEBUG);
@@ -359,8 +359,7 @@ namespace UI
     public:
         Context(uint64_t arena_bytes);
         BoxInfo GetBoxInfo(const char* label);
-        void SetMousePos(int x, int y);
-        void BeginRoot(int x, int y,unsigned int screen_width, unsigned int screen_height);
+        void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
         void EndRoot();
         void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
         void InsertText(const char* text, bool copy_text = true, DebugInfo info = UI_DEBUG);
@@ -376,7 +375,7 @@ namespace UI
         Internal::TreeNode* GetInternalTree();
         Internal::MemoryArena& GetMemoryArena();
     private:
-
+        void SetMousePos(int x, int y);
         //These functions are for internals only
         using Box = Internal::Box;
         using TreeNode = Internal::TreeNode;

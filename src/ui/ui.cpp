@@ -128,19 +128,19 @@ namespace UI
         void PopNode();
         bool IsTreeEmpty();
 
-        //returns pointer to copied text
+        void RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
+        void ConstructMockUI(TreeNodeDebug* node);
 
+        MemoryArena arena; //only public to copy labels and strings. I dont feel like making a getter function
+    private:
         // ===== Internal Tree =====
         TreeNodeDebug* root_node = nullptr;
         FixedStack<TreeNodeDebug*, 64> stack;
-        MemoryArena arena;
         // =========================
-
 
         // ===== UI state =====
         Context ui;
         // ====================
-
 
         // ===== User Input =====
         int mouse_scroll = 0;
@@ -206,26 +206,22 @@ namespace UI
             return context->GetBoxInfo(label);
         return BoxInfo();
     }
-    void BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
+    void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
     {
         // ===== DebugView Tree Building =====
         #if UI_ENABLE_DEBUG
         if(debug_view_activate)
         {
-            debug_view.ui.SetMousePos(mouse_x, mouse_y);
-            if(debug_view_copy_tree)
+            if(debug_view_copy_tree) //copy tree
             {
                 DebugBox root_box;
                 root_box.style.width = {(float)screen_width};
                 root_box.style.height = {(float)screen_height};
                 debug_view.PushNode(root_box);
             }
-
-            if(debug_view.root_node != nullptr)
+            else //Run DebugView
             {
-                DebugBox& box = debug_view.root_node->box;
-                box.style.width = {(float)screen_width};
-                box.style.height = {(float)screen_height};
+                debug_view.RunDebugInspector(x, y, screen_width, screen_height, mouse_x, mouse_y);
             }
             return;
         }
@@ -233,8 +229,7 @@ namespace UI
 
         if(context)
         {
-            context->SetMousePos(mouse_x, mouse_y);
-            context->BeginRoot(x, y, screen_width, screen_height);
+            context->BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
         }
     }
     void EndRoot()
@@ -1203,6 +1198,31 @@ namespace UI
     {
         return root_node == nullptr;
     }
+    void DebugView::RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
+    {
+        assert(root_node && "root_node should have been initialized"); //this is for more own sanity
+        ui.BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
+
+        ConstructMockUI(root_node);
+
+        ui.EndRoot();
+
+        ui.Draw();
+    }
+    void DebugView::ConstructMockUI(TreeNodeDebug* node)
+    {
+        if(node == nullptr)
+            return;
+        if(node->box.text)
+        {
+            ui.InsertText(node->box.text);
+            return;
+        }
+        ui.BeginBox(node->box.style);
+        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+            ConstructMockUI(&temp->value);
+        ui.EndBox();
+    }
 
 
 }
@@ -1279,8 +1299,9 @@ namespace UI
         this->mouse_x = x;
         this->mouse_y = y;
     }
-    void Context::BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height)
+    void Context::BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
     {
+        SetMousePos(mouse_x, mouse_y);
         if(HasInternalError())
             return;
 
