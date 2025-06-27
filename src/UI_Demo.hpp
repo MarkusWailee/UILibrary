@@ -215,7 +215,7 @@ void SpotifyExample()
             if(liked_song_info.valid)
             {
                 if(liked_song_info.is_hover)
-                    song_panel_scroll -= GetMouseWheelMove() * 20;
+                    song_panel_scroll -= GetMouseWheelMove() * 20.0f;
                 song_panel_scroll = UI::Clamp(song_panel_scroll, 0, liked_song_info.MaxScrollY());
             }
             song_panel.scroll_y = song_panel_scroll;

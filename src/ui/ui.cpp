@@ -27,7 +27,6 @@ namespace UI
     uint32_t HexToU32(const char* text, bool* error = nullptr);
     Color HexToRGBA(const char* text, bool* error = nullptr);
 
-    constexpr char U4ToHexDigit(uint8_t n);
     //Should copy data
 
     //Stack allocated string for convenience
@@ -118,6 +117,43 @@ namespace UI
     class DebugView
     {
     public:
+        struct Theme
+        {
+            Color base_color;
+            Color left_panel_color;
+            Color right_panel_color;
+            Color button_color;
+            Color button_color_hover;
+            Color invalid_button;
+            Color title_bar_color;
+            HexColor text_color;
+            HexColor text_color_hover;
+            HexColor insert_text_color;
+            HexColor id_text_color;
+            Spacing base_padding;
+            uint8_t base_corner_radius;
+            uint8_t icon_corner_radius;
+            uint8_t button_corner_radius;
+        };
+        constexpr static Theme light_theme = 
+        {
+            {253, 253, 253, 50}, //base_color
+            {253, 253, 253, 255}, //left_panel_color
+            {38, 38, 38, 255},  //right_panel_color;
+            {253, 253, 253, 255},   //button_color;
+            {38, 38, 38, 255},  //button_color_hover;
+            {255, 211, 211, 255}, //invalid_button
+            {200, 200, 200, 255}, //title_bar_color;
+            RGBAToHex({38, 38, 38, 255}),//text_color;
+            RGBAToHex({253, 253, 253, 255}),//text_color_hover;
+            RGBAToHex({70, 188, 70, 255}), //insert_text_color;
+            RGBAToHex({255, 193, 48, 255}), //id_text_color;
+            {10, 10, 10, 10}, //base_padding
+            16, //base_corner_radius;
+            3,  //icon_corner_radius;
+            8,  //button_corner_radius;
+        };
+
         void SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll); 
         DebugView(uint64_t memory);
         void Reset();
@@ -130,20 +166,34 @@ namespace UI
 
         void RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
         void ConstructMockUI(TreeNodeDebug* node);
+        void ConstructInspector(int mouse_x, int mouse_y);
+        void ConstructTree(TreeNodeDebug* node, int depth);
 
         MemoryArena arena; //only public to copy labels and strings. I dont feel like making a getter function
     private:
         // ===== Internal Tree =====
         TreeNodeDebug* root_node = nullptr;
+        TreeNodeDebug* selected_node = nullptr;
         FixedStack<TreeNodeDebug*, 64> stack;
         // =========================
 
         // ===== UI state =====
+        Theme theme = light_theme;
         Context ui;
+        Rect hovered_element;
+        Map<bool> tree_state;
+
+        Rect window_dim = {10, 10, 200, 200};
+        bool window_pos_drag = false;
+        bool window_size_drag = false;
+        bool panel_drag = false;
+        int panel_width = 120;
         // ====================
 
         // ===== User Input =====
         int mouse_scroll = 0;
+        int mouse_drag_x = 0;
+        int mouse_drag_y = 0;
         bool mouse_pressed = false;
         bool mouse_released = false;
         // ======================
@@ -564,15 +614,15 @@ namespace UI
         switch(unit.unit)
         {
             case Unit::Type::PIXEL:
-                return unit.value;
+                return (int)unit.value;
             case Unit::Type::MM:
-                return MillimeterToPixels((float)unit.value);
+                return (int)MillimeterToPixels((float)unit.value);
             case Unit::Type::CM:
-                return CentimeterToPixels((float)unit.value);
+                return (int)CentimeterToPixels((float)unit.value);
             case Unit::Type::ROOT_PERCENT: 
-                return unit.value * root_size / 100;
+                return (int)unit.value * root_size / 100;
             default:
-                return unit.value; //Only meant for width/height
+                return (int)unit.value; //Only meant for width/height
         }
     }
     Box ComputeStyleSheet(const BoxStyle& style, const Box& root)
@@ -770,42 +820,6 @@ namespace UI
                 return 0;
             }
         }
-        return result;
-    }
-    inline constexpr char U4ToHexDigit(uint8_t n)
-    {
-        if(n <= 9)
-            return n + '0';
-        else if(n >= 10 && n <= 15)
-            return (n - 10) + 'a';
-        return '0';
-    }
-    inline constexpr HexColor RGBAToHex(Color color)
-    {
-        //constexpr uint32_t MAX_BUFFERS = 16;
-        //static int index = 0;
-        //static char data[MAX_BUFFERS][9]{};
-        //index = (index + 1) % MAX_BUFFERS;
-        //data[index][0] = U4ToHexDigit((color.r >> 4) & 0xF);
-        //data[index][1] = U4ToHexDigit(color.r & 0xF);
-        //data[index][2] = U4ToHexDigit((color.g >> 4) & 0xF);
-        //data[index][3] = U4ToHexDigit(color.g & 0xF);
-        //data[index][4] = U4ToHexDigit((color.b >> 4) & 0xF);
-        //data[index][5] = U4ToHexDigit(color.b & 0xF);
-        //data[index][6] = U4ToHexDigit((color.a >> 4) & 0xF);
-        //data[index][7] = U4ToHexDigit(color.a & 0xF);
-        //data[index][8] = '\0';
-        //return data[index];
-        HexColor result;
-        result.text[0] = U4ToHexDigit((color.r >> 4) & 0xF);
-        result.text[1] = U4ToHexDigit(color.r & 0xF);
-        result.text[2] = U4ToHexDigit((color.g >> 4) & 0xF);
-        result.text[3] = U4ToHexDigit(color.g & 0xF);
-        result.text[4] = U4ToHexDigit((color.b >> 4) & 0xF);
-        result.text[5] = U4ToHexDigit(color.b & 0xF);
-        result.text[6] = U4ToHexDigit((color.a >> 4) & 0xF);
-        result.text[7] = U4ToHexDigit(color.a & 0xF);
-        result.text[8] = '\0';
         return result;
     }
     inline Color HexToRGBA(const char* text, bool* error)
@@ -1161,6 +1175,7 @@ namespace UI
     void DebugView::Reset()
     {
         root_node = nullptr;
+        selected_node = nullptr;
         arena.Reset();
         ui.ResetAllStates();
     }
@@ -1201,9 +1216,35 @@ namespace UI
     void DebugView::RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
     {
         assert(root_node && "root_node should have been initialized"); //this is for more own sanity
+        //root_node->box.style.width = {(float)screen_width};
+        //root_node->box.style.height = {(float)screen_height};
+        hovered_element = Rect();
         ui.BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
 
         ConstructMockUI(root_node);
+
+        // ===== Highlight hovered/selected Node =====
+        //mouse hovered node
+        if(hovered_element.width > 0)
+        {
+            //Just testing this format
+            BoxStyle hovered_element_outline = {.width = {(float)hovered_element.width}, .height = {(float)hovered_element.height}, .x = {(float)hovered_element.x}, .y = {(float)hovered_element.y}, .border_color = {255, 255, 255, 255}, .detach = true, .border_width = 1};
+            ui.BeginBox(hovered_element_outline); ui.EndBox();
+        }
+
+        //Selected Node
+        if(selected_node)
+        {
+            BoxInfo selected_node_info  = ui.GetBoxInfo(StringFormat("mock_element%ld", (uintptr_t)selected_node));
+            if(selected_node_info.valid)
+            {
+                BoxStyle selected_node_outline = {.width = (float)selected_node_info.DrawWidth(), .height = (float)selected_node_info.DrawHeight(), .x = (float)selected_node_info.DrawX(), .y = (float)selected_node_info.DrawY(), .border_color = {255, 0, 0, 255}, .detach = true, .border_width = 1};
+                ui.BeginBox(selected_node_outline); ui.EndBox();
+            }
+        }
+        // ===================================
+
+        ConstructInspector(mouse_x, mouse_y);
 
         ui.EndRoot();
 
@@ -1218,10 +1259,221 @@ namespace UI
             ui.InsertText(node->box.text);
             return;
         }
-        ui.BeginBox(node->box.style);
+
+        const char* element_id = StringFormat("mock_element%ld",(uintptr_t)node);
+        BoxInfo info = ui.GetBoxInfo(element_id);
+        if(info.valid)
+        {
+            node->box.is_rendered = info.is_rendered;
+            if(info.is_direct_hover)
+            {
+                hovered_element.width = info.DrawWidth();
+                hovered_element.height = info.DrawHeight();
+                hovered_element.x = info.DrawX();
+                hovered_element.y = info.DrawY();
+                //Selecting node from mock ui
+                if(mouse_pressed)
+                    selected_node = node;
+            }
+        }
+        ui.BeginBox(node->box.style, element_id);
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
             ConstructMockUI(&temp->value);
         ui.EndBox();
+    }
+    void DebugView::ConstructInspector(int mouse_x, int mouse_y)
+    {
+
+        // === Draggin Logic ===
+        if(mouse_pressed)
+        {
+            mouse_drag_x = mouse_x;
+            mouse_drag_y = mouse_y;
+        }
+        int mouse_delta_x = mouse_x - mouse_drag_x;
+        int mouse_delta_y = mouse_y - mouse_drag_y;
+
+        Rect base_dim = window_dim;
+        if(window_pos_drag)
+        {
+            base_dim.x += mouse_delta_x;
+            base_dim.y += mouse_delta_y;
+        }
+        if(window_size_drag)
+        {
+            base_dim.width += mouse_delta_x;
+            base_dim.height += mouse_delta_y;
+        }
+        int new_panel_width = panel_width;
+        if(panel_drag)
+        {
+            new_panel_width += mouse_delta_x;
+        }
+        base_dim.width = Max(250, base_dim.width);
+        base_dim.height = Max(125, base_dim.height);
+        new_panel_width = Clamp(new_panel_width, 100, base_dim.width - 100);
+        // ====================
+
+
+        BoxStyle base;
+        base.flow.axis = Flow::VERTICAL;
+        base.detach = true;
+        base.background_color = theme.base_color;
+        base.width = {(float)base_dim.width};
+        base.height = {(float)base_dim.height};
+        base.x = {(float)base_dim.x};
+        base.y = {(float)base_dim.y};
+        base.corner_radius = theme.base_corner_radius;
+
+        BoxStyle base_resize_button;
+        base_resize_button.x = {(float)base_dim.x + base_dim.width - 18};
+        base_resize_button.y = {(float)base_dim.y + base_dim.height - 18};
+        base_resize_button.width = {16};
+        base_resize_button.height = {16};
+        base_resize_button.corner_radius = theme.icon_corner_radius;
+        base_resize_button.background_color = theme.title_bar_color;
+        base_resize_button.detach = true;
+
+        BoxStyle h_container;
+        h_container.padding = theme.base_padding;
+        h_container.width = {100, Unit::AVAILABLE_PERCENT};
+        h_container.height = {100, Unit::AVAILABLE_PERCENT};
+
+        BoxStyle title_bar;
+        title_bar.width = {100, Unit::PARENT_PERCENT};
+        title_bar.height = {100, Unit::CONTENT_PERCENT};
+        title_bar.padding = {10, 10, 5, 5};
+
+        BoxStyle panel_title_bar = title_bar;
+        panel_title_bar.padding = {10, 10, 10, 10};
+
+        BoxStyle base_title_bar = title_bar;
+        base_title_bar.background_color = theme.title_bar_color;
+        base_title_bar.corner_radius = theme.base_corner_radius / 4;
+        BoxStyle left_panel_title_bar = title_bar;
+        left_panel_title_bar.background_color = theme.left_panel_color;
+        BoxStyle right_panel_title_bar = title_bar;
+        right_panel_title_bar.background_color = theme.right_panel_color;
+
+        BoxStyle left_panel;
+        left_panel.flow.axis = Flow::VERTICAL;
+        left_panel.width = {(float)new_panel_width};
+        left_panel.height = {100, Unit::AVAILABLE_PERCENT};
+        left_panel.background_color = theme.left_panel_color;
+        left_panel.corner_radius = theme.base_corner_radius;
+
+        BoxStyle right_panel;
+        right_panel.flow.axis = Flow::VERTICAL;
+        right_panel.width = {100, Unit::AVAILABLE_PERCENT};
+        right_panel.height = {100, Unit::AVAILABLE_PERCENT};
+        right_panel.background_color = theme.right_panel_color;
+        right_panel.corner_radius = theme.base_corner_radius;
+    
+        BoxStyle panel_resize_button;
+        panel_resize_button.flow.vertical_alignment = Flow::CENTERED;
+        panel_resize_button.flow.horizontal_alignment = Flow::CENTERED;
+        panel_resize_button.margin = {2,2};
+        panel_resize_button.width = {8};
+        panel_resize_button.height = {60};
+        panel_resize_button.background_color = theme.title_bar_color;
+        panel_resize_button.corner_radius = theme.icon_corner_radius;
+        HexColor panel_resize_button_text_color = theme.text_color;
+
+        BoxStyle panel_scroll_box;
+        panel_scroll_box.flow.axis = Flow::VERTICAL;
+        panel_scroll_box.width = {100, Unit::PARENT_PERCENT};
+        panel_scroll_box.height = {100, Unit::AVAILABLE_PERCENT};
+
+        // ===== Window Dragging =====
+        BoxInfo base_title_bar_info = ui.GetBoxInfo("base_title_bar");
+        if(base_title_bar_info.valid && base_title_bar_info.is_direct_hover && mouse_pressed)
+                window_pos_drag = true;
+
+        BoxInfo base_resize_button_info = ui.GetBoxInfo("base_resize_button");
+
+        if(base_resize_button_info.valid && base_resize_button_info.is_direct_hover)
+        {
+            base_resize_button.background_color = theme.button_color_hover;
+            if(mouse_pressed)
+                window_size_drag = true;
+        }
+
+        BoxInfo panel_resize_button_info = ui.GetBoxInfo("panel_resize_button");
+        if(panel_resize_button_info.valid && panel_resize_button_info.is_direct_hover)
+        {
+            panel_resize_button.background_color = theme.button_color_hover;
+            panel_resize_button_text_color = theme.text_color_hover;
+            if(mouse_pressed)
+                panel_drag = true;
+        }
+        // ===========================
+
+
+        ui.BeginBox(base, "base_element");
+            ui.BeginBox(base_title_bar, "base_title_bar");
+                ui.InsertText(StringFormat("[S:24][C:%s]Inspector", theme.text_color));
+            ui.EndBox();
+            ui.BeginBox(h_container);
+
+            // ===== Left Panel =====
+                ui.BeginBox(left_panel);
+                    ui.BeginBox(panel_title_bar);
+                        ui.InsertText(StringFormat("[S:22][C:%s]Navigate", theme.text_color));
+                    ui.EndBox();
+
+                    // ===== Left Size Contents ====
+                    ui.BeginBox(panel_scroll_box);
+                    ConstructTree(root_node, 0);
+                    ui.EndBox();
+                    // =============================
+
+                ui.EndBox();
+            // ======================
+            ui.BeginBox(panel_resize_button, "panel_resize_button");
+            ui.EndBox();
+
+                ui.BeginBox(right_panel);
+                    ui.BeginBox(panel_title_bar);
+                        ui.InsertText(StringFormat("[S:22][C:%s]Details", theme.text_color_hover));
+                    ui.EndBox();
+
+
+                    // ===== Left Size Contents ====
+                    ui.BeginBox(panel_scroll_box);
+
+                    ui.EndBox();
+                    // =============================
+
+                ui.EndBox();
+
+            ui.EndBox();
+        ui.EndBox();
+
+        ui.BeginBox(base_resize_button, "base_resize_button"); ui.EndBox();
+        //Everything gets updated when mouse released
+        if(mouse_released)
+        {
+            window_dim = base_dim;
+            window_pos_drag = false;
+            panel_width = new_panel_width;
+            window_size_drag = false;
+            panel_drag = false;
+        }
+    }
+    void DebugView::ConstructTree(TreeNodeDebug* node, int depth)
+    {
+        if(node == nullptr)
+            return;
+        
+        BoxStyle button;
+        button.flow.axis = Flow::HORIZONTAL;
+        button.flow.vertical_alignment = Flow::CENTERED;
+        button.width = {9999};
+        button.height = {100, Unit::CONTENT_PERCENT};
+        button.background_color = theme.button_color;
+        button.gap_column = {4};
+
+
     }
 
 

@@ -118,8 +118,33 @@ namespace UI
     };
     struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
 
-    constexpr HexColor RGBAToHex(Color color);
-    struct HexColor { char text[9] = "FFFFFFFF"; };
+    struct HexColor 
+    { 
+        char text[9] = "FFFFFFFF";
+    };
+
+    constexpr HexColor RGBAToHex(Color color)
+    {
+        auto U4ToHexDigit = [](uint8_t n) constexpr -> char
+        {
+            if(n <= 9)
+                return n + '0';
+            else if(n >= 10 && n <= 15)
+                return (n - 10) + 'a';
+            return '0';
+        };
+        HexColor result;
+        result.text[0] = U4ToHexDigit((color.r >> 4) & 0xF);
+        result.text[1] = U4ToHexDigit(color.r & 0xF);
+        result.text[2] = U4ToHexDigit((color.g >> 4) & 0xF);
+        result.text[3] = U4ToHexDigit(color.g & 0xF);
+        result.text[4] = U4ToHexDigit((color.b >> 4) & 0xF);
+        result.text[5] = U4ToHexDigit(color.b & 0xF);
+        result.text[6] = U4ToHexDigit((color.a >> 4) & 0xF);
+        result.text[7] = U4ToHexDigit(color.a & 0xF);
+        result.text[8] = '\0';
+        return result;
+    }
 
     struct Spacing { unsigned char left = 0, right = 0, top = 0, bottom = 0; };
 
