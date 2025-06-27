@@ -16,6 +16,8 @@ namespace UI
 
     //Size should include '\0'
     void StringCopy(char* dst, const char* src, uint32_t size);
+    //returns pointer pointing to arena
+    const char* ArenaCopyString(const char* text, MemoryArena* arena);
     bool StringCompare(const char* s1, const char* s2);
     char ToLower(char c);
 
@@ -98,91 +100,53 @@ namespace UI
 
 
     //Debugger
-    struct DebugTreeNode
+
+    struct DebugBox
     {
-        ArenaLL<DebugTreeNode> children;
-        BoxStyle    debug_style;
+        BoxStyle    style;
+        DebugInfo   debug_info;
         const char* label = nullptr;
         const char* text = nullptr;
-
-        const char* file = nullptr;
-        int         line = -1;
-
         bool        is_rendered = false;
+    };
+    struct TreeNodeDebug
+    {
+        ArenaLL<TreeNodeDebug> children;
+        DebugBox box;
     };
 
     class DebugView
     {
     public:
-        struct Theme
-        {
-            Color base;
-            Color left_panel;
-            Color right_panel;
-            Color button;
-            Color button_hover;
-            Color title_bar;
-            Color text_color;
-            Color text_color_hover;
-            Color faded_button;
-            Color inserted_text_color;
-            Color id_text_color;
-            unsigned char corner_radius = 1;
-        };
-        constexpr static Theme light_theme = 
-        {
-            {253, 253, 253, 50}, //base
-            {253, 253, 253, 255}, //left_panel
-            {38, 38, 38, 255}, //right_panel
-            {253, 253, 253, 255}, //button
-            {38, 38, 38, 255},      //button_hover
-            {200, 200, 200, 255},   //titel_bar
-            {38, 38, 38, 255},      //text_color
-            {253, 253, 253, 255},   //text_color_hover
-            {253, 211, 211, 255},   //faded_button
-            {70, 188, 70, 255},    //inserted_text_color
-            {255, 193, 48, 255},   //id_text_color
-            16                      //corner radius
-        };
+        void SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll); 
         DebugView(uint64_t memory);
-        bool IsActive() const;
-        void SetActive(bool flag);
-        void GetUserInput(bool is_mouse_pressed, bool is_mouse_released, int mouse_scroll);
-        void RunDebugView(TreeNode* root_node, int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
         void Reset();
-    private:
-        void ConstructDubLayout(TreeNode* node, int& count);
-        void ConstructInspector(TreeNode* node);
-        void InjectTree(TreeNode* node, int depth);
-        void CustomizeDetails();
-        bool SearchNodeAndOpenTree(TreeNode* node);
 
+
+        //Only used for copying ui tree
+        void PushNode(const DebugBox& box);
+        void PopNode();
+        bool IsTreeEmpty();
+
+        //returns pointer to copied text
+
+        // ===== Internal Tree =====
+        TreeNodeDebug* root_node = nullptr;
+        FixedStack<TreeNodeDebug*, 64> stack;
         MemoryArena arena;
+        // =========================
+
+
+        // ===== UI state =====
         Context ui;
-        TreeNode* root_node = nullptr;
+        // ====================
 
-        // ========== Debug Window state ==========
-        Theme theme = light_theme;
-        Rect window_dim = Rect{10, 10, 400, 400};
-        int drag_mouse_x = 0;
-        int drag_mouse_y = 0;
-        bool window_pos_drag = false;
-        bool window_size_drag = false;
 
-        int left_panel_width = 125;
-        bool left_panel_size_drag = false;
-        bool left_panel_scroll_drag = false;
-        int left_panel_scroll = 0;
-        Map<bool> tree_state;
-        TreeNode* selected_node = nullptr;
-        Rect hover_node;
-        // ==============================================
+        // ===== User Input =====
         int mouse_scroll = 0;
-        int mouse_x = 0;
-        int mouse_y = 0;
         bool mouse_pressed = false;
         bool mouse_released = false;
-        bool active = false;
+        // ======================
     };
 }
 
@@ -190,7 +154,9 @@ namespace UI
 //GLOBALS
 namespace UI
 {
-    bool should_activate_debug_view = false;
+    bool debug_view_activate = false;
+    bool debug_view_copy_tree = false;
+
     DebugView debug_view(2097152); //2 MB
     static float dpi = 96.0f;
     static Context* context = nullptr;
@@ -203,9 +169,20 @@ namespace UI
 {
     void SetDebugInput(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed)
     {
-        debug_view.GetUserInput(mouse_pressed, mouse_released, mouse_scroll);
         if(activate_pressed)
-            should_activate_debug_view = !should_activate_debug_view;
+        {
+            debug_view_activate = !debug_view_activate;
+            debug_view.Reset();
+        }
+
+        if(debug_view_activate)
+        {
+            debug_view.SetUserInput(mouse_pressed, mouse_released, mouse_scroll);
+        }
+        else
+        {
+            debug_view_copy_tree = true;
+        }
     }
     void SetContext(UI::Context* context)
     {
@@ -217,48 +194,145 @@ namespace UI
     }
     BoxInfo GetBoxInfo(const char* label)
     {
-        if(context && !debug_view.IsActive())
+        #if UI_ENABLE_DEBUG
+        //returns invalid BoxInfo while debug inspector is open to avoid state changes in user side code
+        //Always make sure you validate BoxInfo before use.
+        if(debug_view_activate && !debug_view_copy_tree)
+            return BoxInfo();
+        #endif
+
+
+        if(context)
             return context->GetBoxInfo(label);
         return BoxInfo();
     }
     void BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
     {
-        debug_view.SetActive(should_activate_debug_view);
+        // ===== DebugView Tree Building =====
+        #if UI_ENABLE_DEBUG
+        if(debug_view_activate)
+        {
+            debug_view.ui.SetMousePos(mouse_x, mouse_y);
+            if(debug_view_copy_tree)
+            {
+                DebugBox root_box;
+                root_box.style.width = {(float)screen_width};
+                root_box.style.height = {(float)screen_height};
+                debug_view.PushNode(root_box);
+            }
+
+            if(debug_view.root_node != nullptr)
+            {
+                DebugBox& box = debug_view.root_node->box;
+                box.style.width = {(float)screen_width};
+                box.style.height = {(float)screen_height};
+            }
+            return;
+        }
+        #endif // ============================
+
         if(context)
         {
-            if(!debug_view.IsActive())
-            {
-                context->BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
-            }
-            else
-            {
-                debug_view.RunDebugView(context->GetInternalTree(), x, y, screen_width, screen_height, mouse_x, mouse_y);
-            }
+            context->SetMousePos(mouse_x, mouse_y);
+            context->BeginRoot(x, y, screen_width, screen_height);
         }
     }
     void EndRoot()
     {
-        if(context && !debug_view.IsActive())
+        // ===== DebugView Tree Building =====
+        #if UI_ENABLE_DEBUG
+        if(debug_view_activate)
+        {
+            if(debug_view_copy_tree)
+            {
+                debug_view.PopNode();
+            }
+            debug_view_copy_tree = false;
+            return;
+        }
+        #endif // ============================
+
+        if(context)
             context->EndRoot();
     }
     void BeginBox(const UI::BoxStyle& box_style, const char* label, DebugInfo debug_info)
     {
-        if(context && !debug_view.IsActive())
+        // ===== DebugView Tree Building =====
+        #if UI_ENABLE_DEBUG
+        if(debug_view_activate)
+        {
+            if(debug_view_copy_tree)
+            {
+                DebugBox box;
+                box.style = box_style;
+                if(label)
+                {
+                    box.label = ArenaCopyString(label, &debug_view.arena);
+                    assert(box.label && "DebugView arena out of memory");
+                }
+                box.debug_info = debug_info;
+                debug_view.PushNode(box);
+            }
+            return;
+        }
+        #endif // =============================
+
+        if(context)
             context->BeginBox(box_style, label, debug_info);
     }
-    void InsertText(const char* text, bool copy_text)
+    void InsertText(const char* text, bool copy_text, DebugInfo debug_info)
     {
-        if(context && !debug_view.IsActive())
+        // ===== DebugView Tree Building =====
+        #if UI_ENABLE_DEBUG
+        if(debug_view_activate)
+        {
+            if(debug_view_copy_tree)
+            {
+                DebugBox box;
+                if(text)
+                {
+                    box.text = ArenaCopyString(text, &debug_view.arena);
+                    assert(box.text && "DebugView arena out of memory");
+                }
+                box.debug_info = debug_info;
+                debug_view.PushNode(box);
+                debug_view.PopNode();
+            }
+            return;
+        }
+        #endif // ============================
+
+        if(context)
             context->InsertText(text, copy_text);
     }
     void EndBox()
     {
-        if(context && !debug_view.IsActive())
+        // ===== DebugView Tree Building =====
+        #if UI_ENABLE_DEBUG
+        if(debug_view_activate)
+        {
+            if(debug_view_copy_tree)
+            {
+                debug_view.PopNode();
+            }
+            return;
+        }
+        #endif
+        // ===================================
+
+
+        if(context)
             context->EndBox();
     }
     void Draw()
     {
-        if(context && !debug_view.IsActive())
+        // ===== DebugView Tree Building =====
+        #if UI_ENABLE_DEBUG
+        if(debug_view_activate)
+            return;
+        #endif
+        // ===================================
+        if(context)
             context->Draw();
     }
 }
@@ -589,6 +663,17 @@ namespace UI
         for(i = 0; i<size-1 && src[i] != '\0'; i++)
             dst[i] = src[i];
         dst[i] = '\0';
+    }
+    const char* ArenaCopyString(const char* text, MemoryArena* arena)
+    {
+        assert(text && "no text padded");
+        assert(arena && "no arena passed");
+        int n = StringLength(text) + 1;
+        char* temp = arena->New<char>(n);
+        if(temp == nullptr)
+            return nullptr;
+        StringCopy(temp, text, n);
+        return temp;
     }
     bool StringCompare(const char* s1, const char* s2)
     {
@@ -1078,551 +1163,47 @@ namespace UI
     {
 
     }
-    bool DebugView::IsActive() const
-    {
-        return active;
-    }
-    void DebugView::SetActive(bool flag) 
-    {
-        active = flag;
-        if(!active)
-        {
-            Reset();
-        }
-    }
-    void DebugView::GetUserInput(bool is_mouse_pressed, bool is_mouse_released, int mouse_scroll)
-    {
-        this->mouse_scroll = mouse_scroll;
-        mouse_pressed = is_mouse_pressed;
-        mouse_released = is_mouse_released;
-    }
-    void DebugView::RunDebugView(TreeNode* root_node, int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
-    {
-        this->mouse_x = mouse_x;
-        this->mouse_y = mouse_y;
-        this->root_node = root_node;
-        ui.BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
-        int count = 0;
-        ConstructDubLayout(root_node, count);
-        ConstructInspector(root_node);
-        ui.EndRoot();
-        ui.Draw();
-    }
     void DebugView::Reset()
     {
-        selected_node = nullptr;
         root_node = nullptr;
-        hover_node = Rect();
+        arena.Reset();
+        ui.ResetAllStates();
     }
-    void DebugView::ConstructDubLayout(TreeNode* node, int& count)
+    void DebugView::SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll)
     {
-        if(node == nullptr)
+        this->mouse_pressed = mouse_pressed;
+        this->mouse_released = mouse_released;
+        this->mouse_scroll = mouse_scroll;
+    }
+    void DebugView::PushNode(const DebugBox& box)
+    {
+        if(root_node == nullptr)
+        {
+            assert(stack.IsEmpty() && "DebugView: unbalanced Begin/End");
+            root_node = arena.New<TreeNodeDebug>();
+            assert(root_node && "DebugVew arena out of memory");
+            stack.Push(root_node);
+            root_node->box = box;
             return;
-        
-        //hover_outline.width = 
-        Box& box = node->box;
-        const char* element_id = StringFormat("element_id_%d", count);
-
-        BoxInfo info = ui.GetBoxInfo(element_id);
-        if(info.valid)
-        {
-            if(info.is_direct_hover)
-            {
-                hover_node.width = info.DrawWidth();
-                hover_node.height = info.DrawHeight();
-                hover_node.x = info.DrawX();
-                hover_node.y = info.DrawY();
-                if(mouse_pressed)
-                {
-                    this->selected_node = node;
-                    SearchNodeAndOpenTree(this->root_node);
-                }
-            }
         }
-
-        count++;
-        if(box.text)
-        {
-            ui.InsertText(box.text);
-        }
-        else
-        {
-            ui.BeginBox(box.debug_style, element_id);
-            for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
-                ConstructDubLayout(&temp->value, count);
-            ui.EndBox();
-        }
+        TreeNodeDebug* parent = stack.Peek();
+        assert(parent);
+        TreeNodeDebug child;
+        child.box = box;
+        TreeNodeDebug* child_ptr = parent->children.Add(child, &arena);
+        assert(child_ptr && "DebugView arena out of memory");
+        stack.Push(child_ptr);
     }
-    void DebugView::ConstructInspector(TreeNode* node)
+    void DebugView::PopNode()
     {
-        // ===== Red outline =====
-        if(selected_node && selected_node->box.debug_valid)
-        {
-            Box& b = selected_node->box;
-            BoxStyle select_outline;
-            select_outline.detach = true;
-            select_outline.x = {(float)b.x};
-            select_outline.y = {(float)b.y};
-            select_outline.width = {(float)b.GetRenderingWidth()};
-            select_outline.height = {(float)b.GetRenderingHeight()};
-            select_outline.border_width = 1;
-            select_outline.border_color = {255, 0, 0, 255};
-            ui.BeginBox(select_outline); ui.EndBox();
-        }
-        if(hover_node.width > 0)
-        {
-            BoxStyle hover_outline;
-            hover_outline.detach = true;
-            hover_outline.x = {(float)hover_node.x};
-            hover_outline.y = {(float)hover_node.y};
-            hover_outline.width = {(float)hover_node.width};
-            hover_outline.height = {(float)hover_node.height};
-            hover_outline.border_width = 1;
-            hover_outline.border_color = {255, 255, 255, 255};
-            ui.BeginBox(hover_outline); ui.EndBox();
-        }
-        hover_node = Rect();
-
-
-        // ========== Window Dragging =========
-
-        BoxInfo title_bar_info = ui.GetBoxInfo("title_bar");
-        BoxInfo resize_button_info = ui.GetBoxInfo("resize_button");
-        Rect base_dim = window_dim;
-        if(mouse_pressed)
-        {
-            drag_mouse_x = mouse_x;
-            drag_mouse_y = mouse_y;
-        }
-        int mouse_delta_x = mouse_x - drag_mouse_x;
-        int mouse_delta_y = mouse_y - drag_mouse_y;
-
-        if(window_pos_drag)
-        {
-            base_dim.x += mouse_delta_x;
-            base_dim.y += mouse_delta_y;
-        }
-        if(window_size_drag)
-        {
-            base_dim.width += mouse_delta_x;
-            base_dim.height += mouse_delta_y;
-        }
-        base_dim.width = Clamp(base_dim.width, 300, INT_MAX);
-        base_dim.height = Clamp(base_dim.height, 300, INT_MAX);
-
-
-        if(title_bar_info.valid && title_bar_info.is_direct_hover)
-        {
-            if(mouse_pressed)
-                window_pos_drag = true;
-        }
-        // ===== End Window Dragging =====
-
-        HexColor text_color = RGBAToHex(theme.text_color);
-        HexColor text_color_hover = RGBAToHex(theme.text_color_hover);
-
-        BoxStyle base; 
-        base.flow.axis = Flow::VERTICAL;
-        base.background_color = theme.base;
-        base.x = {(float)base_dim.x};
-        base.y = {(float)base_dim.y};
-        base.width = {(float)base_dim.width};
-        base.height = {(float)base_dim.height};
-        base.corner_radius = theme.corner_radius;
-        base.detach = true;
-
-        BoxStyle resize_button;
-        resize_button.width = {16};
-        resize_button.height = {16};
-        resize_button.background_color = theme.title_bar;
-        resize_button.detach = true;
-        resize_button.x = {(float)base_dim.x + base_dim.width - 16};
-        resize_button.y = {(float)base_dim.y + base_dim.height - 16};
-        resize_button.corner_radius = 4;
-        HexColor resize_button_text_color = text_color;
-
-        if(resize_button_info.valid && resize_button_info.is_direct_hover)
-        {
-            resize_button_text_color = text_color_hover;
-            resize_button.background_color = theme.button_hover;
-            if(mouse_pressed)
-                window_size_drag = true;
-        }
-        
-        // ====================================
-
-        BoxStyle title_bar;
-        title_bar.padding = {10, 10, 10, 10};
-        title_bar.corner_radius = theme.corner_radius/2;
-        title_bar.background_color = theme.title_bar;
-        title_bar.width = {100, Unit::PARENT_PERCENT};
-        title_bar.height = {100, Unit::CONTENT_PERCENT};
-
-
-        BoxStyle h_container;
-        h_container.gap_column = {1};
-        h_container.flow.vertical_alignment = Flow::CENTERED;
-        h_container.padding = {10, 10, 10, 10};
-        h_container.flow.axis = Flow::HORIZONTAL;
-        h_container.width = {100, Unit::AVAILABLE_PERCENT};
-        h_container.height = {100, Unit::AVAILABLE_PERCENT};
-
-
-        BoxStyle panel_divider_button;
-        panel_divider_button.flow.horizontal_alignment = Flow::CENTERED;
-        panel_divider_button.flow.vertical_alignment = Flow::CENTERED;
-        panel_divider_button.width = {8};
-        panel_divider_button.background_color = theme.title_bar;
-        panel_divider_button.height = {70};
-        panel_divider_button.corner_radius = 3;
-        HexColor panel_divider_button_text_color = text_color;
-
-        // ======== Panel drag sizing logic ===============
-        BoxInfo panel_divider_button_info = ui.GetBoxInfo("panel_divider_button");
-        if(panel_divider_button_info.valid && panel_divider_button_info.is_direct_hover)
-        {
-            panel_divider_button.background_color = theme.button_hover;
-            panel_divider_button_text_color = text_color_hover;
-            if(mouse_pressed)
-                left_panel_size_drag = true;
-        }
-        int left_panel_new_width = left_panel_width;
-        if(left_panel_size_drag)
-            left_panel_new_width += mouse_delta_x;
-        left_panel_new_width = Clamp(left_panel_new_width, 100, base_dim.width - 100);
-        // =============================================
-        
-        //Holds "Navigation" and "Details"
-        BoxStyle panel_title;
-        panel_title.padding = {10, 10, 10, 10};
-        panel_title.flow.vertical_alignment = Flow::CENTERED;
-        panel_title.width = {100, Unit::PARENT_PERCENT};
-        panel_title.height = {100, Unit::CONTENT_PERCENT};
-
-        BoxStyle left_panel;
-        left_panel.padding = {1, 0, 0, 0};
-        left_panel.flow.axis = Flow::VERTICAL;
-        left_panel.width = {(float)left_panel_new_width};
-        left_panel.height = {100, Unit::AVAILABLE_PERCENT};
-        left_panel.background_color = theme.left_panel;
-        left_panel.corner_radius = theme.corner_radius;
-
-        left_panel_scroll -= mouse_scroll * 20;
-        
-        BoxInfo left_panel_tree_info = ui.GetBoxInfo("left_panel_tree");
-        BoxStyle left_panel_tree;
-        if(left_panel_tree_info.valid)
-        {
-            left_panel_scroll = Clamp(left_panel_scroll, 0, left_panel_tree_info.MaxScrollY());
-        }
-        left_panel_tree.scroll_y = left_panel_scroll;
-        left_panel_tree.flow.axis = Flow::VERTICAL;
-        left_panel_tree.width = {100, Unit::PARENT_PERCENT};
-        left_panel_tree.height = {100, Unit::AVAILABLE_PERCENT};
-        left_panel_tree.background_color = theme.left_panel;
-        left_panel_tree.corner_radius = theme.corner_radius;
-        left_panel_tree.scissor = true;
-        left_panel_tree.padding = {0, 0, 0, theme.corner_radius};
-
-
-
-
-
-        BoxStyle right_panel;
-        right_panel.flow.axis = Flow::VERTICAL;
-        right_panel.width = {100, Unit::AVAILABLE_PERCENT};
-        right_panel.height = {100, Unit::AVAILABLE_PERCENT};
-        right_panel.background_color = theme.right_panel;
-        right_panel.corner_radius = theme.corner_radius;
-
-        BoxStyle right_panel_details;
-        right_panel_details.width = {100, Unit::PARENT_PERCENT};
-        right_panel_details.height = {100, Unit::AVAILABLE_PERCENT};
-
-        
-
-
-        ui.BeginBox(base, "debug_view_base");
-
-            // ===== Title bar =====
-            ui.BeginBox(title_bar, "title_bar");
-                ui.InsertText(StringFormat("[S:21][C:%s]Debug View", text_color), true);
-            ui.EndBox();
-            // =====================
-
-            // ===== Just under the title bar =====
-            ui.BeginBox(h_container);
-
-                // ======= Left Panel =====
-                ui.BeginBox(left_panel);
-                    ui.BeginBox(panel_title);
-                        ui.InsertText(StringFormat("[S:21][C:%s]Navigate", text_color));
-                    ui.EndBox();
-                    ui.BeginBox(left_panel_tree, "left_panel_tree");
-                        InjectTree(node, 0);
-                    ui.EndBox();
-                ui.EndBox();
-                // ========================
-
-                ui.BeginBox(panel_divider_button, "panel_divider_button");
-                    ui.InsertText(StringFormat("[S:14][C:%s]||", panel_divider_button_text_color));
-                ui.EndBox();
-
-                // ==== Right Panel ====
-                ui.BeginBox(right_panel);
-                    ui.BeginBox(panel_title);
-                        ui.InsertText(StringFormat("[S:21][C:%s]Details", text_color_hover), true);
-                    ui.EndBox();
-                    
-                    ui.BeginBox(right_panel_details);
-                        CustomizeDetails();
-                    ui.EndBox();
-                ui.EndBox();
-                // =====================
-            ui.EndBox();
-            // ====================================
-
-        ui.EndBox();
-
-        ui.BeginBox(resize_button, "resize_button");
-        ui.EndBox();
-
-        if(mouse_released)
-        {
-            window_size_drag = false;
-            window_pos_drag = false;
-            window_dim = base_dim;
-
-            left_panel_scroll_drag = false;
-            left_panel_size_drag = false;
-            left_panel_width = left_panel_new_width;
-        }
+        assert(!stack.IsEmpty() && "Uneven amount of begin/end");
+        stack.Pop();
     }
-    void DebugView::InjectTree(TreeNode* node, int depth)
+    bool DebugView::IsTreeEmpty()
     {
-        if(node == nullptr)
-            return;
-
-
-        HexColor text_color = RGBAToHex(theme.text_color);
-        HexColor text_color_hover = RGBAToHex(theme.text_color_hover);
-
-
-        // ===== Button Properties =====
-        BoxStyle button;
-        button.flow.axis = Flow::HORIZONTAL;
-        button.flow.vertical_alignment = Flow::CENTERED;
-        button.width = {9999};
-        button.height = {100, Unit::CONTENT_PERCENT};
-        button.background_color = theme.button;
-        button.gap_column = {4};
-        HexColor button_text_color = text_color;
-
-        BoxStyle filler; 
-        filler.width = {4};
-        filler.height = {0};
-
-        BoxStyle line;
-        line.width = {1};
-        line.height = {100, Unit::PARENT_PERCENT};
-        line.background_color = theme.button_hover;
-
-        BoxStyle open_button;
-        open_button.flow.horizontal_alignment = Flow::CENTERED;
-        open_button.flow.vertical_alignment = Flow::CENTERED;
-        open_button.width = {18};
-        open_button.height = {18};
-        open_button.border_width = 1;
-        open_button.border_color = theme.text_color;
-        open_button.corner_radius = 2;
-        HexColor open_button_text_color = text_color;
-
-        // ========== Faded Out Buttons =============== not rendered nodes
-        if(!node->box.debug_valid)
-        {
-            button.background_color = theme.faded_button;
-            line.background_color = theme.button;
-            open_button.border_color = theme.text_color_hover;
-            open_button_text_color = text_color_hover;
-            button_text_color = text_color_hover;
-        }
-        // ============================================
-
-        // ====== Highlight button of selected Node In Tree =====
-        if(selected_node == node)
-        {
-            button.background_color = theme.button_hover;
-            line.background_color = theme.button;
-            open_button.border_color = theme.text_color_hover;
-            open_button_text_color = text_color_hover;
-            button_text_color = text_color_hover;
-        }
-        // ============================================
-
-        // ===== Button Hover Logic =====
-        const char* button_id = StringFormat("button_id: %d", (uintptr_t)node);
-        BoxInfo button_info = ui.GetBoxInfo(button_id);
-        if(button_info.valid)
-        {
-            if(button_info.is_direct_hover)
-            {
-                button.background_color = theme.button_hover;
-                line.background_color = theme.button;
-                open_button.border_color = theme.text_color_hover;
-                open_button_text_color = text_color_hover;
-                button_text_color = text_color_hover;
-                // ========= Select Node ==========
-                if(mouse_pressed)
-                    selected_node = node;
-                // ================================
-            }
-            if(button_info.is_hover)
-            {
-                // ========== Outline Node ==========
-                if(node->box.debug_valid)
-                {
-                    hover_node.width = node->box.GetRenderingWidth();
-                    hover_node.height = node->box.GetRenderingHeight();
-                    hover_node.x = node->box.x;
-                    hover_node.y = node->box.y;
-                }
-                // ===================================
-            }
-        }
-        // =============================
-
-        // ========== Open Button Logic ===========
-        const char* open_button_id = StringFormat("open_button_id: %d", (uintptr_t)node);
-        uint64_t open_button_id_key = Hash(open_button_id);
-        bool* is_open = tree_state.GetValue(open_button_id_key);
-        if(is_open == nullptr)
-            is_open = tree_state.Insert(open_button_id_key, false);
-        BoxInfo open_button_info = ui.GetBoxInfo(open_button_id);
-        if(open_button_info.valid && open_button_info.is_direct_hover)
-        {
-            open_button.border_color = theme.text_color_hover;
-            open_button_text_color = text_color_hover;
-            open_button.background_color = theme.button_hover;
-            open_button.border_color = theme.button_hover;
-            if(is_open && mouse_pressed)
-                *is_open = !*is_open;
-        }
-
-        //Button Icon
-        char open_icon = '+';
-        if(is_open && *is_open)
-        {
-            open_icon = '-';
-            open_button.background_color = {130, 255, 130, 255};
-        }
-        // ========================================
-
-        // ========== Button Text ==========
-        HexColor id_text_color = RGBAToHex(theme.id_text_color);
-        HexColor inserted_text_color = RGBAToHex(theme.inserted_text_color);
-        BoxStyle inserted_text_box;
-        //inserted_text_box.corner_radius = 6;
-        //inserted_text_box.padding= {3,3,3,3};
-        //inserted_text_box.border_width = 1;
-        //inserted_text_box.border_color = theme.text_color;
-        inserted_text_box.width = {100, Unit::CONTENT_PERCENT};
-        inserted_text_box.height = {100, Unit::CONTENT_PERCENT};
-
-        const Box& box = node->box;
-        BoxStyle color_preview;
-        color_preview.width = {18};
-        color_preview.height = {16};
-        color_preview.background_color = box.background_color;
-        color_preview.border_width = 1;
-        color_preview.border_color = theme.text_color;
-        color_preview.corner_radius = 2;
-        // =================================
-
-
-        ui.BeginBox(button, button_id);
-        for(int i = 0; i < depth; i++)
-        {
-            ui.BeginBox(filler); ui.EndBox();
-            ui.BeginBox(line); ui.EndBox();
-            ui.BeginBox(filler); ui.EndBox();
-        }
-        // ========== Open [+] Button =========
-        if(!node->children.IsEmpty())
-        {
-            ui.BeginBox(open_button, open_button_id);
-                ui.InsertText(StringFormat("[S:20][C:%s]%c", open_button_text_color, open_icon), true);
-            ui.EndBox();
-        }// ===================================
-        // ========= Button Text Box [COLOR] id "Some id" ============
-        if(box.text)
-        {
-            ui.BeginBox(inserted_text_box);
-                ui.InsertText(StringFormat("[S:20][C:%s]Text", button_text_color), true);
-                ui.InsertText(StringFormat("[S:20][C:%s] [OFF]\"%s\"", inserted_text_color, box.text), true);
-            ui.EndBox();
-        }
-        else
-        {
-            ui.InsertText(StringFormat("[S:20][C:%s]Box", button_text_color), true);
-            //Only render a color preview if there is visible color
-            if(box.background_color.a > 0)
-            {
-                ui.BeginBox(color_preview); 
-                ui.EndBox();
-            }
-            if(box.debug_label)
-            {
-                //ui.InsertText(StringFormat("[S:20][C:%s]id:", button_text_color), true);
-                ui.BeginBox(inserted_text_box);
-                    ui.InsertText(StringFormat("[S:20][C:%s]id: [C:%s][OFF] \"%s\"", button_text_color, id_text_color, box.debug_label), true);
-                    //ui.InsertText(StringFormat("[S:20][C:%s][OFF] \"%s\"", id_text_color, box.debug_label), true);
-                ui.EndBox();
-            }
-        }
-        // ===========================================================
-        ui.EndBox();
-
-        if(is_open && *is_open)
-        {
-            for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
-            {
-                InjectTree(&temp->value, depth + 1);
-            }
-        }
-
+        return root_node == nullptr;
     }
-    void DebugView::CustomizeDetails()
-    {
-        
-    }
-    bool DebugView::SearchNodeAndOpenTree(TreeNode* root)
-    {
-        if(root == nullptr)
-            return false;
-        if(root == selected_node)
-            return true;
-        bool has_node = false;
-        for(auto temp = root->children.GetHead(); temp != nullptr; temp = temp->next)
-        {
-            bool result = SearchNodeAndOpenTree(&temp->value);
-            if(result)
-                has_node = true;
-        }
 
-
-        const char* open_button_id = StringFormat("open_button_id: %d", (uintptr_t)root);
-        uint64_t open_button_id_key = Hash(open_button_id);
-        if(has_node)
-        {
-            tree_state.Insert(open_button_id_key, true);
-            return true;
-        }
-        else
-        {
-            tree_state.Insert(open_button_id_key, false);
-            return false;
-        }
-    }
 
 }
 
@@ -1682,10 +1263,24 @@ namespace UI
         }
         return BoxInfo();
     }
-    void Context::BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y)
+    void Context::ResetAllStates()
     {
-        this->mouse_x = mouse_x;
-        this->mouse_y = mouse_y;
+        arena.Rewind(root_node);
+        double_buffer_map.RewindArena(&arena);
+
+        stack.Clear();
+        deferred_elements.Clear();
+        root_node = nullptr;
+        element_count = 0;
+        directly_hovered_element_key = 0;
+    }
+    void Context::SetMousePos(int x, int y)
+    {
+        this->mouse_x = x;
+        this->mouse_y = y;
+    }
+    void Context::BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height)
+    {
         if(HasInternalError())
             return;
 
@@ -1714,14 +1309,6 @@ namespace UI
         root_box.y = y;
         
         // ========== Debug Mode Only ==========
-        #if UI_ENABLE_DEBUG
-            BoxStyle style;
-            style.width = {(float)screen_width};
-            style.height = {(float)screen_height};
-            style.x = {(float)x};
-            style.y = {(float)y};
-            root_box.debug_style = style;
-        #endif
 
         if(stack.IsEmpty())//Root Node
         {
@@ -1788,20 +1375,6 @@ namespace UI
             child_node.box = ComputeStyleSheet(style, root_node->box);
             child_node.box.label_hash = label_hash;
 
-            // ========= Only enabled with DEBUG mode ==========
-            #if UI_ENABLE_DEBUG
-                child_node.box.debug_file = debug_info.file;
-                child_node.box.debug_line = debug_info.line;
-                child_node.box.debug_style = style;
-                if(label)
-                {
-                    int label_length = StringLength(label) + 1;
-                    char* debug_label = arena.New<char>(label_length);
-                    assert(debug_label && "Arena out of memory");
-                    StringCopy(debug_label, label, label_length);
-                    child_node.box.debug_label = debug_label;
-                }
-            #endif
             //Might bundle this with macro
             if(HandleInternalError(CheckUnitErrors(child_node.box)))
                 return;
@@ -1943,10 +1516,6 @@ namespace UI
         //DEBUGGING TEXT
         //box.background_color = {0, 0, 0, 50};
 
-        #if UI_ENABLE_DEBUG
-            box.debug_file = debug_info.file;
-            box.debug_line = debug_info.line;
-        #endif
 
         if(should_copy && text)
         {
@@ -2457,9 +2026,6 @@ namespace UI
         box.y = render_y;
         box.SetPositioning(Positioning::ABSOLUTE);
 
-        #if UI_ENABLE_DEBUG
-            box.debug_valid = true;
-        #endif
         if(box.text)
         {
             DrawTextNode(box.text, box.width, box.height, render_x, render_y);

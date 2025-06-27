@@ -22,6 +22,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#include <iostream>
 #include "Memory.hpp"
 
 
@@ -201,7 +202,7 @@ namespace UI
     void BeginRoot(int x, int y, unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
-    void InsertText(const char* text, bool copy_text = true);
+    void InsertText(const char* text, bool copy_text = true, DebugInfo debug_info = UI_DEBUG);
     void EndBox();
     void Draw();
 
@@ -248,10 +249,7 @@ namespace UI
             // ========= Only used when debugging is enabled
             #if UI_ENABLE_DEBUG
                 const char* debug_file = nullptr;
-                const char* debug_label = nullptr;
                 int         debug_line = -1;
-                BoxStyle    debug_style;
-                bool        debug_valid = false;
             #endif
             // =============================================
 
@@ -361,7 +359,8 @@ namespace UI
     public:
         Context(uint64_t arena_bytes);
         BoxInfo GetBoxInfo(const char* label);
-        void BeginRoot(int x, int y,unsigned int screen_width, unsigned int screen_height, int mouse_x, int mouse_y);
+        void SetMousePos(int x, int y);
+        void BeginRoot(int x, int y,unsigned int screen_width, unsigned int screen_height);
         void EndRoot();
         void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
         void InsertText(const char* text, bool copy_text = true, DebugInfo info = UI_DEBUG);
@@ -369,9 +368,12 @@ namespace UI
         void DrawDebugMenu(bool is_mouse_pressed, bool is_mouse_release, bool esc_key_pressed);
         void Draw();
         uint32_t GetElementCount() const;
-        Internal::TreeNode* GetInternalTree();
 
         //For Advanced Purposes
+
+        //Might not even use this
+        void ResetAllStates();
+        Internal::TreeNode* GetInternalTree();
         Internal::MemoryArena& GetMemoryArena();
     private:
 
@@ -405,12 +407,6 @@ namespace UI
         Internal::ArenaDoubleBufferMap<BoxInfo> double_buffer_map;
         Internal::ArenaLL<TreeNode*> deferred_elements;
         TreeNode* root_node = nullptr;
-        Internal::FixedStack<TreeNode*, 100> stack; //elements should never nest over 100 layers deep
-
-        #if UI_ENABLE_DEBUG
-            Box debug_hover;
-            bool debug_mouse_pressed = false;
-            bool debug_mouse_released = false;
-        #endif
+        Internal::FixedStack<TreeNode*, 64> stack; //elements should never nest over 100 layers deep
     };
 }
