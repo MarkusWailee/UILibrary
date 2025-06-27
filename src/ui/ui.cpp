@@ -106,6 +106,7 @@ namespace UI
         DebugInfo   debug_info;
         const char* label = nullptr;
         const char* text = nullptr;
+        Rect dim;
         bool        is_rendered = false;
     };
     struct TreeNodeDebug
@@ -165,12 +166,13 @@ namespace UI
         bool IsTreeEmpty();
 
         void RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
-        void ConstructMockUI(TreeNodeDebug* node);
-        void ConstructInspector(int mouse_x, int mouse_y);
-        void ConstructTree(TreeNodeDebug* node, int depth);
 
         MemoryArena arena; //only public to copy labels and strings. I dont feel like making a getter function
     private:
+        void ConstructMockUI(TreeNodeDebug* node);
+        void ConstructInspector(int mouse_x, int mouse_y);
+        void ConstructTree(TreeNodeDebug* node, int depth);
+        bool SearchNodeAndOpenTree(TreeNodeDebug* node);
         // ===== Internal Tree =====
         TreeNodeDebug* root_node = nullptr;
         TreeNodeDebug* selected_node = nullptr;
@@ -187,7 +189,7 @@ namespace UI
         bool window_pos_drag = false;
         bool window_size_drag = false;
         bool panel_drag = false;
-        int panel_width = 120;
+        int panel_width = 150;
         // ====================
 
         // ===== User Input =====
@@ -1176,6 +1178,7 @@ namespace UI
     {
         root_node = nullptr;
         selected_node = nullptr;
+        tree_state.Clear();
         arena.Reset();
         ui.ResetAllStates();
     }
@@ -1218,7 +1221,6 @@ namespace UI
         assert(root_node && "root_node should have been initialized"); //this is for more own sanity
         //root_node->box.style.width = {(float)screen_width};
         //root_node->box.style.height = {(float)screen_height};
-        hovered_element = Rect();
         ui.BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
 
         ConstructMockUI(root_node);
@@ -1231,6 +1233,7 @@ namespace UI
             BoxStyle hovered_element_outline = {.width = {(float)hovered_element.width}, .height = {(float)hovered_element.height}, .x = {(float)hovered_element.x}, .y = {(float)hovered_element.y}, .border_color = {255, 255, 255, 255}, .detach = true, .border_width = 1};
             ui.BeginBox(hovered_element_outline); ui.EndBox();
         }
+        hovered_element = Rect();
 
         //Selected Node
         if(selected_node)
@@ -1264,16 +1267,21 @@ namespace UI
         BoxInfo info = ui.GetBoxInfo(element_id);
         if(info.valid)
         {
-            node->box.is_rendered = info.is_rendered;
+            DebugBox& box = node->box;
+            box.is_rendered = info.is_rendered;
+            box.dim = {info.DrawX(), info.DrawY(), info.DrawWidth(), info.DrawHeight()};
             if(info.is_direct_hover)
             {
-                hovered_element.width = info.DrawWidth();
-                hovered_element.height = info.DrawHeight();
-                hovered_element.x = info.DrawX();
-                hovered_element.y = info.DrawY();
+                hovered_element.width = box.dim.width;
+                hovered_element.height = box.dim.height;
+                hovered_element.x = box.dim.x;
+                hovered_element.y = box.dim.y;
                 //Selecting node from mock ui
                 if(mouse_pressed)
+                {
                     selected_node = node;
+                    SearchNodeAndOpenTree(root_node);
+                }
             }
         }
         ui.BeginBox(node->box.style, element_id);
@@ -1383,6 +1391,8 @@ namespace UI
         panel_scroll_box.flow.axis = Flow::VERTICAL;
         panel_scroll_box.width = {100, Unit::PARENT_PERCENT};
         panel_scroll_box.height = {100, Unit::AVAILABLE_PERCENT};
+        panel_scroll_box.padding = {1, 1, 1, theme.base_corner_radius};
+        panel_scroll_box.scissor = true;
 
         // ===== Window Dragging =====
         BoxInfo base_title_bar_info = ui.GetBoxInfo("base_title_bar");
@@ -1474,6 +1484,147 @@ namespace UI
         button.gap_column = {4};
 
 
+        BoxStyle filler; 
+        filler.width = {4};
+        filler.height = {0};
+
+        BoxStyle line;
+        line.width = {1};
+        line.height = {100, Unit::PARENT_PERCENT};
+        line.background_color = theme.button_color_hover;
+
+        BoxStyle text_box;
+        text_box.width = {100, Unit::CONTENT_PERCENT};
+        text_box.height = {100, Unit::CONTENT_PERCENT};
+
+        BoxStyle open_button;
+        open_button.flow.horizontal_alignment = Flow::CENTERED;
+        open_button.flow.vertical_alignment = Flow::CENTERED;
+        open_button.width = {18};
+        open_button.height = {18};
+        open_button.border_width = 1;
+        open_button.border_color = theme.button_color_hover;
+        open_button.corner_radius = 2;
+
+        HexColor button_text_color = theme.text_color;
+        HexColor open_button_text_color = theme.text_color;
+
+
+        // ===== Button Logic =====
+        bool change_button_color = false;
+
+        //Button Logic
+        const DebugBox& box = node->box;
+        const char* button_id = StringFormat("button_id%ld", (uintptr_t)node);
+        BoxInfo button_info = ui.GetBoxInfo(button_id);
+        if(button_info.valid && button_info.is_direct_hover)
+        {
+            hovered_element = box.dim;
+            change_button_color = true;
+            if(mouse_pressed)
+                selected_node = node;
+        }
+        if(node == selected_node)
+            change_button_color = true;
+
+        if(change_button_color)
+        {
+            //hovered_element = {10, 10, 100, 100};
+            button_text_color = theme.text_color_hover;
+            button.background_color = theme.button_color_hover;
+            line.background_color = theme.button_color;
+            open_button_text_color = theme.text_color_hover;
+            open_button.border_color = theme.button_color;
+            open_button_text_color = theme.text_color_hover;
+        }
+        // =============================
+
+
+        //====== open button logic =======
+        const char* open_button_id = StringFormat("open_button_id%ld", (uintptr_t)node);
+        uint64_t open_button_key = Hash(open_button_id);
+        bool* is_open = tree_state.GetValue(open_button_key);
+        if(is_open == nullptr)
+            is_open = tree_state.Insert(open_button_key, false);
+        BoxInfo open_button_info = ui.GetBoxInfo(open_button_id);
+        if(open_button_info.valid && open_button_info.is_direct_hover)
+        {
+            open_button.background_color = theme.button_color_hover;
+            open_button.border_color = theme.button_color_hover;
+            open_button_text_color = theme.text_color_hover;
+            if(mouse_pressed && is_open)
+                *is_open = !*is_open;
+        }
+        char open_icon = '+';
+        if(is_open && *is_open)
+        {
+            open_icon = '-';
+            open_button.background_color = {130, 255, 130, 255};
+        }
+        // ===============================
+
+        ui.BeginBox(button, button_id);
+        for(int i = 0; i<depth; i++)
+        {
+            ui.BeginBox(filler); ui.EndBox();
+            ui.BeginBox(line); ui.EndBox();
+            ui.BeginBox(filler); ui.EndBox();
+        }
+        if(!node->children.IsEmpty())
+        {
+            ui.BeginBox(open_button, open_button_id);
+                ui.InsertText(StringFormat("[S:20][C:%s]%c", open_button_text_color, open_icon));
+            ui.EndBox();
+        }
+        if(box.text)
+        {
+            ui.BeginBox(text_box);
+                ui.InsertText(StringFormat("[S:20][C:%s]Text ", button_text_color));
+                ui.InsertText(StringFormat("[S:20][C:%s][OFF]\"%s\"", theme.insert_text_color, box.text));
+            ui.EndBox();
+        }
+        else
+        {
+            ui.InsertText(StringFormat("[S:20][C:%s]Box", button_text_color));
+        }
+
+        ui.EndBox();
+
+        if(is_open && *is_open)
+        {
+            for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+            {
+                DebugBox& box = temp->value.box;
+                ConstructTree(&temp->value, depth + 1);
+            }
+        }
+    }
+
+    bool DebugView::SearchNodeAndOpenTree(TreeNodeDebug* node)
+    {
+        if(node == nullptr)
+            return false;
+        if(node == selected_node) 
+            return true;
+        bool found = false; 
+        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+        {
+            bool result = SearchNodeAndOpenTree(&temp->value);
+            if(result)
+                found = true;
+        }
+
+        uint64_t key = Hash(StringFormat("open_button_id%ld", (uintptr_t)node));
+        if(found)
+        {
+            tree_state.Insert(key, true);
+            return true;
+        }
+        else
+        {
+            tree_state.Insert(key, false);
+            return false;
+        }
     }
 
 
