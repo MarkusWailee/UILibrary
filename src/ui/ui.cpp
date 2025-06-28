@@ -129,7 +129,7 @@ namespace UI
             Color title_bar_color;
             HexColor text_color;
             HexColor text_color_hover;
-            HexColor insert_text_color;
+            HexColor string_color;
             HexColor id_text_color;
             Spacing base_padding;
             uint8_t base_corner_radius;
@@ -147,7 +147,7 @@ namespace UI
             {200, 200, 200, 255}, //title_bar_color;
             RGBAToHex({38, 38, 38, 255}),//text_color;
             RGBAToHex({253, 253, 253, 255}),//text_color_hover;
-            RGBAToHex({70, 188, 70, 255}), //insert_text_color;
+            RGBAToHex({70, 188, 70, 255}), //string_color;
             RGBAToHex({220, 173, 48, 255}), //id_text_color;
             {10, 10, 10, 10}, //base_padding
             16, //base_corner_radius;
@@ -455,7 +455,7 @@ namespace UI
         if(value == illegal_unit)\
         {\
             error.type = error_type;\
-            StringCopy(error.msg, StringFormat(#error_type"\n"#value" = " #illegal_unit"\nFile: %s\nLine: %d\n", file, line), ERROR_MSG_SIZE);\
+            StringCopy(error.msg, Fmt(#error_type"\n"#value" = " #illegal_unit"\nFile: %s\nLine: %d\n", file, line), ERROR_MSG_SIZE);\
         }
     Error CheckUnitErrors(const Box& style)
     {
@@ -494,12 +494,12 @@ namespace UI
             if(leaf.width_unit == Unit::Type::CONTENT_PERCENT)
             {
                 error.type = Error::Type::LEAF_NODE_CONTRADICTION;
-                StringCopy(error.msg, StringFormat("LEAF_NODE_CONTRADICTION\nbox.width_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", file, line), ERROR_MSG_SIZE);
+                StringCopy(error.msg, Fmt("LEAF_NODE_CONTRADICTION\nbox.width_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", file, line), ERROR_MSG_SIZE);
             }
             if(leaf.height_unit == Unit::Type::CONTENT_PERCENT)
             {
                 error.type = Error::Type::LEAF_NODE_CONTRADICTION;
-                StringCopy(error.msg, StringFormat("LEAF_NODE_CONTRADICTION\nbox.height_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", file, line), ERROR_MSG_SIZE);
+                StringCopy(error.msg, Fmt("LEAF_NODE_CONTRADICTION\nbox.height_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", file, line), ERROR_MSG_SIZE);
             }
         #endif
         return error;
@@ -554,7 +554,7 @@ namespace UI
                 if(child_unit == illegal_unit && parent_unit == Unit::CONTENT_PERCENT)\
                 {\
                     error.type = error_type;\
-                    StringCopy(error.msg, StringFormat(#error_type"\n"#child_unit " = " #illegal_unit" and "#parent_unit " = Unit::CONTENT_PERCENT\nFile: %s\nLine: %d\n", file, line), ERROR_MSG_SIZE);\
+                    StringCopy(error.msg, Fmt(#error_type"\n"#child_unit " = " #illegal_unit" and "#parent_unit " = Unit::CONTENT_PERCENT\nFile: %s\nLine: %d\n", file, line), ERROR_MSG_SIZE);\
                 }
 
             const char* file = child.debug_file;
@@ -741,7 +741,7 @@ namespace UI
     }
 
     //TEXT RENDERING
-    const char *StringFormat(const char *text, ...)
+    const char *Fmt(const char *text, ...)
     {
         static int index = 0;
         constexpr uint32_t MAX_LENGTH = 512;
@@ -1242,7 +1242,7 @@ namespace UI
         //Selected Node
         if(selected_node)
         {
-            BoxInfo selected_node_info  = ui.GetBoxInfo(StringFormat("mock_element%ld", (uintptr_t)selected_node));
+            BoxInfo selected_node_info  = ui.GetBoxInfo(Fmt("mock_element%ld", (uintptr_t)selected_node));
             if(selected_node_info.valid)
             {
                 BoxStyle selected_node_outline = { .x = (float)selected_node_info.DrawX(), .y = (float)selected_node_info.DrawY(), .width = (float)selected_node_info.DrawWidth(), .height = (float)selected_node_info.DrawHeight(), .border_color = {255, 0, 0, 255},  .border_width = 1, .detach = true,};
@@ -1262,7 +1262,7 @@ namespace UI
         if(node == nullptr)
             return;
 
-        const char* element_id = StringFormat("mock_element%ld",(uintptr_t)node);
+        const char* element_id = Fmt("mock_element%ld",(uintptr_t)node);
         BoxInfo info = ui.GetBoxInfo(element_id);
         if(info.valid)
         {
@@ -1409,10 +1409,11 @@ namespace UI
             .detach = true
         };
 
+        // ================ Inspector UI TREE ======================
         b.Box("base").Style(base).Run([&]
         {
             b.Box("base-title-bar").Style(title_bar).OnDirectHover([&] { if(mouse_pressed) window_pos_drag = true;})
-            .Run([&] { b.Text(StringFormat("[S:20][C:%s]Inspector", theme.text_color)).Run(); });
+            .Run([&]{ b.Text(Fmt("[S:20][C:%s]Inspector", theme.text_color)).Run();});
 
             b.Box().Style(h_container)
             .Run([&]
@@ -1420,25 +1421,32 @@ namespace UI
                 b.Box().Style(left_panel)
                 .Run([&]
                 {
-                    //Left Panel Title
+                    //Left panel content
                     b.Box().Style(left_panel_title)
-                    .Run([&]{ b.Text(StringFormat("[S:20][C:%s]Navigate", theme.text_color)).Run(); });
+                    .Run([&]{ b.Text(Fmt("[S:20][C:%s]Navigate", theme.text_color)).Run(); });
 
                     b.Box("left-panel-scroll-box").Style(left_panel_scroll_box)
                     .OnHover([&]
                     {
                         left_panel_scroll -= mouse_scroll * 20;
-                        left_panel_scroll = Clamp(left_panel_scroll, 0, b.GetBoxInfo().MaxScrollY());
                     })
-                    .Run([&] { ConstructTree(root_node, 0); });
+                    .Run([&] 
+                    {
+                        left_panel_scroll = Clamp(left_panel_scroll, 0, b.GetBoxInfo().MaxScrollY());
+                        ConstructTree(root_node, 0); 
+                    });
                 });
 
                 b.Box("left-panel-resize-button").Style(panel_resize_button)
-                .OnDirectHover([&]{ if(mouse_pressed) panel_drag = true;})
+                .OnDirectHover([&]
+                { 
+                    if(mouse_pressed) panel_drag = true;
+                    b.GetStyle().background_color = theme.button_color_hover;
+                })
                 .Run([&]
                 { 
-                    HexColor col = b.GetBoxInfo().IsDirectHover()? theme.text_color: theme.text_color_hover;
-                    b.Text(StringFormat("[S:20][C:%s]||", col)).Run();
+                    HexColor col = b.GetBoxInfo().IsDirectHover()? theme.text_color_hover: theme.text_color;
+                    b.Text(Fmt("[S:20][C:%s]||", col)).Run();
                 });
 
                 b.Box().Style(right_panel)
@@ -1450,7 +1458,14 @@ namespace UI
         });
         b.Box("base-resize-button")
         .Style(base_resize_button)
-        .OnDirectHover([&]{ if(mouse_pressed) window_size_drag = true;}).Run();
+        .OnDirectHover([&]
+        {   
+            b.GetStyle().background_color = theme.button_color_hover;
+            if(mouse_pressed) window_size_drag = true;
+        }).Run();
+
+
+        // ======================== END Inspector UI TREE ==================================
 
         if(mouse_released)
         {
@@ -1609,14 +1624,14 @@ namespace UI
 
         ui.BeginBox(base, "base_element");
             ui.BeginBox(base_title_bar, "base_title_bar");
-                ui.InsertText(StringFormat("[S:24][C:%s]Inspector", theme.text_color));
+                ui.InsertText(Fmt("[S:24][C:%s]Inspector", theme.text_color));
             ui.EndBox();
             ui.BeginBox(h_container);
 
             // ===== Left Panel =====
                 ui.BeginBox(left_panel);
                     ui.BeginBox(panel_title_bar);
-                        ui.InsertText(StringFormat("[S:22][C:%s]Navigate", theme.text_color));
+                        ui.InsertText(Fmt("[S:22][C:%s]Navigate", theme.text_color));
                     ui.EndBox();
 
                     // ===== Left Size Contents ====
@@ -1632,7 +1647,7 @@ namespace UI
 
                 ui.BeginBox(right_panel);
                     ui.BeginBox(panel_title_bar);
-                        ui.InsertText(StringFormat("[S:22][C:%s]Details", theme.text_color_hover));
+                        ui.InsertText(Fmt("[S:22][C:%s]Details", theme.text_color_hover));
                     ui.EndBox();
 
 
@@ -1659,6 +1674,147 @@ namespace UI
         }
     }
     */
+
+    void DebugView::ConstructTree(TreeNodeDebug* node, int depth)
+    {
+        if(node == nullptr)
+            return;
+
+        BoxStyle button =
+        {
+            .flow = {.vertical_alignment = Flow::CENTERED}, 
+            .width = {9999},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .background_color = theme.button_color
+        };
+        BoxStyle filler = {.width = {9}, .height = {0}}; 
+
+        BoxStyle line = 
+        { 
+            .width = {1}, 
+            .height = {100, Unit::PARENT_PERCENT}, 
+            .background_color = theme.button_color_hover 
+        };
+
+        BoxStyle content_box = 
+        {
+            .width = {100, Unit::CONTENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .gap_column = {4},
+        };
+
+        BoxStyle open_button =
+        {
+            .flow = {.vertical_alignment = Flow::CENTERED, .horizontal_alignment = Flow::CENTERED},
+            .width = {18},
+            .height = {18},
+            .border_color = theme.button_color_hover,
+            .corner_radius = 2,
+            .border_width = 1,
+        };
+        BoxStyle color_icon = open_button;
+
+        HexColor text_color = theme.text_color;
+        if(!node->box.is_rendered)
+            button.background_color = {255, 211, 211, 255};
+        if(node == selected_node)
+        {
+            text_color = theme.text_color_hover;
+            open_button.background_color = theme.button_color_hover;
+            open_button.border_color = theme.button_color;
+            line.background_color = theme.button_color;
+            button.background_color = theme.button_color_hover;
+        }
+
+
+        Builder b;
+        b.SetContext(&ui);
+
+        bool* is_open = nullptr;
+
+        b.Box(Fmt("tree-element-button%ld", (uintptr_t)node))
+        .OnDirectHover([&]
+        {
+            text_color = theme.text_color_hover;
+            open_button.background_color = theme.button_color_hover;
+            open_button.border_color = theme.button_color;
+            line.background_color = theme.button_color;
+            button.background_color = theme.button_color_hover;
+            if(mouse_pressed)
+                selected_node = node;
+            hovered_element = node->box.dim;
+        })
+        .Style(button)
+        .Run([&]
+        {
+            for(int i = 0; i<depth; i++)
+            {
+                b.Box().Style(filler).Run();
+                b.Box().Style(line).Run();
+                b.Box().Style(filler).Run();
+            }
+            if(!node->children.IsEmpty())
+            {
+                b.Box(Fmt("tree-element-open-button%ld", (uintptr_t)node));
+                //===== Open Button logic =====
+                HexColor icon_color = text_color;
+                uint64_t key = b.GetBoxInfo().GetKey();
+                is_open = tree_state.GetValue(key);
+                if(!is_open) is_open = tree_state.Insert(key, false);
+                if(b.IsDirectHover())
+                {
+                    open_button.background_color = theme.button_color_hover;
+                    open_button.border_color = theme.button_color_hover;
+                    icon_color = theme.text_color_hover;
+                    if(is_open && mouse_pressed)
+                        *is_open = !*is_open;
+                }
+                char icon = '+';
+                if(is_open && *is_open)
+                {
+                    icon = '-';
+                    //Had to break chaining for this green button
+                    open_button.background_color = {100, 255, 100, 255};
+                }
+                // ============================
+                b.Style(open_button)
+                .Run([&]
+                {
+                    b.Text(Fmt("[S:20][C:%s]%c", icon_color, icon)).Run();
+                });
+            }
+            b.Box().Style(content_box)
+            .Run([&]
+            {
+                const DebugBox& box = node->box;
+                b.Text(Fmt("[S:20][C:%s]%s ", text_color, box.text? "Text": node == root_node? "Root": "Box")).Run();
+                if(box.text)
+                {
+                    b.Text(Fmt("[S:20][C:%s][OFF]\"%s\"", theme.string_color, box.text)).Run();
+                }
+                else if(box.style.background_color.a > 0)
+                {
+                    color_icon.background_color = box.style.background_color;
+                    b.Box().Style(color_icon).Run();
+                }
+                if(box.label)
+                {
+                    b.Text(Fmt("[S:20][C:%s]id: [C:%s][OFF]\"%s\"", text_color, theme.id_text_color, box.label)).Run();
+                }
+            });
+        });
+
+
+        if(is_open && *is_open)
+        {
+            for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+            {
+                DebugBox& box = temp->value.box;
+                ConstructTree(&temp->value, depth + 1);
+            }
+        }
+    }
+    /*
     void DebugView::ConstructTree(TreeNodeDebug* node, int depth)
     {
         if(node == nullptr)
@@ -1719,7 +1875,7 @@ namespace UI
         bool change_button_color = false;
 
         //Button Logic
-        const char* button_id = StringFormat("button_id%ld", (uintptr_t)node);
+        const char* button_id = Fmt("button_id%ld", (uintptr_t)node);
         BoxInfo button_info = ui.GetBoxInfo(button_id);
         if(button_info.valid && button_info.is_direct_hover)
         {
@@ -1745,7 +1901,7 @@ namespace UI
 
 
         //====== open button logic =======
-        const char* open_button_id = StringFormat("open_button_id%ld", (uintptr_t)node);
+        const char* open_button_id = Fmt("open_button_id%ld", (uintptr_t)node);
         uint64_t open_button_key = Hash(open_button_id);
         bool* is_open = tree_state.GetValue(open_button_key);
         if(is_open == nullptr)
@@ -1778,14 +1934,14 @@ namespace UI
         if(!node->children.IsEmpty())
         {
             ui.BeginBox(open_button, open_button_id);
-                ui.InsertText(StringFormat("[S:20][C:%s]%c", open_button_text_color, open_icon));
+                ui.InsertText(Fmt("[S:20][C:%s]%c", open_button_text_color, open_icon));
             ui.EndBox();
         }
 
 
         // ===== Content =====
         ui.BeginBox(content_box);
-        ui.InsertText(StringFormat("[S:20][C:%s]%s", button_text_color, button_text));
+        ui.InsertText(Fmt("[S:20][C:%s]%s", button_text_color, button_text));
         if(box.style.background_color.a > 0)
         {
             ui.BeginBox(color_icon);
@@ -1793,11 +1949,11 @@ namespace UI
         }
         if(box.text)
         {
-                ui.InsertText(StringFormat("[S:20][C:%s][OFF]\"%s\"", theme.insert_text_color, box.text));
+                ui.InsertText(Fmt("[S:20][C:%s][OFF]\"%s\"", theme.string_color, box.text));
         }
         if(box.label)
         {
-            ui.InsertText(StringFormat("[S:20][C:%s]id [OFF]\"%s\"", theme.id_text_color, box.label));
+            ui.InsertText(Fmt("[S:20][C:%s]id [OFF]\"%s\"", theme.id_text_color, box.label));
         }
         ui.EndBox();
         // ===================
@@ -1816,14 +1972,15 @@ namespace UI
             }
         }
     }
+    */
 
     bool DebugView::SearchNodeAndOpenTree(TreeNodeDebug* node)
     {
         if(node == nullptr)
             return false;
-        if(node == selected_node) 
-            return true;
         bool found = false; 
+        if(node == selected_node) 
+            found =  true;
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
             bool result = SearchNodeAndOpenTree(&temp->value);
@@ -1831,7 +1988,7 @@ namespace UI
                 found = true;
         }
 
-        uint64_t key = Hash(StringFormat("open_button_id%ld", (uintptr_t)node));
+        uint64_t key = Hash(Fmt("tree-element-open-button%ld", (uintptr_t)node));
         if(found)
         {
             tree_state.Insert(key, true);
@@ -2014,7 +2171,9 @@ namespace UI
         if(label)
         {
             //BoxInfo will be filled in next frame 
-            bool err = double_buffer_map.Insert(label_hash, BoxInfo());
+            BoxInfo box_info;
+            box_info.key = label_hash;
+            bool err = double_buffer_map.Insert(label_hash, box_info);
             assert(err && "HashMap out of memory, go to BeginRoot and change it");
         }
 

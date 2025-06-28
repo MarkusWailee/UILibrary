@@ -18,7 +18,7 @@
     #define UI_DEBUG {-1, nullptr}
 #endif
 
-//Only used for StringFormat
+//Only used for Fmt
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -50,7 +50,7 @@ namespace UI
 {
 
     //String Helper
-    const char *StringFormat(const char *text, ...);
+    const char *Fmt(const char *text, ...);
 
     //Math helpers
     float MillimeterToPixels();
@@ -192,6 +192,7 @@ namespace UI
 
     struct BoxInfo
     {
+        uint64_t key = 0;
         int x = 0;
         int y = 0;
         int width = 0;
@@ -215,6 +216,7 @@ namespace UI
         int DrawHeight() const { return height + padding.top + padding.bottom; }
         int MaxScrollX() const { return Max(0, content_width - width);}
         int MaxScrollY() const { return Max(0, content_height - height);}
+        uint64_t GetKey() const { return key; }
     };
     struct DebugInfo
     {
@@ -462,6 +464,9 @@ namespace UI
         template<typename Func>
         Builder& OnDirectHover(Func&& func);
 
+        bool IsHover() const;
+        bool IsDirectHover() const;
+
         //Executes begin/end
         void Run();
 
@@ -518,6 +523,14 @@ namespace UI
     inline BoxInfo Builder::GetBoxInfo() const
     {
         return info;
+    }
+    inline bool Builder::IsHover() const 
+    {
+        return info.IsHover();
+    }
+    inline bool Builder::IsDirectHover() const
+    {
+        return info.IsDirectHover();
     }
     inline BoxStyle& Builder::GetStyle()
     {
