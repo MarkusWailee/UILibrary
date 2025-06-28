@@ -201,14 +201,18 @@ namespace UI
 
         int content_width =     0;
         int content_height =    0;
-        bool valid =            false;
+        bool valid =            false; // mainly used when you want to verify sizings as they are default to 0
         bool is_hover =         false;
         bool is_direct_hover =  false;
         bool is_rendered =      false;
-        int DrawX() const { return x + margin.left; };
-        int DrawY() const { return y + margin.top; };
-        int DrawWidth() const { return width + padding.left + padding.right; };
-        int DrawHeight() const { return height + padding.top + padding.bottom; };
+        bool IsValid() const { return valid; }
+        bool IsDirectHover() const {return is_direct_hover; }
+        bool IsHover() const {return is_hover; }
+        bool IsRendered() const { return is_rendered; }
+        int DrawX() const { return x + margin.left; }
+        int DrawY() const { return y + margin.top; }
+        int DrawWidth() const { return width + padding.left + padding.right; }
+        int DrawHeight() const { return height + padding.top + padding.bottom; }
         int MaxScrollX() const { return Max(0, content_width - width);}
         int MaxScrollY() const { return Max(0, content_height - height);}
     };
@@ -385,7 +389,9 @@ namespace UI
         Context(uint64_t arena_bytes);
         BoxInfo GetBoxInfo(const char* label);
         BoxInfo GetBoxInfo(uint64_t key);
-        void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
+        void SetMousePos(int x, int y);
+        void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, DebugInfo debug_info = UI_DEBUG);
+        void BeginRoot(int x, int y, int screen_width, int screen_height, DebugInfo debug_info = UI_DEBUG);
         void EndRoot();
         void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
         void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG);
@@ -401,7 +407,6 @@ namespace UI
         Internal::TreeNode* GetInternalTree();
         Internal::MemoryArena& GetMemoryArena();
     private:
-        void SetMousePos(int x, int y);
         //These functions are for internals only
         using Box = Internal::Box;
         using TreeNode = Internal::TreeNode;
@@ -436,5 +441,136 @@ namespace UI
     };
 
 
+    //Builder Notation
+    class Builder 
+    {
+    public: 
+        void SetContext(Context* context);
+        BoxInfo GetBoxInfo() const;
 
+        //Main 3 options
+        template<typename Func>
+        void Root(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, Func&& func);
+        Builder& Text(const char* text, const char* id = nullptr, bool should_copy = true, DebugInfo debug_info = UI_DEBUG);
+        Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG);
+
+        //Parmeters
+        Builder& Style(const BoxStyle& style);
+        template<typename Func>
+        Builder& OnHover(Func&& func);
+        template<typename Func>
+        Builder& OnDirectHover(Func&& func);
+
+        //Executes begin/end
+        void Run();
+
+        //Executes begin/end with lambda
+        template<typename Func>
+        void Run(Func&& func);
+    private:
+        bool HasContext() const;
+        void ClearStates();
+        Context* context = nullptr;
+
+        //States
+        const char* id = nullptr;
+        const char* text = nullptr;
+        BoxInfo info;
+        BoxStyle style;
+        DebugInfo debug_info;
+        bool should_copy = true;
+    };
+
+}
+
+
+//Builder Implementation
+namespace UI
+{
+    template<typename Func>
+    void Builder::Root(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, Func&& func)
+    {
+        if(HasContext())
+        {
+            context->BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
+            func();
+            context->EndRoot();
+        }
+    }
+    inline void Builder::SetContext(Context* context)
+    {
+        this->context = context;
+    }
+    inline bool Builder::HasContext() const
+    {
+        return context != nullptr;
+    }
+    inline void Builder::ClearStates()
+    {
+        id = nullptr;
+        text = nullptr;
+        info = BoxInfo();
+        style = BoxStyle();
+        debug_info = DebugInfo();
+        should_copy = true;
+    }
+    inline BoxInfo Builder::GetBoxInfo() const
+    {
+        return info;
+    }
+    inline Builder& Builder::Style(const BoxStyle& style)
+    {
+        this->style = style;
+        return *this;
+    }
+    template<typename Func>
+    Builder& Builder::OnHover(Func&& func)
+    {
+        if(info.IsValid() && info.IsHover()) 
+        {
+            func();
+        }
+        return *this;
+    }
+    template<typename Func>
+    Builder& Builder::OnDirectHover(Func&& func)
+    {
+        if(info.IsValid() && info.IsDirectHover()) 
+        {
+            func();
+        }
+        return *this;
+    }
+    inline void Builder::Run()
+    {
+        if(HasContext())
+        {
+            if(text)
+            {
+                context->InsertText(text, id, should_copy, debug_info);
+            }
+            else
+            {
+                context->BeginBox(style, id, debug_info);
+                context->EndBox();
+            }
+        }
+    }
+    template<typename Func>
+    void Builder::Run(Func&& func)
+    {
+        if(HasContext())
+        {
+            if(text)
+            {
+                context->InsertText(text, id, should_copy, debug_info);
+            }
+            else
+            {
+                context->BeginBox(style, id, debug_info);
+                func();
+                context->EndBox();
+            }
+        }
+    }
 }

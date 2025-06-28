@@ -1754,9 +1754,13 @@ namespace UI
         this->mouse_x = x;
         this->mouse_y = y;
     }
-    void Context::BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
+    void Context::BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, DebugInfo debug_info)
     {
         SetMousePos(mouse_x, mouse_y);
+        this->BeginRoot(x, y, screen_width, screen_height, debug_info);
+    }
+    void Context::BeginRoot(int x, int y, int screen_width, int screen_height, DebugInfo debug_info)
+    {
         if(HasInternalError())
             return;
 
@@ -1785,6 +1789,10 @@ namespace UI
         root_box.y = y;
         
         // ========== Debug Mode Only ==========
+        #if UI_ENABLE_DEBUG
+            root_box.debug_file = debug_info.file;
+            root_box.debug_line = debug_info.line;
+        #endif
 
         if(stack.IsEmpty())//Root Node
         {
@@ -2741,6 +2749,34 @@ namespace UI
             EndScissorMode_impl();
     } //End of DrawPass_FlowNoWrap()
 
+
+
+
+    //Builder Implementation
+    Builder& Builder::Text(const char* text, const char* id, bool should_copy, DebugInfo debug_info)
+    {
+        ClearStates();
+        if(HasContext())
+        {
+            this->debug_info = debug_info;
+            this->text = text;
+            this->id = id;
+            this->should_copy = should_copy;
+            info = context->GetBoxInfo(id);
+        }
+        return *this;
+    }
+    Builder& Builder::Box(const char* id, DebugInfo debug_info)
+    {
+        ClearStates();
+        if(HasContext())
+        {
+            this->debug_info = debug_info;
+            this->id = id; 
+            info = context->GetBoxInfo(id);
+        }
+        return *this;
+    }
 
 
 }
