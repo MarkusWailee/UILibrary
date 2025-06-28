@@ -108,6 +108,7 @@ namespace UI
         const char* text = nullptr;
         Rect dim;
         bool        is_rendered = false;
+        bool        is_open = false;
     };
     struct TreeNodeDebug
     {
@@ -183,7 +184,6 @@ namespace UI
         Theme theme = light_theme;
         Context ui;
         Rect hovered_element;
-        Map<bool> tree_state;
 
         Rect window_dim = {10, 10, 400, 300};
         bool window_pos_drag = false;
@@ -720,7 +720,7 @@ namespace UI
         assert(text && "no text padded");
         assert(arena && "no arena passed");
         int n = StringLength(text) + 1;
-        char* temp = arena->New<char>(n);
+        char* temp = (char*)arena->Allocate(n);
         if(temp == nullptr)
             return nullptr;
         StringCopy(temp, text, n);
@@ -1182,7 +1182,6 @@ namespace UI
     {
         root_node = nullptr;
         selected_node = nullptr;
-        tree_state.Clear();
         arena.Reset();
         ui.ResetAllStates();
     }
@@ -1714,70 +1713,62 @@ namespace UI
         };
         BoxStyle color_icon = open_button;
 
-        HexColor text_color = theme.text_color;
         if(!node->box.is_rendered)
             button.background_color = {255, 211, 211, 255};
-        if(node == selected_node)
+        
+        HexColor text_color = theme.text_color;
+        
+        auto highlight_button = [&]
         {
             text_color = theme.text_color_hover;
             open_button.background_color = theme.button_color_hover;
             open_button.border_color = theme.button_color;
             line.background_color = theme.button_color;
             button.background_color = theme.button_color_hover;
-        }
+        };
+        if(node == selected_node)
+            highlight_button();
 
 
         Builder b;
         b.SetContext(&ui);
 
-        bool* is_open = nullptr;
 
         b.Box(Fmt("tree-element-button%ld", (uintptr_t)node))
         .OnDirectHover([&]
         {
-            text_color = theme.text_color_hover;
-            open_button.background_color = theme.button_color_hover;
-            open_button.border_color = theme.button_color;
-            line.background_color = theme.button_color;
-            button.background_color = theme.button_color_hover;
-            if(mouse_pressed)
-                selected_node = node;
+            highlight_button();
+            if(mouse_pressed) selected_node = node;
             hovered_element = node->box.dim;
         })
         .Style(button)
         .Run([&]
         {
-            for(int i = 0; i<depth; i++)
-            {
-                b.Box().Style(filler).Run();
-                b.Box().Style(line).Run();
-                b.Box().Style(filler).Run();
-            }
+            // filler + line + filler
+            for(int i = 0; i<depth; i++) { b.Box().Style(filler).Run(); b.Box().Style(line).Run(); b.Box().Style(filler).Run(); }
+
             if(!node->children.IsEmpty())
             {
-                b.Box(Fmt("tree-element-open-button%ld", (uintptr_t)node));
                 //===== Open Button logic =====
                 HexColor icon_color = text_color;
-                uint64_t key = b.GetBoxInfo().GetKey();
-                is_open = tree_state.GetValue(key);
-                if(!is_open) is_open = tree_state.Insert(key, false);
-                if(b.IsDirectHover())
-                {
-                    open_button.background_color = theme.button_color_hover;
-                    open_button.border_color = theme.button_color_hover;
-                    icon_color = theme.text_color_hover;
-                    if(is_open && mouse_pressed)
-                        *is_open = !*is_open;
-                }
                 char icon = '+';
-                if(is_open && *is_open)
+                if(node->box.is_open)
                 {
                     icon = '-';
-                    //Had to break chaining for this green button
                     open_button.background_color = {100, 255, 100, 255};
                 }
                 // ============================
-                b.Style(open_button)
+                b.Box(Fmt("tree-element-open-button%ld", (uintptr_t)node))
+                .OnDirectHover([&]
+                {
+                    if(!node->box.is_open)
+                        open_button.background_color = theme.button_color_hover;
+                    open_button.border_color = theme.button_color_hover;
+                    icon_color = theme.text_color_hover;
+                    if(mouse_pressed)
+                        node->box.is_open = !node->box.is_open;
+                })
+                .Style(open_button)
                 .Run([&]
                 {
                     b.Text(Fmt("[S:20][C:%s]%c", icon_color, icon)).Run();
@@ -1804,8 +1795,7 @@ namespace UI
             });
         });
 
-
-        if(is_open && *is_open)
+        if(node->box.is_open)
         {
             for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
             {
@@ -1988,15 +1978,14 @@ namespace UI
                 found = true;
         }
 
-        uint64_t key = Hash(Fmt("tree-element-open-button%ld", (uintptr_t)node));
         if(found)
         {
-            tree_state.Insert(key, true);
+            node->box.is_open = true;
             return true;
         }
         else
         {
-            tree_state.Insert(key, false);
+            node->box.is_open = false;
             return false;
         }
     }
@@ -2163,9 +2152,6 @@ namespace UI
             return;
         element_count++;
 
-        //Check for unit type errors
-        //Could be moved into creating style sheets for more performance, but this is good enough for now
-
         //Input Handling
         uint64_t label_hash = Hash(label);
         if(label)
@@ -2305,7 +2291,6 @@ namespace UI
             if(HandleInternalError(CheckNodeContradictions(parent_box, grand_parent->box)))
                 return;
         }
-
     }
 
 
@@ -2322,32 +2307,23 @@ namespace UI
         TreeNode* parent_node = stack.Peek();
         assert(parent_node);
         const Box& parent_box = parent_node->box;
-        TreeNode text_node;
+        TreeNode node;
         Box box;
 
-        //DEBUGGING TEXT
-        //box.background_color = {0, 0, 0, 50};
-
-        uint64_t label_hash = Hash(label);
         if(label)
         {
             //BoxInfo will be filled in next frame 
-            bool err = double_buffer_map.Insert(label_hash, BoxInfo());
-            assert(err && "HashMap out of memory, go to BeginRoot and change it");
+            box.label_hash = Hash(label);
+            bool no_err = double_buffer_map.Insert(box.label_hash, BoxInfo());
+            assert(no_err && "HashMap out of memory, go to BeginRoot and change it");
         }
-        box.label_hash = label_hash;
 
         if(should_copy && text)
         {
-            int len = StringLength(text);
-            char* text_copy = (char*)arena.Allocate(len + 1);
-            if(!text_copy)
-                assert(0 && "Arena out of memory");
-            StringCopy(text_copy, text, len + 1); 
-            text = text_copy;
+            text = ArenaCopyString(text, &arena);
+            assert(text && "Arena out of memory");
         }
         box.text = text;
-
 
         Markdown md;
         md.SetInput(text, 9999, 9999);
@@ -2364,10 +2340,8 @@ namespace UI
             box.max_width = md.GetMeasuredWidth() + 1;
         }
 
-
-
-        text_node.box = box;
-        TreeNode* addr = parent_node->children.Add(text_node, &arena);
+        node.box = box;
+        TreeNode* addr = parent_node->children.Add(node, &arena);
         assert(addr && "Arena out of memory");
     }
 
@@ -2387,8 +2361,6 @@ namespace UI
 
 
         //Layout pipeline
-        //WidthContentPercentPass happens during EndBox()
-
         WidthPass(root_node);
         HeightContentPercentPass(root_node);
         HeightPass(root_node);
