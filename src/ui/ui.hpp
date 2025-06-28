@@ -157,8 +157,8 @@ namespace UI
         Flow flow;
         Grid grid;
 
-        int gap_row = 0;
-        int gap_column = 0;
+        Unit x = Unit{0, Unit::Type::PIXEL};
+        Unit y = Unit{0, Unit::Type::PIXEL};
 
         Unit width =    Unit{50, Unit::Type::PIXEL};
         Unit height =   Unit{50, Unit::Type::PIXEL};
@@ -168,25 +168,25 @@ namespace UI
         Unit min_height;
         Unit max_height = Unit{9999, Unit::Type::PIXEL};
 
-        Unit x = Unit{0, Unit::Type::PIXEL};
-        Unit y = Unit{0, Unit::Type::PIXEL};
-
-        int scroll_x = 0;
-        int scroll_y = 0;
+        Spacing padding;
+        Spacing margin;
 
         Color background_color = UI::Color{0, 0, 0, 0};
         Color border_color = UI::Color{0, 0, 0, 0};
 
-        Spacing padding;
-        Spacing margin;
+        int gap_row = 0;
+        int gap_column = 0;
 
-        //Potentially performance heavy
-        bool scissor = false;
-        bool detach = false;
+        int scroll_x = 0;
+        int scroll_y = 0;
 
         //PIXEL VALUES
         unsigned char corner_radius = 0; //255 sets to circle
         unsigned char border_width = 0;  
+
+        //Potentially performance heavy
+        bool scissor = false;
+        bool detach = false;
     };
 
 
@@ -447,6 +447,7 @@ namespace UI
     public: 
         void SetContext(Context* context);
         BoxInfo GetBoxInfo() const;
+        BoxStyle& GetStyle();
 
         //Main 3 options
         template<typename Func>
@@ -517,6 +518,10 @@ namespace UI
     inline BoxInfo Builder::GetBoxInfo() const
     {
         return info;
+    }
+    inline BoxStyle& Builder::GetStyle()
+    {
+        return style;
     }
     inline Builder& Builder::Style(const BoxStyle& style)
     {

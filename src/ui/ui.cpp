@@ -1234,7 +1234,7 @@ namespace UI
         if(hovered_element.width > 0)
         {
             //Just testing this format
-            BoxStyle hovered_element_outline = {.width = {(float)hovered_element.width}, .height = {(float)hovered_element.height}, .x = {(float)hovered_element.x}, .y = {(float)hovered_element.y}, .border_color = {255, 255, 255, 255}, .detach = true, .border_width = 1};
+            BoxStyle hovered_element_outline = { .x = {(float)hovered_element.x}, .y = {(float)hovered_element.y}, .width = {(float)hovered_element.width}, .height = {(float)hovered_element.height}, .border_color = {255, 255, 255, 255},  .border_width = 1, .detach = true};
             ui.BeginBox(hovered_element_outline); ui.EndBox();
         }
         hovered_element = Rect();
@@ -1245,7 +1245,7 @@ namespace UI
             BoxInfo selected_node_info  = ui.GetBoxInfo(StringFormat("mock_element%ld", (uintptr_t)selected_node));
             if(selected_node_info.valid)
             {
-                BoxStyle selected_node_outline = {.width = (float)selected_node_info.DrawWidth(), .height = (float)selected_node_info.DrawHeight(), .x = (float)selected_node_info.DrawX(), .y = (float)selected_node_info.DrawY(), .border_color = {255, 0, 0, 255}, .detach = true, .border_width = 1};
+                BoxStyle selected_node_outline = { .x = (float)selected_node_info.DrawX(), .y = (float)selected_node_info.DrawY(), .width = (float)selected_node_info.DrawWidth(), .height = (float)selected_node_info.DrawHeight(), .border_color = {255, 0, 0, 255},  .border_width = 1, .detach = true,};
                 ui.BeginBox(selected_node_outline); ui.EndBox();
             }
         }
@@ -1294,6 +1294,174 @@ namespace UI
             ConstructMockUI(&temp->value);
         ui.EndBox();
     }
+    void DebugView::ConstructInspector(int mouse_x, int mouse_y)
+    {
+        // === Draggin Logic ===
+        if(mouse_pressed)
+        {
+            mouse_drag_x = mouse_x;
+            mouse_drag_y = mouse_y;
+        }
+        int mouse_delta_x = mouse_x - mouse_drag_x;
+        int mouse_delta_y = mouse_y - mouse_drag_y;
+
+        Rect base_dim = window_dim;
+        if(window_pos_drag)
+        {
+            base_dim.x += mouse_delta_x;
+            base_dim.y += mouse_delta_y;
+        }
+        if(window_size_drag)
+        {
+            base_dim.width += mouse_delta_x;
+            base_dim.height += mouse_delta_y;
+        }
+        int new_panel_width = panel_width;
+        if(panel_drag)
+        {
+            new_panel_width += mouse_delta_x;
+        }
+        base_dim.width = Max(250, base_dim.width);
+        base_dim.height = Max(125, base_dim.height);
+        new_panel_width = Clamp(new_panel_width, 100, base_dim.width - 100);
+        // ====================
+
+        Builder b;
+        b.SetContext(&ui);
+
+        BoxStyle base = 
+        {
+            .flow = { .axis = Flow::VERTICAL},
+            .x = {(float)base_dim.x},
+            .y = {(float)base_dim.y},
+            .width = {(float)base_dim.width},
+            .height = {(float)base_dim.height},
+            .background_color = theme.base_color,
+            .corner_radius = theme.base_corner_radius,
+            .detach = true,
+        };
+
+        BoxStyle title_bar = 
+        {
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .padding = {10, 10, 5, 5},
+            .background_color = theme.title_bar_color,
+            .corner_radius = (unsigned char)(theme.base_corner_radius >> 1)
+
+        };
+        BoxStyle h_container = 
+        {
+            .width = {100, Unit::AVAILABLE_PERCENT},
+            .height = {100, Unit::AVAILABLE_PERCENT},
+            .padding = theme.base_padding
+        };
+
+        BoxStyle left_panel =
+        {
+            .flow = {.axis = Flow::VERTICAL},
+            .width = {(float)new_panel_width},
+            .height = {100, Unit::AVAILABLE_PERCENT},
+            .background_color = theme.left_panel_color,
+            .corner_radius = theme.button_corner_radius
+        };
+
+        BoxStyle left_panel_title =
+        {
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .padding = {10, 10, 10, 10}
+        };
+
+        BoxStyle left_panel_scroll_box =
+        {
+            .flow = {.axis = Flow::VERTICAL},
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = {100, Unit::AVAILABLE_PERCENT},
+            .padding = {0, 0, 10, 10},
+            .scroll_y = left_panel_scroll,
+            .scissor = true
+        };
+
+        BoxStyle panel_resize_button;
+        panel_resize_button.flow.vertical_alignment = Flow::CENTERED;
+        panel_resize_button.flow.horizontal_alignment = Flow::CENTERED;
+        panel_resize_button.margin = {2,2};
+        panel_resize_button.width = {8};
+        panel_resize_button.height = {60};
+        panel_resize_button.background_color = theme.title_bar_color;
+        panel_resize_button.corner_radius = theme.icon_corner_radius;
+        BoxStyle right_panel
+        {
+            .width = {100, Unit::AVAILABLE_PERCENT},
+            .height = {100, Unit::AVAILABLE_PERCENT},
+            .background_color = theme.right_panel_color,
+            .corner_radius = theme.button_corner_radius
+        };
+        BoxStyle base_resize_button
+        {
+            .x = {(float)base_dim.x + base_dim.width - 18},
+            .y = {(float)base_dim.y + base_dim.height - 18},
+            .width{18},
+            .height = {18},
+            .background_color = theme.title_bar_color,
+            .corner_radius = theme.icon_corner_radius,
+            .detach = true
+        };
+
+        b.Box("base").Style(base).Run([&]
+        {
+            b.Box("base-title-bar").Style(title_bar).OnDirectHover([&] { if(mouse_pressed) window_pos_drag = true;})
+            .Run([&] { b.Text(StringFormat("[S:20][C:%s]Inspector", theme.text_color)).Run(); });
+
+            b.Box().Style(h_container)
+            .Run([&]
+            {
+                b.Box().Style(left_panel)
+                .Run([&]
+                {
+                    //Left Panel Title
+                    b.Box().Style(left_panel_title)
+                    .Run([&]{ b.Text(StringFormat("[S:20][C:%s]Navigate", theme.text_color)).Run(); });
+
+                    b.Box("left-panel-scroll-box").Style(left_panel_scroll_box)
+                    .OnHover([&]
+                    {
+                        left_panel_scroll -= mouse_scroll * 20;
+                        left_panel_scroll = Clamp(left_panel_scroll, 0, b.GetBoxInfo().MaxScrollY());
+                    })
+                    .Run([&] { ConstructTree(root_node, 0); });
+                });
+
+                b.Box("left-panel-resize-button").Style(panel_resize_button)
+                .OnDirectHover([&]{ if(mouse_pressed) panel_drag = true;})
+                .Run([&]
+                { 
+                    HexColor col = b.GetBoxInfo().IsDirectHover()? theme.text_color: theme.text_color_hover;
+                    b.Text(StringFormat("[S:20][C:%s]||", col)).Run();
+                });
+
+                b.Box().Style(right_panel)
+                .Run([&]
+                {
+                    //Right panel content
+                });
+            });
+        });
+        b.Box("base-resize-button")
+        .Style(base_resize_button)
+        .OnDirectHover([&]{ if(mouse_pressed) window_size_drag = true;}).Run();
+
+        if(mouse_released)
+        {
+            window_dim = base_dim;
+            window_pos_drag = false;
+            panel_width = new_panel_width;
+            window_size_drag = false;
+            panel_drag = false;
+        }
+    }
+    /*
     void DebugView::ConstructInspector(int mouse_x, int mouse_y)
     {
 
@@ -1490,6 +1658,7 @@ namespace UI
             panel_drag = false;
         }
     }
+    */
     void DebugView::ConstructTree(TreeNodeDebug* node, int depth)
     {
         if(node == nullptr)
