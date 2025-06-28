@@ -2200,6 +2200,7 @@ namespace UI
         TreeNode* node = stack.Peek();
         assert(node);
         Box& parent_box = node->box;
+        /*
         if(node->children.IsEmpty())
         {
             //if(HandleInternalError(CheckLeafNodeContradictions(parent_box)))
@@ -2283,6 +2284,7 @@ namespace UI
                 }
             }
         }
+        */
         stack.Pop();
         if(!stack.IsEmpty())
         {
@@ -2361,6 +2363,7 @@ namespace UI
 
 
         //Layout pipeline
+        WidthContentPercentPass(root_node);
         WidthPass(root_node);
         HeightContentPercentPass(root_node);
         HeightPass(root_node);
@@ -2371,6 +2374,75 @@ namespace UI
             TreeNode* node = deferred_elements.GetHead()->value;
             DrawPass(node, 0, 0, Box(), UI::Rect{0, 0, INT_MAX, INT_MAX});
             deferred_elements.PopHead();
+        }
+    }
+    void Context::WidthContentPercentPass_Flow(TreeNode* node)
+    {
+        assert(node);
+        Box& parent_box = node->box;
+        int content_width = 0;
+        if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
+        {
+            for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+            {
+                WidthContentPercentPass(&temp->value);
+                Box& box = temp->value.box;
+                if(box.IsDetached())
+                    continue;
+                if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
+                box.width_unit != Unit::Type::PARENT_PERCENT &&
+                box.max_width_unit != Unit::Type::PARENT_PERCENT &&
+                box.min_width_unit != Unit::Type::PARENT_PERCENT)
+                {
+                    box.width = Clamp(box.width, box.min_width, box.max_width);
+                    content_width += box.GetBoxModelWidth();
+                }
+                content_width += parent_box.gap_column;
+            }
+            content_width -= parent_box.gap_column;
+        }
+        else
+        {
+            int largest_width = 0;
+            for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+            {
+                WidthContentPercentPass(&temp->value);
+                Box& box = temp->value.box;
+                if(box.IsDetached())
+                    continue;
+                if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
+                box.width_unit != Unit::Type::PARENT_PERCENT &&
+                box.max_width_unit != Unit::Type::PARENT_PERCENT &&
+                box.min_width_unit != Unit::Type::PARENT_PERCENT)
+                {
+                    box.width = Clamp(box.width, box.min_width, box.max_width);
+                    int width = box.GetBoxModelWidth();
+                    if(largest_width < width)
+                        largest_width = width;
+                }
+            }
+            content_width = largest_width;
+        }
+        content_width = Max(0, content_width);
+        if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+            parent_box.width = content_width * parent_box.width / 100;
+        if(parent_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
+            parent_box.min_width = content_width * parent_box.min_width / 100;
+        if(parent_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
+            parent_box.max_width = content_width * parent_box.max_width / 100;
+    }
+    void Context::WidthContentPercentPass(TreeNode* node)
+    {
+        if(!node)
+            return;
+        const Box& box = node->box;
+        if(box.GetLayout() == Layout::FLOW)
+        {
+            WidthContentPercentPass_Flow(node);
+        }
+        else
+        {
+            assert(0 && "Have not added grid yet");
         }
     }
     void Context::WidthPass(TreeNode* node)

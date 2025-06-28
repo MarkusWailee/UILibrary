@@ -417,6 +417,9 @@ namespace UI
         //Returns true, sets internal error, and displays error if true
         bool HandleInternalError(const Error& error);
         //Width
+        void WidthContentPercentPass_Flow(TreeNode* node);
+        void WidthContentPercentPass(TreeNode* node);
+
         void WidthPass(TreeNode* node);
         void WidthPass_Flow(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box); //Recurse Helper
         //Height
