@@ -20,7 +20,8 @@ int main(void)
     //SetTargetFPS(256);
 
     UI::Init_impl();
-    UI::Context ui_context(32768 * 4);
+    UI::Context ui_context(128 * UI::KB);
+
     UI::SetContext(&ui_context);
 
 

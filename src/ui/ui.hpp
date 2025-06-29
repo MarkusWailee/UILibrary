@@ -29,6 +29,8 @@
 namespace UI
 {
     class Context;
+    class Builder;
+    class DebugInspector;
     struct Error;
     struct BoxStyle;
     struct Grid;
@@ -49,6 +51,8 @@ namespace UI::Internal
 namespace UI
 {
 
+    constexpr uint64_t KB = 1024;
+    constexpr uint64_t MB = KB * KB;
     //String Helper
     const char *Fmt(const char *text, ...);
 
@@ -279,17 +283,15 @@ namespace UI
         {
             // ========= Only used when debugging is enabled
             #if UI_ENABLE_DEBUG
-                const char* debug_file = nullptr;
-                int         debug_line = -1;
+                DebugInfo debug_info;
             #endif
             // =============================================
-
-            //By the end of UI::Draw(), all final measurements are placed back into box
             uint64_t label_hash =       0; 
             const char* text = nullptr;
+
             Color background_color = UI::Color{0, 0, 0, 0}; //used for debugging
             Color border_color = UI::Color{0, 0, 0, 0};
-            //type 3
+            //By the end of UI::Draw(), all final measurements are placed back into box
             int scroll_x =              0;
             int scroll_y =              0;
             uint16_t width =            0;
@@ -327,7 +329,6 @@ namespace UI
 
             Flow::Alignment flow_vertical_alignment = Flow::Alignment::START;
             Flow::Alignment flow_horizontal_alignment = Flow::Alignment::START;
-            //PIXEL VALUES
             uint8_t corner_radius = 0; //255 sets to circle
             uint8_t border_width = 0;  
             Spacing padding;
@@ -385,6 +386,7 @@ namespace UI
     };
 
 
+
     class Context
     {
     public:
@@ -398,16 +400,14 @@ namespace UI
         void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
         void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG);
         void EndBox();
-        void DrawDebugMenu(bool is_mouse_pressed, bool is_mouse_release, bool esc_key_pressed);
         void Draw();
         uint32_t GetElementCount() const;
 
+        void SetInspector(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed, DebugInspector* inspector_context); 
         //For Advanced Purposes
 
         //Might not even use this
         void ResetAllStates();
-        Internal::TreeNode* GetInternalTree();
-        Internal::MemoryArena& GetMemoryArena();
     private:
         //These functions are for internals only
         using Box = Internal::Box;
@@ -416,35 +416,144 @@ namespace UI
         //Returns false and does nothing if no error
         //Returns true, sets internal error, and displays error if true
         bool HandleInternalError(const Error& error);
+
+        // ========== Layout ===============
+
         //Width
         void WidthContentPercentPass_Flow(TreeNode* node);
         void WidthContentPercentPass(TreeNode* node);
-
         void WidthPass(TreeNode* node);
         void WidthPass_Flow(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box); //Recurse Helper
         //Height
         void HeightContentPercentPass_Flow(TreeNode* node);
         void HeightContentPercentPass(TreeNode* node);
-
         void HeightPass(TreeNode* node);
         void HeightPass_Flow(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box); //Recurse Helper
 
         //Computes position and draws.
         void DrawPass_FlowNoWrap(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
         void DrawPass(TreeNode* node, int x, int y, const Box& parent_box, Rect parent_aabb);
+        // ================================
 
     private:
-        uint32_t element_count = 0;
+
+        DebugInspector* debug_view = nullptr;
+        bool enable_inspector = false;
+
         uint64_t directly_hovered_element_key = 0;
         Error internal_error;
-        int mouse_x = 0, mouse_y = 0;
         Internal::MemoryArena arena;
         Internal::ArenaDoubleBufferMap<BoxInfo> double_buffer_map;
         Internal::ArenaLL<TreeNode*> deferred_elements;
         TreeNode* root_node = nullptr;
         Internal::FixedStack<TreeNode*, 64> stack; //elements should never nest over 100 layers deep
+
+        int mouse_x = 0, mouse_y = 0;
+        uint32_t element_count = 0;
     };
 
+    struct DebugBox
+    {
+        BoxStyle    style;
+        DebugInfo   debug_info;
+        const char* label = nullptr;
+        const char* text = nullptr;
+        Rect dim;
+        bool        is_rendered = false;
+        bool        is_open = false;
+    };
+    class DebugInspector
+    {
+        friend class Context;
+        struct TreeNodeDebug
+        {
+            Internal::ArenaLL<TreeNodeDebug> children;
+            DebugBox box;
+        };
+    public:
+        struct Theme
+        {
+            Color base_color;
+            Color left_panel_color;
+            Color right_panel_color;
+            Color button_color;
+            Color button_color_hover;
+            Color invalid_button;
+            Color title_bar_color;
+            HexColor text_color;
+            HexColor text_color_hover;
+            HexColor string_color;
+            HexColor id_text_color;
+            Spacing base_padding;
+            uint8_t base_corner_radius;
+            uint8_t icon_corner_radius;
+            uint8_t button_corner_radius;
+        };
+        constexpr static Theme light_theme = 
+        {
+            {253, 253, 253, 50}, //base_color
+            {253, 253, 253, 255}, //left_panel_color
+            {38, 38, 38, 255},  //right_panel_color;
+            {253, 253, 253, 255},   //button_color;
+            {38, 38, 38, 255},  //button_color_hover;
+            {255, 230, 230, 255}, //invalid_button
+            {200, 200, 200, 255}, //title_bar_color;
+            RGBAToHex({38, 38, 38, 255}),//text_color;
+            RGBAToHex({253, 253, 253, 255}),//text_color_hover;
+            RGBAToHex({70, 188, 70, 255}), //string_color;
+            RGBAToHex({220, 173, 48, 255}), //id_text_color;
+            {10, 10, 10, 10}, //base_padding
+            16, //base_corner_radius;
+            3,  //icon_corner_radius;
+            8,  //button_corner_radius;
+        };
+
+        DebugInspector(uint64_t memory);
+        void SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll); 
+        void Reset();
+
+
+        //Only used for copying ui tree
+        void PushNode(const DebugBox& box);
+        void PopNode();
+
+        void RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
+
+        Theme theme = light_theme;
+        Internal::MemoryArena arena; //only public to copy labels and strings. I dont feel like making a getter function
+    private:
+        bool IsTreeEmpty();
+
+        void ConstructMockUI(TreeNodeDebug* node);
+        void ConstructInspector(int mouse_x, int mouse_y);
+        void ConstructTree(TreeNodeDebug* node, int depth);
+        bool SearchNodeAndOpenTree(TreeNodeDebug* node);
+        // ===== Internal Tree =====
+        TreeNodeDebug* root_node = nullptr;
+        TreeNodeDebug* selected_node = nullptr;
+        Internal::FixedStack<TreeNodeDebug*, 64> stack;
+        // =========================
+
+        // ===== UI state =====
+        Context ui;
+        Rect hovered_element;
+
+        Rect window_dim = {10, 10, 400, 300};
+        bool window_pos_drag = false;
+        bool window_size_drag = false;
+        bool panel_drag = false;
+        int panel_width = 200;
+        int left_panel_scroll = 0;
+        // ====================
+
+        // ===== User Input =====
+        int mouse_scroll = 0;
+        int mouse_drag_x = 0;
+        int mouse_drag_y = 0;
+        bool mouse_pressed = false;
+        bool mouse_released = false;
+        // ======================
+    };
 
     //Builder Notation
     class Builder 

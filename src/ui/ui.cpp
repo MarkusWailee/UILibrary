@@ -100,107 +100,6 @@ namespace UI
 
     //Debugger
 
-    struct DebugBox
-    {
-        BoxStyle    style;
-        DebugInfo   debug_info;
-        const char* label = nullptr;
-        const char* text = nullptr;
-        Rect dim;
-        bool        is_rendered = false;
-        bool        is_open = false;
-    };
-    struct TreeNodeDebug
-    {
-        ArenaLL<TreeNodeDebug> children;
-        DebugBox box;
-    };
-
-    class DebugView
-    {
-    public:
-        struct Theme
-        {
-            Color base_color;
-            Color left_panel_color;
-            Color right_panel_color;
-            Color button_color;
-            Color button_color_hover;
-            Color invalid_button;
-            Color title_bar_color;
-            HexColor text_color;
-            HexColor text_color_hover;
-            HexColor string_color;
-            HexColor id_text_color;
-            Spacing base_padding;
-            uint8_t base_corner_radius;
-            uint8_t icon_corner_radius;
-            uint8_t button_corner_radius;
-        };
-        constexpr static Theme light_theme = 
-        {
-            {253, 253, 253, 50}, //base_color
-            {253, 253, 253, 255}, //left_panel_color
-            {38, 38, 38, 255},  //right_panel_color;
-            {253, 253, 253, 255},   //button_color;
-            {38, 38, 38, 255},  //button_color_hover;
-            {255, 230, 230, 255}, //invalid_button
-            {200, 200, 200, 255}, //title_bar_color;
-            RGBAToHex({38, 38, 38, 255}),//text_color;
-            RGBAToHex({253, 253, 253, 255}),//text_color_hover;
-            RGBAToHex({70, 188, 70, 255}), //string_color;
-            RGBAToHex({220, 173, 48, 255}), //id_text_color;
-            {10, 10, 10, 10}, //base_padding
-            16, //base_corner_radius;
-            3,  //icon_corner_radius;
-            8,  //button_corner_radius;
-        };
-
-        void SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll); 
-        DebugView(uint64_t memory);
-        void Reset();
-
-
-        //Only used for copying ui tree
-        void PushNode(const DebugBox& box);
-        void PopNode();
-        bool IsTreeEmpty();
-
-        void RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
-
-        MemoryArena arena; //only public to copy labels and strings. I dont feel like making a getter function
-    private:
-        void ConstructMockUI(TreeNodeDebug* node);
-        void ConstructInspector(int mouse_x, int mouse_y);
-        void ConstructTree(TreeNodeDebug* node, int depth);
-        bool SearchNodeAndOpenTree(TreeNodeDebug* node);
-        // ===== Internal Tree =====
-        TreeNodeDebug* root_node = nullptr;
-        TreeNodeDebug* selected_node = nullptr;
-        FixedStack<TreeNodeDebug*, 64> stack;
-        // =========================
-
-        // ===== UI state =====
-        Theme theme = light_theme;
-        Context ui;
-        Rect hovered_element;
-
-        Rect window_dim = {10, 10, 400, 300};
-        bool window_pos_drag = false;
-        bool window_size_drag = false;
-        bool panel_drag = false;
-        int panel_width = 200;
-        int left_panel_scroll = 0;
-        // ====================
-
-        // ===== User Input =====
-        int mouse_scroll = 0;
-        int mouse_drag_x = 0;
-        int mouse_drag_y = 0;
-        bool mouse_pressed = false;
-        bool mouse_released = false;
-        // ======================
-    };
 }
 
 
@@ -210,7 +109,7 @@ namespace UI
     bool debug_view_activate = false;
     bool debug_view_copy_tree = false;
 
-    DebugView debug_view(2097152); //2 MB
+    DebugInspector debug_view(2 * MB); //2 MB
     static float dpi = 96.0f;
     static Context* context = nullptr;
 }
@@ -261,7 +160,7 @@ namespace UI
     }
     void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
     {
-        // ===== DebugView Tree Building =====
+        // ===== DebugInspector Tree Building =====
         #if UI_ENABLE_DEBUG
         if(debug_view_activate)
         {
@@ -272,7 +171,7 @@ namespace UI
                 root_box.style.height = {(float)screen_height};
                 debug_view.PushNode(root_box);
             }
-            else //Run DebugView
+            else //Run DebugInspector
             {
                 debug_view.RunDebugInspector(x, y, screen_width, screen_height, mouse_x, mouse_y);
             }
@@ -287,7 +186,7 @@ namespace UI
     }
     void EndRoot()
     {
-        // ===== DebugView Tree Building =====
+        // ===== DebugInspector Tree Building =====
         #if UI_ENABLE_DEBUG
         if(debug_view_activate)
         {
@@ -305,7 +204,7 @@ namespace UI
     }
     void BeginBox(const UI::BoxStyle& box_style, const char* label, DebugInfo debug_info)
     {
-        // ===== DebugView Tree Building =====
+        // ===== DebugInspector Tree Building =====
         #if UI_ENABLE_DEBUG
         if(debug_view_activate)
         {
@@ -316,7 +215,7 @@ namespace UI
                 if(label)
                 {
                     box.label = ArenaCopyString(label, &debug_view.arena);
-                    assert(box.label && "DebugView arena out of memory");
+                    assert(box.label && "DebugInspector arena out of memory");
                 }
                 box.debug_info = debug_info;
                 debug_view.PushNode(box);
@@ -330,7 +229,7 @@ namespace UI
     }
     void InsertText(const char* text, const char* label, bool copy_text, DebugInfo debug_info)
     {
-        // ===== DebugView Tree Building =====
+        // ===== DebugInspector Tree Building =====
         #if UI_ENABLE_DEBUG
         if(debug_view_activate)
         {
@@ -343,7 +242,7 @@ namespace UI
                         box.text = ArenaCopyString(text, &debug_view.arena);
                     if(label)
                         box.label = ArenaCopyString(label, &debug_view.arena);
-                    assert(box.text && "DebugView arena out of memory");
+                    assert(box.text && "DebugInspector arena out of memory");
                 }
                 box.debug_info = debug_info;
                 debug_view.PushNode(box);
@@ -358,7 +257,7 @@ namespace UI
     }
     void EndBox()
     {
-        // ===== DebugView Tree Building =====
+        // ===== DebugInspector Tree Building =====
         #if UI_ENABLE_DEBUG
         if(debug_view_activate)
         {
@@ -377,7 +276,7 @@ namespace UI
     }
     void Draw()
     {
-        // ===== DebugView Tree Building =====
+        // ===== DebugInspector Tree Building =====
         #if UI_ENABLE_DEBUG
         if(debug_view_activate)
             return;
@@ -455,7 +354,7 @@ namespace UI
         if(value == illegal_unit)\
         {\
             error.type = error_type;\
-            StringCopy(error.msg, Fmt(#error_type"\n"#value" = " #illegal_unit"\nFile: %s\nLine: %d\n", file, line), ERROR_MSG_SIZE);\
+            StringCopy(error.msg, Fmt(#error_type"\n"#value" = " #illegal_unit"\nFile: %s\nLine: %d\n", debug_info.file, debug_info.line), ERROR_MSG_SIZE);\
         }
     Error CheckUnitErrors(const Box& style)
     {
@@ -464,8 +363,7 @@ namespace UI
         //Content%
         Error error;
         #if UI_ENABLE_DEBUG
-            const char* file = style.debug_file;
-            int line = style.debug_line;
+            DebugInfo debug_info = style.debug_info;
             UNIT_CONFLICT(style.x_unit,                     Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
             UNIT_CONFLICT(style.y_unit,                     Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
             UNIT_CONFLICT(style.grid_cell_width_unit,       Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
@@ -489,17 +387,16 @@ namespace UI
         //The Following erros are contradictions
         Error error;
         #if UI_ENABLE_DEBUG
-            const char* file = leaf.debug_file;
-            int line = leaf.debug_line;
+            DebugInfo debug_info = leaf.debug_info;
             if(leaf.width_unit == Unit::Type::CONTENT_PERCENT)
             {
                 error.type = Error::Type::LEAF_NODE_CONTRADICTION;
-                StringCopy(error.msg, Fmt("LEAF_NODE_CONTRADICTION\nbox.width_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", file, line), ERROR_MSG_SIZE);
+                StringCopy(error.msg, Fmt("LEAF_NODE_CONTRADICTION\nbox.width_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", debug_info.file, debug_info.line), ERROR_MSG_SIZE);
             }
             if(leaf.height_unit == Unit::Type::CONTENT_PERCENT)
             {
                 error.type = Error::Type::LEAF_NODE_CONTRADICTION;
-                StringCopy(error.msg, Fmt("LEAF_NODE_CONTRADICTION\nbox.height_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", file, line), ERROR_MSG_SIZE);
+                StringCopy(error.msg, Fmt("LEAF_NODE_CONTRADICTION\nbox.height_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", debug_info.file, debug_info.line), ERROR_MSG_SIZE);
             }
         #endif
         return error;
@@ -512,8 +409,7 @@ namespace UI
         //Parent%
         Error error;
         #if UI_ENABLE_DEBUG
-            const char* file = root.debug_file;
-            int line = root.debug_line;
+            DebugInfo debug_info = root.debug_info;
             UNIT_CONFLICT(root.width_unit,      Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
             UNIT_CONFLICT(root.height_unit,     Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
             UNIT_CONFLICT(root.min_width_unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
@@ -557,8 +453,7 @@ namespace UI
                     StringCopy(error.msg, Fmt(#error_type"\n"#child_unit " = " #illegal_unit" and "#parent_unit " = Unit::CONTENT_PERCENT\nFile: %s\nLine: %d\n", file, line), ERROR_MSG_SIZE);\
                 }
 
-            const char* file = child.debug_file;
-            int line = child.debug_line;
+            //DebugInfo debug_info = child.debug_info;
             //CHILD_PARENT_CONFLICT(child.width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
             //CHILD_PARENT_CONFLICT(child.width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
             //CHILD_PARENT_CONFLICT(child.height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
@@ -1174,28 +1069,28 @@ namespace UI
     }
 
 
-    DebugView::DebugView(uint64_t memory): ui(memory / 2), arena(memory / 2)
+    DebugInspector::DebugInspector(uint64_t memory): ui(memory / 2), arena(memory / 2)
     {
 
     }
-    void DebugView::Reset()
+    void DebugInspector::Reset()
     {
         root_node = nullptr;
         selected_node = nullptr;
         arena.Reset();
         ui.ResetAllStates();
     }
-    void DebugView::SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll)
+    void DebugInspector::SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll)
     {
         this->mouse_pressed = mouse_pressed;
         this->mouse_released = mouse_released;
         this->mouse_scroll = mouse_scroll;
     }
-    void DebugView::PushNode(const DebugBox& box)
+    void DebugInspector::PushNode(const DebugBox& box)
     {
         if(root_node == nullptr)
         {
-            assert(stack.IsEmpty() && "DebugView: unbalanced Begin/End");
+            assert(stack.IsEmpty() && "DebugInspector: unbalanced Begin/End");
             root_node = arena.New<TreeNodeDebug>();
             assert(root_node && "DebugVew arena out of memory");
             stack.Push(root_node);
@@ -1207,19 +1102,19 @@ namespace UI
         TreeNodeDebug child;
         child.box = box;
         TreeNodeDebug* child_ptr = parent->children.Add(child, &arena);
-        assert(child_ptr && "DebugView arena out of memory");
+        assert(child_ptr && "DebugInspector arena out of memory");
         stack.Push(child_ptr);
     }
-    void DebugView::PopNode()
+    void DebugInspector::PopNode()
     {
         assert(!stack.IsEmpty() && "Uneven amount of begin/end");
         stack.Pop();
     }
-    bool DebugView::IsTreeEmpty()
+    bool DebugInspector::IsTreeEmpty()
     {
         return root_node == nullptr;
     }
-    void DebugView::RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
+    void DebugInspector::RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
     {
         assert(root_node && "root_node should have been initialized"); //this is for more own sanity
         //root_node->box.style.width = {(float)screen_width};
@@ -1256,7 +1151,7 @@ namespace UI
 
         ui.Draw();
     }
-    void DebugView::ConstructMockUI(TreeNodeDebug* node)
+    void DebugInspector::ConstructMockUI(TreeNodeDebug* node)
     {
         if(node == nullptr)
             return;
@@ -1293,7 +1188,7 @@ namespace UI
             ConstructMockUI(&temp->value);
         ui.EndBox();
     }
-    void DebugView::ConstructInspector(int mouse_x, int mouse_y)
+    void DebugInspector::ConstructInspector(int mouse_x, int mouse_y)
     {
         // === Draggin Logic ===
         if(mouse_pressed)
@@ -1674,7 +1569,7 @@ namespace UI
     }
     */
 
-    void DebugView::ConstructTree(TreeNodeDebug* node, int depth)
+    void DebugInspector::ConstructTree(TreeNodeDebug* node, int depth)
     {
         if(node == nullptr)
             return;
@@ -1964,7 +1859,7 @@ namespace UI
     }
     */
 
-    bool DebugView::SearchNodeAndOpenTree(TreeNodeDebug* node)
+    bool DebugInspector::SearchNodeAndOpenTree(TreeNodeDebug* node)
     {
         if(node == nullptr)
             return false;
@@ -2007,16 +1902,6 @@ namespace UI
     Context::Context(uint64_t arena_bytes) :
         arena(arena_bytes)
     {
-    }
-    Internal::TreeNode* Context::GetInternalTree()
-    {
-        if(!stack.IsEmpty())
-            return nullptr;
-        return root_node;
-    }
-    Internal::MemoryArena& Context::GetMemoryArena()
-    {
-        return arena;
     }
     uint32_t Context::GetElementCount() const
     {
@@ -2069,6 +1954,10 @@ namespace UI
         this->mouse_x = x;
         this->mouse_y = y;
     }
+    void Context::SetInspector(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed, DebugInspector* inspector_context)
+    {
+        
+    }
     void Context::BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, DebugInfo debug_info)
     {
         SetMousePos(mouse_x, mouse_y);
@@ -2076,11 +1965,11 @@ namespace UI
     }
     void Context::BeginRoot(int x, int y, int screen_width, int screen_height, DebugInfo debug_info)
     {
+
+
         if(HasInternalError())
             return;
-
         double_buffer_map.SwapBuffer();
-
         //Clears buffer only up to root_node
         arena.Rewind(root_node);
         stack.Clear();
@@ -2102,11 +1991,9 @@ namespace UI
         root_box.height = screen_height;
         root_box.x = x;
         root_box.y = y;
-        
         // ========== Debug Mode Only ==========
         #if UI_ENABLE_DEBUG
-            root_box.debug_file = debug_info.file;
-            root_box.debug_line = debug_info.line;
+            root_box.debug_info = debug_info;
         #endif
 
         if(stack.IsEmpty())//Root Node
@@ -2200,91 +2087,6 @@ namespace UI
         TreeNode* node = stack.Peek();
         assert(node);
         Box& parent_box = node->box;
-        /*
-        if(node->children.IsEmpty())
-        {
-            //if(HandleInternalError(CheckLeafNodeContradictions(parent_box)))
-            //    return;
-            if(parent_box.width_unit == Unit::CONTENT_PERCENT)
-            {
-                parent_box.width = 1;
-                parent_box.width_unit = Unit::PIXEL;
-            }
-            if(parent_box.height_unit == Unit::CONTENT_PERCENT)
-            {
-                parent_box.height = 1;
-                parent_box.height_unit = Unit::PIXEL;
-            }
-        }
-        else //Calculate all CONTENT_PERCENT
-        {
-            ArenaLL<TreeNode>::Node* child = node->children.GetHead();  
-            int content_width = 0;
-            //only handles content_percent for width
-            //This is done for dynamic text wrapping with different Unit types
-            if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
-            {
-                if(parent_box.GetLayout() == Layout::FLOW)
-                {
-                    if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
-                    {
-                        for(;child != nullptr; child = child->next)
-                        {
-                            Box& box = child->value.box;
-
-                            //Ignore these values
-                            if(box.IsDetached())
-                                continue;
-                            if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
-                            box.width_unit != Unit::Type::PARENT_PERCENT &&
-                            box.max_width_unit != Unit::Type::PARENT_PERCENT &&
-                            box.min_width_unit != Unit::Type::PARENT_PERCENT)
-                            {
-                                box.width = Clamp(box.width, box.min_width, box.max_width);
-                                content_width += box.GetBoxModelWidth();
-                            }
-                            content_width += parent_box.gap_column;
-                        }
-                        content_width -= parent_box.gap_column;
-                    }
-                    else //VERTICAL
-                    {
-                        int largest_width = 0;
-                        for(;child != nullptr; child = child->next)
-                        {
-                            Box& box = child->value.box;
-
-                            //Ignore these values
-                            if(box.IsDetached())
-                                continue;
-                            if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
-                            box.width_unit != Unit::Type::PARENT_PERCENT &&
-                            box.max_width_unit != Unit::Type::PARENT_PERCENT &&
-                            box.min_width_unit != Unit::Type::PARENT_PERCENT)
-                            {
-                                int width = box.GetBoxModelWidth();
-                                if(largest_width < width)
-                                    largest_width = width;
-                            }
-                        }
-                        content_width = largest_width;
-                    }
-                    //Just for sanity
-                    content_width = Max(0, content_width);
-                    if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
-                        parent_box.width = content_width * parent_box.width / 100;
-                    if(parent_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
-                        parent_box.min_width = content_width * parent_box.min_width / 100;
-                    if(parent_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
-                        parent_box.max_width = content_width * parent_box.max_width / 100;
-                }
-                else //Grid 
-                {
-                    assert(0 && "Have not added grid");
-                }
-            }
-        }
-        */
         stack.Pop();
         if(!stack.IsEmpty())
         {
