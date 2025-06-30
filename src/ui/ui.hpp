@@ -387,29 +387,30 @@ namespace UI
 
 
 
-    class Context
-    {
-    public:
-        Context(uint64_t arena_bytes);
-        BoxInfo GetBoxInfo(const char* label);
-        BoxInfo GetBoxInfo(uint64_t key);
-        void SetMousePos(int x, int y);
-        void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, DebugInfo debug_info = UI_DEBUG);
-        void BeginRoot(int x, int y, int screen_width, int screen_height, DebugInfo debug_info = UI_DEBUG);
-        void EndRoot();
-        void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
-        void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG);
-        void EndBox();
-        void Draw();
-        uint32_t GetElementCount() const;
+        class Context
+        {
+        public:
+            Context(uint64_t arena_bytes);
+            BoxInfo GetBoxInfo(const char* label);
+            BoxInfo GetBoxInfo(uint64_t key);
+            void SetMousePos(int x, int y);
+            void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, DebugInfo debug_info = UI_DEBUG);
+            void BeginRoot(int x, int y, int screen_width, int screen_height, DebugInfo debug_info = UI_DEBUG);
+            void EndRoot();
+            void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
+            void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG);
+            void EndBox();
+            void Draw();
+            uint32_t GetElementCount() const;
 
-        void SetInspector(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed, DebugInspector* inspector_context); 
-        //For Advanced Purposes
+            void SetInspector(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed, DebugInspector* inspector_context); 
+            //For Advanced Purposes
 
-        //Might not even use this
-        void ResetAllStates();
-    private:
-        //These functions are for internals only
+            //Might not even use this
+            void ResetAllStates();
+        private:
+            void ClearPreviousFrame();
+            //These functions are for internals only
         using Box = Internal::Box;
         using TreeNode = Internal::TreeNode;
         bool HasInternalError();
@@ -437,8 +438,9 @@ namespace UI
 
     private:
 
-        DebugInspector* debug_view = nullptr;
-        bool enable_inspector = false;
+        DebugInspector* debug_inspector = nullptr;
+        bool is_inspecting = false;
+        bool copy_tree = false;
 
         uint64_t directly_hovered_element_key = 0;
         Error internal_error;
@@ -464,6 +466,7 @@ namespace UI
     };
     class DebugInspector
     {
+    private:
         friend class Context;
         struct TreeNodeDebug
         {
@@ -509,25 +512,28 @@ namespace UI
         };
 
         DebugInspector(uint64_t memory);
+        Theme theme = light_theme;
+        Context* GetContext();
+    private:
+
+        const char* CopyStringToArena(const char* str);
         void SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll); 
         void Reset();
-
-
         //Only used for copying ui tree
         void PushNode(const DebugBox& box);
         void PopNode();
-
         void RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
 
-        Theme theme = light_theme;
-        Internal::MemoryArena arena; //only public to copy labels and strings. I dont feel like making a getter function
-    private:
         bool IsTreeEmpty();
 
         void ConstructMockUI(TreeNodeDebug* node);
         void ConstructInspector(int mouse_x, int mouse_y);
         void ConstructTree(TreeNodeDebug* node, int depth);
         bool SearchNodeAndOpenTree(TreeNodeDebug* node);
+
+
+        Internal::MemoryArena arena; //only public to copy labels and strings. I dont feel like making a getter function
+
         // ===== Internal Tree =====
         TreeNodeDebug* root_node = nullptr;
         TreeNodeDebug* selected_node = nullptr;
@@ -537,7 +543,6 @@ namespace UI
         // ===== UI state =====
         Context ui;
         Rect hovered_element;
-
         Rect window_dim = {10, 10, 400, 300};
         bool window_pos_drag = false;
         bool window_size_drag = false;

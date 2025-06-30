@@ -121,20 +121,6 @@ namespace UI
 {
     void SetDebugInput(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed)
     {
-        if(activate_pressed)
-        {
-            debug_view_activate = !debug_view_activate;
-            debug_view.Reset();
-        }
-
-        if(debug_view_activate)
-        {
-            debug_view.SetUserInput(mouse_pressed, mouse_released, mouse_scroll);
-        }
-        else
-        {
-            debug_view_copy_tree = true;
-        }
     }
     void SetContext(UI::Context* context)
     {
@@ -146,39 +132,12 @@ namespace UI
     }
     BoxInfo GetBoxInfo(const char* label)
     {
-        #if UI_ENABLE_DEBUG
-        //returns invalid BoxInfo while debug inspector is open to avoid state changes in user side code
-        //Always make sure you validate BoxInfo before use.
-        if(debug_view_activate && !debug_view_copy_tree)
-            return BoxInfo();
-        #endif
-
-
         if(context)
             return context->GetBoxInfo(label);
         return BoxInfo();
     }
     void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
     {
-        // ===== DebugInspector Tree Building =====
-        #if UI_ENABLE_DEBUG
-        if(debug_view_activate)
-        {
-            if(debug_view_copy_tree) //copy tree
-            {
-                DebugBox root_box;
-                root_box.style.width = {(float)screen_width};
-                root_box.style.height = {(float)screen_height};
-                debug_view.PushNode(root_box);
-            }
-            else //Run DebugInspector
-            {
-                debug_view.RunDebugInspector(x, y, screen_width, screen_height, mouse_x, mouse_y);
-            }
-            return;
-        }
-        #endif // ============================
-
         if(context)
         {
             context->BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
@@ -186,102 +145,26 @@ namespace UI
     }
     void EndRoot()
     {
-        // ===== DebugInspector Tree Building =====
-        #if UI_ENABLE_DEBUG
-        if(debug_view_activate)
-        {
-            if(debug_view_copy_tree)
-            {
-                debug_view.PopNode();
-            }
-            debug_view_copy_tree = false;
-            return;
-        }
-        #endif // ============================
-
         if(context)
             context->EndRoot();
     }
     void BeginBox(const UI::BoxStyle& box_style, const char* label, DebugInfo debug_info)
     {
-        // ===== DebugInspector Tree Building =====
-        #if UI_ENABLE_DEBUG
-        if(debug_view_activate)
-        {
-            if(debug_view_copy_tree)
-            {
-                DebugBox box;
-                box.style = box_style;
-                if(label)
-                {
-                    box.label = ArenaCopyString(label, &debug_view.arena);
-                    assert(box.label && "DebugInspector arena out of memory");
-                }
-                box.debug_info = debug_info;
-                debug_view.PushNode(box);
-            }
-            return;
-        }
-        #endif // =============================
-
         if(context)
             context->BeginBox(box_style, label, debug_info);
     }
     void InsertText(const char* text, const char* label, bool copy_text, DebugInfo debug_info)
     {
-        // ===== DebugInspector Tree Building =====
-        #if UI_ENABLE_DEBUG
-        if(debug_view_activate)
-        {
-            if(debug_view_copy_tree)
-            {
-                DebugBox box;
-                if(text)
-                {
-                    if(text)
-                        box.text = ArenaCopyString(text, &debug_view.arena);
-                    if(label)
-                        box.label = ArenaCopyString(label, &debug_view.arena);
-                    assert(box.text && "DebugInspector arena out of memory");
-                }
-                box.debug_info = debug_info;
-                debug_view.PushNode(box);
-                debug_view.PopNode();
-            }
-            return;
-        }
-        #endif // ============================
-
         if(context)
             context->InsertText(text, label, copy_text);
     }
     void EndBox()
     {
-        // ===== DebugInspector Tree Building =====
-        #if UI_ENABLE_DEBUG
-        if(debug_view_activate)
-        {
-            if(debug_view_copy_tree)
-            {
-                debug_view.PopNode();
-            }
-            return;
-        }
-        #endif
-        // ===================================
-
-
         if(context)
             context->EndBox();
     }
     void Draw()
     {
-        // ===== DebugInspector Tree Building =====
-        #if UI_ENABLE_DEBUG
-        if(debug_view_activate)
-            return;
-        #endif
-        // ===================================
         if(context)
             context->Draw();
     }
@@ -1072,6 +955,14 @@ namespace UI
     DebugInspector::DebugInspector(uint64_t memory): ui(memory / 2), arena(memory / 2)
     {
 
+    }
+    Context* DebugInspector::GetContext()
+    {
+        return context;
+    }
+    const char* DebugInspector::CopyStringToArena(const char* str)
+    {
+        return ArenaCopyString(str, &arena);
     }
     void DebugInspector::Reset()
     {
@@ -1923,6 +1814,11 @@ namespace UI
     }
     BoxInfo Context::GetBoxInfo(uint64_t key)
     {
+        #if UI_ENABLE_DEBUG
+        if(debug_inspector && is_inspecting)
+            return BoxInfo();
+        #endif
+
         BoxInfo* info = double_buffer_map.FrontValue(key);
         if(info)
         {
@@ -1932,7 +1828,6 @@ namespace UI
             return *info;
         }
         return BoxInfo();
-
     }
     BoxInfo Context::GetBoxInfo(const char* label)
     {
@@ -1942,6 +1837,7 @@ namespace UI
     {
         arena.Rewind(root_node);
         double_buffer_map.RewindArena(&arena);
+        //arena.Reset();
 
         stack.Clear();
         deferred_elements.Clear();
@@ -1949,14 +1845,39 @@ namespace UI
         element_count = 0;
         directly_hovered_element_key = 0;
     }
+
+    void Context::ClearPreviousFrame()
+    {
+        double_buffer_map.SwapBuffer();
+
+        arena.Rewind(root_node);
+        double_buffer_map.RewindArena(&arena);
+        arena.Reset();
+        stack.Clear();
+        root_node = nullptr;
+        element_count = 0;
+    }
     void Context::SetMousePos(int x, int y)
     {
         this->mouse_x = x;
         this->mouse_y = y;
     }
-    void Context::SetInspector(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed, DebugInspector* inspector_context)
+    void Context::SetInspector(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed, DebugInspector* inspector)
     {
-        
+        debug_inspector = inspector; 
+        if(debug_inspector)
+        {
+            debug_inspector->SetUserInput(mouse_pressed, mouse_released, mouse_scroll);
+            if(activate_pressed)
+            {
+                debug_inspector->Reset();
+                if(is_inspecting)
+                    is_inspecting = false;
+                else
+                    copy_tree = true;
+            }
+        }
+
     }
     void Context::BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, DebugInfo debug_info)
     {
@@ -1965,16 +1886,28 @@ namespace UI
     }
     void Context::BeginRoot(int x, int y, int screen_width, int screen_height, DebugInfo debug_info)
     {
+        #if UI_ENABLE_DEBUG
+        if(debug_inspector)
+        {
+            if(is_inspecting)
+            {
+                debug_inspector->RunDebugInspector(x, y, screen_width, screen_height, mouse_x, mouse_y);
+                return;
+            }
+            if(copy_tree)
+            {
+                DebugBox box;
+                box.debug_info = debug_info;
+                box.style = { .x = {(float)x}, .y = {(float)y}, .width = {(float)screen_width}, .height = {(float)screen_height}, };
+                debug_inspector->PushNode(box);
+            }
+        }
+        #endif
 
 
         if(HasInternalError())
             return;
-        double_buffer_map.SwapBuffer();
-        //Clears buffer only up to root_node
-        arena.Rewind(root_node);
-        stack.Clear();
-        root_node = nullptr;
-        element_count = 1;
+        ClearPreviousFrame();
         if(double_buffer_map.ShouldResize())
         {
             //Rewind back to arena
@@ -2001,8 +1934,6 @@ namespace UI
             //Checking errors unique to root node
             root_node = arena.New<TreeNode>();
             assert(root_node && "Arena out of space");
-
-            //compute 
             root_node->box = root_box;
             stack.Push(root_node);
         }
@@ -2015,6 +1946,16 @@ namespace UI
     }
     void Context::EndRoot()
     {
+        #if UI_ENABLE_DEBUG
+        if(debug_inspector)
+        {
+            if(is_inspecting)
+                return;
+            if(copy_tree)
+                debug_inspector->PopNode();
+        }
+        #endif
+
         if(HasInternalError())
             return;
         if(stack.Size() == 1)
@@ -2035,6 +1976,27 @@ namespace UI
 
     void Context::BeginBox(const UI::BoxStyle& style, const char* label, DebugInfo debug_info)
     {
+        #if UI_ENABLE_DEBUG
+        if(debug_inspector)
+        {
+            if(is_inspecting)
+                return;
+            if(copy_tree) 
+            {
+                DebugBox box;
+                box.debug_info = debug_info;
+                box.style = style;
+                if(label)
+                {
+                    box.label = debug_inspector->CopyStringToArena(label);
+                    assert(box.label && "Inspector out of memory");
+                }
+                debug_inspector->PushNode(box);
+            }
+        }
+        #endif
+
+
         if(HasInternalError())
             return;
         element_count++;
@@ -2077,6 +2039,17 @@ namespace UI
 
     void Context::EndBox()
     {
+        #if UI_ENABLE_DEBUG
+        if(debug_inspector)
+        {
+            if(is_inspecting)
+                return;
+            if(copy_tree)
+                debug_inspector->PopNode();
+        }
+        #endif
+
+
         if(HasInternalError())
             return;
         if(stack.Size() <= 1)
@@ -2101,6 +2074,32 @@ namespace UI
 
     void Context::InsertText(const char* text, const char* label, bool should_copy, DebugInfo debug_info)
     {
+        #if UI_ENABLE_DEBUG
+        if(debug_inspector)
+        {
+            if(is_inspecting)
+                return;
+            if(copy_tree && debug_inspector)
+            {
+                DebugBox box;
+                box.debug_info = debug_info;
+                if(text)
+                {
+                    box.text = debug_inspector->CopyStringToArena(text);
+                    assert(box.text && "Inspector out of memory");
+                }
+                if(label)
+                {
+                    box.label = debug_inspector->CopyStringToArena(label);
+                    assert(box.label && "Inspector out of memory");
+                }
+                debug_inspector->PushNode(box);
+                debug_inspector->PopNode();
+            }
+        }
+        #endif
+
+
         if(HasInternalError())
             return;
         if(stack.IsEmpty())
@@ -2153,6 +2152,21 @@ namespace UI
 
     void Context::Draw()
     {
+        #if UI_ENABLE_DEBUG
+        if(debug_inspector)
+        {
+            if(is_inspecting)
+                return;
+            if(copy_tree)
+            {
+                copy_tree = false;
+                is_inspecting = true;
+            }
+        }
+        #endif
+
+
+
         if(HasInternalError())
             return;
         
@@ -2663,6 +2677,8 @@ namespace UI
 
     void Context::DrawPass(TreeNode* node, int x, int y, const Box& parent_box, Rect parent_aabb)
     {
+
+
         if(node == nullptr)
             return;
         Box& box = node->box;

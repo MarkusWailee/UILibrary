@@ -21,6 +21,7 @@ int main(void)
 
     UI::Init_impl();
     UI::Context ui_context(128 * UI::KB);
+    UI::DebugInspector ui_inspector(360 * UI::KB);
 
     UI::SetContext(&ui_context);
 
@@ -32,7 +33,8 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-        UI::SetDebugInput(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(),IsKeyPressed(KEY_F));
+        //UI::SetDebugInput(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(),IsKeyPressed(KEY_F));
+        ui_context.SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_F), &ui_inspector);
         SpotifyExample();
 
         DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);

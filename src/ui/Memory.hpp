@@ -534,8 +534,8 @@ namespace UI::Internal
         if(arena)
         {
             size1 = size2 = cap1 = cap2 = 0;
-            data = nullptr;
             arena->Rewind(data);
+            data = nullptr;
         }
     }
     template<typename T>
