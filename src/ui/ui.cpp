@@ -1197,20 +1197,26 @@ namespace UI
         // ================ Inspector UI TREE ======================
         b.Box("base").Style(base).Run([&]
         {
-            b.Box("base-title-bar").Style(title_bar).OnDirectHover([&] { if(mouse_pressed) window_pos_drag = true;})
+            b.Box("base-title-bar")
+            .Style(title_bar)
+            .OnDirectHover([&] { if(mouse_pressed) window_pos_drag = true;})
             .Run([&]{ b.Text(Fmt("[S:20][C:%s]Inspector", theme.text_color)).Run();});
 
-            b.Box().Style(h_container)
+            b.Box()
+            .Style(h_container)
             .Run([&]
             {
-                b.Box().Style(left_panel)
+                b.Box()
+                .Style(left_panel)
                 .Run([&]
                 {
                     //Left panel content
-                    b.Box().Style(left_panel_title)
+                    b.Box()
+                    .Style(left_panel_title)
                     .Run([&]{ b.Text(Fmt("[S:20][C:%s]Navigate", theme.text_color)).Run(); });
 
-                    b.Box("left-panel-scroll-box").Style(left_panel_scroll_box)
+                    b.Box("left-panel-scroll-box")
+                    .Style(left_panel_scroll_box)
                     .OnHover([&]
                     {
                         left_panel_scroll -= mouse_scroll * 20;
@@ -1222,7 +1228,8 @@ namespace UI
                     });
                 });
 
-                b.Box("left-panel-resize-button").Style(panel_resize_button)
+                b.Box("left-panel-resize-button")
+                .Style(panel_resize_button)
                 .OnDirectHover([&]
                 { 
                     if(mouse_pressed) panel_drag = true;
@@ -1234,7 +1241,8 @@ namespace UI
                     b.Text(Fmt("[S:20][C:%s]||", col)).Run();
                 });
 
-                b.Box().Style(right_panel)
+                b.Box()
+                .Style(right_panel)
                 .Run([&]
                 {
                     //Right panel content
@@ -1948,7 +1956,11 @@ namespace UI
             if(is_inspecting)
                 return;
             if(copy_tree)
+            {
+                copy_tree = false;
+                is_inspecting = true;
                 debug_inspector->PopNode();
+            }
         }
         #endif
 
@@ -2149,22 +2161,15 @@ namespace UI
     void Context::Draw()
     {
         #if UI_ENABLE_DEBUG
-        if(debug_inspector)
-        {
-            if(is_inspecting)
-                return;
-            if(copy_tree)
-            {
-                copy_tree = false;
-                is_inspecting = true;
-            }
-        }
+        if(is_inspecting && debug_inspector)
+            return;
         #endif
 
 
 
         if(HasInternalError())
             return;
+        assert(root_node && "No RootNode Provided");
         
         if(!stack.IsEmpty())
         {
