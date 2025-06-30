@@ -952,13 +952,13 @@ namespace UI
     }
 
 
-    DebugInspector::DebugInspector(uint64_t memory): ui(memory / 2), arena(memory / 2)
+    DebugInspector::DebugInspector(uint64_t memory): ui_context(memory / 2), arena(memory / 2)
     {
 
     }
     Context* DebugInspector::GetContext()
     {
-        return context;
+        return &ui_context;
     }
     const char* DebugInspector::CopyStringToArena(const char* str)
     {
@@ -969,7 +969,7 @@ namespace UI
         root_node = nullptr;
         selected_node = nullptr;
         arena.Reset();
-        ui.ResetAllStates();
+        ui_context.ResetAllStates();
     }
     void DebugInspector::SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll)
     {
@@ -1010,37 +1010,51 @@ namespace UI
         assert(root_node && "root_node should have been initialized"); //this is for more own sanity
         //root_node->box.style.width = {(float)screen_width};
         //root_node->box.style.height = {(float)screen_height};
-        ui.BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
+        ui_context.BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
 
         ConstructMockUI(root_node);
 
         // ===== Highlight hovered/selected Node =====
-        //mouse hovered node
         if(hovered_element.width > 0)
         {
-            //Just testing this format
-            BoxStyle hovered_element_outline = { .x = {(float)hovered_element.x}, .y = {(float)hovered_element.y}, .width = {(float)hovered_element.width}, .height = {(float)hovered_element.height}, .border_color = {255, 255, 255, 255},  .border_width = 1, .detach = true};
-            ui.BeginBox(hovered_element_outline); ui.EndBox();
+            BoxStyle hovered_element_outline = 
+            { 
+                .x = {(float)hovered_element.x}, 
+                .y = {(float)hovered_element.y}, 
+                .width = {(float)hovered_element.width}, 
+                .height = {(float)hovered_element.height}, 
+                .background_color = {100, 100, 100, 100},
+                .border_color = {255, 255, 255, 255},  
+                .border_width = 1, 
+                .detach = true
+            };
+            ui_context.BeginBox(hovered_element_outline); ui_context.EndBox();
         }
         hovered_element = Rect();
 
-        //Selected Node
         if(selected_node)
         {
-            BoxInfo selected_node_info  = ui.GetBoxInfo(Fmt("mock_element%ld", (uintptr_t)selected_node));
-            if(selected_node_info.valid)
+            const DebugBox& box = selected_node->box;
+            BoxStyle selected_node_outline = 
             {
-                BoxStyle selected_node_outline = { .x = (float)selected_node_info.DrawX(), .y = (float)selected_node_info.DrawY(), .width = (float)selected_node_info.DrawWidth(), .height = (float)selected_node_info.DrawHeight(), .border_color = {255, 0, 0, 255},  .border_width = 1, .detach = true,};
-                ui.BeginBox(selected_node_outline); ui.EndBox();
-            }
+                .x = (float)box.dim.x,
+                .y = (float)box.dim.y,
+                .width = (float)box.dim.width,
+                .height = (float)box.dim.height,
+                .background_color = {255, 0, 0, 10},
+                .border_color = {255, 0, 0, 255},  
+                .border_width = 1, 
+                .detach = true,
+            };
+            ui_context.BeginBox(selected_node_outline); ui_context.EndBox();
         }
         // ===================================
 
         ConstructInspector(mouse_x, mouse_y);
 
-        ui.EndRoot();
+        ui_context.EndRoot();
 
-        ui.Draw();
+        ui_context.Draw();
     }
     void DebugInspector::ConstructMockUI(TreeNodeDebug* node)
     {
@@ -1048,7 +1062,7 @@ namespace UI
             return;
 
         const char* element_id = Fmt("mock_element%ld",(uintptr_t)node);
-        BoxInfo info = ui.GetBoxInfo(element_id);
+        BoxInfo info = ui_context.GetBoxInfo(element_id);
         if(info.valid)
         {
             DebugBox& box = node->box;
@@ -1070,14 +1084,14 @@ namespace UI
         }
         if(node->box.text)
         {
-            ui.InsertText(node->box.text, element_id);
+            ui_context.InsertText(node->box.text, element_id);
             return;
         }
 
-        ui.BeginBox(node->box.style, element_id);
+        ui_context.BeginBox(node->box.style, element_id);
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
             ConstructMockUI(&temp->value);
-        ui.EndBox();
+        ui_context.EndBox();
     }
     void DebugInspector::ConstructInspector(int mouse_x, int mouse_y)
     {
@@ -1112,7 +1126,7 @@ namespace UI
         // ====================
 
         Builder b;
-        b.SetContext(&ui);
+        b.SetContext(&ui_context);
 
         BoxStyle base = 
         {
@@ -1269,204 +1283,6 @@ namespace UI
             panel_drag = false;
         }
     }
-    /*
-    void DebugView::ConstructInspector(int mouse_x, int mouse_y)
-    {
-
-        // === Draggin Logic ===
-        if(mouse_pressed)
-        {
-            mouse_drag_x = mouse_x;
-            mouse_drag_y = mouse_y;
-        }
-        int mouse_delta_x = mouse_x - mouse_drag_x;
-        int mouse_delta_y = mouse_y - mouse_drag_y;
-
-        Rect base_dim = window_dim;
-        if(window_pos_drag)
-        {
-            base_dim.x += mouse_delta_x;
-            base_dim.y += mouse_delta_y;
-        }
-        if(window_size_drag)
-        {
-            base_dim.width += mouse_delta_x;
-            base_dim.height += mouse_delta_y;
-        }
-        int new_panel_width = panel_width;
-        if(panel_drag)
-        {
-            new_panel_width += mouse_delta_x;
-        }
-        base_dim.width = Max(250, base_dim.width);
-        base_dim.height = Max(125, base_dim.height);
-        new_panel_width = Clamp(new_panel_width, 100, base_dim.width - 100);
-        // ====================
-
-
-        BoxStyle base;
-        base.flow.axis = Flow::VERTICAL;
-        base.detach = true;
-        base.background_color = theme.base_color;
-        base.width = {(float)base_dim.width};
-        base.height = {(float)base_dim.height};
-        base.x = {(float)base_dim.x};
-        base.y = {(float)base_dim.y};
-        base.corner_radius = theme.base_corner_radius;
-
-        BoxStyle base_resize_button;
-        base_resize_button.x = {(float)base_dim.x + base_dim.width - 18};
-        base_resize_button.y = {(float)base_dim.y + base_dim.height - 18};
-        base_resize_button.width = {16};
-        base_resize_button.height = {16};
-        base_resize_button.corner_radius = theme.icon_corner_radius;
-        base_resize_button.background_color = theme.title_bar_color;
-        base_resize_button.detach = true;
-
-        BoxStyle h_container;
-        h_container.padding = theme.base_padding;
-        h_container.width = {100, Unit::AVAILABLE_PERCENT};
-        h_container.height = {100, Unit::AVAILABLE_PERCENT};
-
-        BoxStyle title_bar;
-        title_bar.width = {100, Unit::PARENT_PERCENT};
-        title_bar.height = {100, Unit::CONTENT_PERCENT};
-        title_bar.padding = {10, 10, 5, 5};
-
-        BoxStyle panel_title_bar = title_bar;
-        panel_title_bar.padding = {10, 10, 10, 10};
-
-        BoxStyle base_title_bar = title_bar;
-        base_title_bar.background_color = theme.title_bar_color;
-        base_title_bar.corner_radius = theme.base_corner_radius / 4;
-        BoxStyle left_panel_title_bar = title_bar;
-        left_panel_title_bar.background_color = theme.left_panel_color;
-        BoxStyle right_panel_title_bar = title_bar;
-        right_panel_title_bar.background_color = theme.right_panel_color;
-
-        BoxStyle left_panel;
-        left_panel.flow.axis = Flow::VERTICAL;
-        left_panel.width = {(float)new_panel_width};
-        left_panel.height = {100, Unit::AVAILABLE_PERCENT};
-        left_panel.background_color = theme.left_panel_color;
-        left_panel.corner_radius = theme.base_corner_radius;
-
-        BoxStyle right_panel;
-        right_panel.flow.axis = Flow::VERTICAL;
-        right_panel.width = {100, Unit::AVAILABLE_PERCENT};
-        right_panel.height = {100, Unit::AVAILABLE_PERCENT};
-        right_panel.background_color = theme.right_panel_color;
-        right_panel.corner_radius = theme.base_corner_radius;
-    
-        BoxStyle panel_resize_button;
-        panel_resize_button.flow.vertical_alignment = Flow::CENTERED;
-        panel_resize_button.flow.horizontal_alignment = Flow::CENTERED;
-        panel_resize_button.margin = {2,2};
-        panel_resize_button.width = {8};
-        panel_resize_button.height = {60};
-        panel_resize_button.background_color = theme.title_bar_color;
-        panel_resize_button.corner_radius = theme.icon_corner_radius;
-        HexColor panel_resize_button_text_color = theme.text_color;
-
-        BoxStyle panel_scroll_box;
-        panel_scroll_box.flow.axis = Flow::VERTICAL;
-        panel_scroll_box.width = {100, Unit::PARENT_PERCENT};
-        panel_scroll_box.height = {100, Unit::AVAILABLE_PERCENT};
-        panel_scroll_box.padding = {1, 1, 1, theme.base_corner_radius};
-        panel_scroll_box.scissor = true;
-
-
-
-        // ===== Window Dragging =====
-        BoxInfo base_title_bar_info = ui.GetBoxInfo("base_title_bar");
-        if(base_title_bar_info.valid && base_title_bar_info.is_direct_hover && mouse_pressed)
-                window_pos_drag = true;
-
-        BoxInfo base_resize_button_info = ui.GetBoxInfo("base_resize_button");
-
-        if(base_resize_button_info.valid && base_resize_button_info.is_direct_hover)
-        {
-            base_resize_button.background_color = theme.button_color_hover;
-            if(mouse_pressed)
-                window_size_drag = true;
-        }
-
-        BoxInfo panel_resize_button_info = ui.GetBoxInfo("panel_resize_button");
-        if(panel_resize_button_info.valid && panel_resize_button_info.is_direct_hover)
-        {
-            panel_resize_button.background_color = theme.button_color_hover;
-            panel_resize_button_text_color = theme.text_color_hover;
-            if(mouse_pressed)
-                panel_drag = true;
-        }
-        // ===========================
-
-
-        // ===== Scroll Logic =====
-        BoxStyle left_panel_scroll_box = panel_scroll_box;
-        BoxInfo left_panel_scroll_info = ui.GetBoxInfo("left_panel_scroll_box");
-        if(left_panel_scroll_info.valid && left_panel_scroll_info.is_hover)
-        {
-            left_panel_scroll -= mouse_scroll * 20;
-        }
-        left_panel_scroll = Clamp(left_panel_scroll, 0, left_panel_scroll_info.MaxScrollY());
-        left_panel_scroll_box.scroll_y = left_panel_scroll;
-
-        BoxStyle right_panel_scroll_box = panel_scroll_box;
-        // ========================
-
-        ui.BeginBox(base, "base_element");
-            ui.BeginBox(base_title_bar, "base_title_bar");
-                ui.InsertText(Fmt("[S:24][C:%s]Inspector", theme.text_color));
-            ui.EndBox();
-            ui.BeginBox(h_container);
-
-            // ===== Left Panel =====
-                ui.BeginBox(left_panel);
-                    ui.BeginBox(panel_title_bar);
-                        ui.InsertText(Fmt("[S:22][C:%s]Navigate", theme.text_color));
-                    ui.EndBox();
-
-                    // ===== Left Size Contents ====
-                    ui.BeginBox(left_panel_scroll_box, "left_panel_scroll_box");
-                    ConstructTree(root_node, 0);
-                    ui.EndBox();
-                    // =============================
-
-                ui.EndBox();
-            // ======================
-            ui.BeginBox(panel_resize_button, "panel_resize_button");
-            ui.EndBox();
-
-                ui.BeginBox(right_panel);
-                    ui.BeginBox(panel_title_bar);
-                        ui.InsertText(Fmt("[S:22][C:%s]Details", theme.text_color_hover));
-                    ui.EndBox();
-
-
-                    // ===== Left Size Contents ====
-                    ui.BeginBox(right_panel_scroll_box);
-
-                    ui.EndBox();
-                    // =============================
-
-                ui.EndBox();
-
-            ui.EndBox();
-        ui.EndBox();
-
-        ui.BeginBox(base_resize_button, "base_resize_button"); ui.EndBox();
-        //Everything gets updated when mouse released
-        if(mouse_released)
-        {
-            window_dim = base_dim;
-            window_pos_drag = false;
-            panel_width = new_panel_width;
-            window_size_drag = false;
-            panel_drag = false;
-        }
-    }
-    */
 
     void DebugInspector::ConstructTree(TreeNodeDebug* node, int depth)
     {
@@ -1525,7 +1341,7 @@ namespace UI
 
 
         Builder b;
-        b.SetContext(&ui);
+        b.SetContext(&ui_context);
 
 
         b.Box(Fmt("tree-element-button%ld", (uintptr_t)node))

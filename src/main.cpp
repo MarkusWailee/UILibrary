@@ -22,7 +22,7 @@ int main(void)
     UI::Init_impl();
     UI::Context ui_context(128 * UI::KB);
     UI::DebugInspector ui_inspector(UI::MB);
-    UI::DebugInspector ui_inspector2(UI::MB);
+    UI::DebugInspector ui_inspector2(100 * UI::MB);
 
     UI::SetContext(&ui_context);
 
@@ -38,12 +38,7 @@ int main(void)
 
         ui_inspector.GetContext()->SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_D), &ui_inspector2);
         ui_context.SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_F), &ui_inspector);
-        ui_context.BeginRoot(0 ,0, GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
-        ui_context.InsertText("[C:ffffff]hello");
-        ui_context.EndRoot();
-        ui_context.Draw();
-
-        //SpotifyExample();
+        SpotifyExample();
 
 
         DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);

@@ -541,7 +541,7 @@ namespace UI
         // =========================
 
         // ===== UI state =====
-        Context ui;
+        Context ui_context;
         Rect hovered_element;
         Rect window_dim = {10, 10, 400, 300};
         bool window_pos_drag = false;
