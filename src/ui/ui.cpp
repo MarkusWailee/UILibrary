@@ -1837,7 +1837,6 @@ namespace UI
     {
         arena.Rewind(root_node);
         double_buffer_map.RewindArena(&arena);
-        //arena.Reset();
 
         stack.Clear();
         deferred_elements.Clear();
@@ -1849,10 +1848,7 @@ namespace UI
     void Context::ClearPreviousFrame()
     {
         double_buffer_map.SwapBuffer();
-
         arena.Rewind(root_node);
-        double_buffer_map.RewindArena(&arena);
-        arena.Reset();
         stack.Clear();
         root_node = nullptr;
         element_count = 0;

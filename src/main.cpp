@@ -21,7 +21,7 @@ int main(void)
 
     UI::Init_impl();
     UI::Context ui_context(128 * UI::KB);
-    UI::DebugInspector ui_inspector(360 * UI::KB);
+    UI::DebugInspector ui_inspector(UI::MB);
 
     UI::SetContext(&ui_context);
 

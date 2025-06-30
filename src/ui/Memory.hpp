@@ -91,21 +91,22 @@ namespace UI::Internal
         uint64_t capacity = 0;
         uint64_t current_offset = 0; 
     public:
-        inline MemoryArena(uint64_t cap);
-        inline ~MemoryArena();
-        inline void ResizeAndReset(uint64_t bytes);
-        inline void* Allocate(uint64_t bytes);
+        MemoryArena(uint64_t cap);
+        ~MemoryArena();
+        void ResizeAndReset(uint64_t bytes);
+        void* Allocate(uint64_t bytes);
 
         template<typename T>
-        inline T* New(uint64_t count);
+        T* New(uint64_t count);
 
         template<typename T>
-        inline T* New();
+        T* New();
 
-        inline void Rewind(void* ptr);
+        void Rewind(void* ptr);
 
-        inline void Reset();
-        inline uint64_t Capacity() const;
+        void Reset();
+        uint64_t GetOffset() const;
+        uint64_t Capacity() const;
     };
 
 
@@ -137,6 +138,7 @@ namespace UI::Internal
     template<typename T>
     class ArenaMap
     {
+        friend class ArenaDoubleBufferMap<T>;
     public:
         struct Item
         {
@@ -449,11 +451,17 @@ namespace UI::Internal
         assert(ptr >= data && ptr <= data + capacity);
         assert((uintptr_t)ptr % 8 == 0);
         uint64_t new_offset = ((char*)ptr - data);
-        current_offset = new_offset; 
+
+        if(new_offset < current_offset)
+            current_offset = new_offset; 
     }
     inline void MemoryArena::Reset()
     {
         current_offset = 0;
+    }
+    inline uint64_t MemoryArena::GetOffset() const
+    {
+        return current_offset;
     }
     inline uint64_t MemoryArena::Capacity() const
     {
@@ -617,6 +625,7 @@ namespace UI::Internal
     void ArenaDoubleBufferMap<T>::RewindArena(MemoryArena* arena)
     {
         assert(arena && "No arena sent");
+        //These buffers get swapped so we must rewind them in order
         back.RewindArena(arena);
         front.RewindArena(arena);
     }
