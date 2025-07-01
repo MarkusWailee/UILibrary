@@ -109,7 +109,6 @@ namespace UI
     bool debug_view_activate = false;
     bool debug_view_copy_tree = false;
 
-    DebugInspector debug_view(2 * MB); //2 MB
     static float dpi = 96.0f;
     static Context* context = nullptr;
 }
@@ -156,7 +155,7 @@ namespace UI
     void InsertText(const char* text, const char* label, bool copy_text, DebugInfo debug_info)
     {
         if(context)
-            context->InsertText(text, label, copy_text);
+            context->InsertText(text, label, copy_text, debug_info);
     }
     void EndBox()
     {
@@ -1122,11 +1121,11 @@ namespace UI
         }
         base_dim.width = Max(250, base_dim.width);
         base_dim.height = Max(125, base_dim.height);
-        new_panel_width = Clamp(new_panel_width, 100, base_dim.width - 100);
+        new_panel_width = Clamp(new_panel_width, 20, base_dim.width - 50);
         // ====================
 
-        Builder b;
-        b.SetContext(&ui_context);
+        Builder ui;
+        ui.SetContext(&ui_context);
 
         BoxStyle base = 
         {
@@ -1151,6 +1150,7 @@ namespace UI
         };
         BoxStyle h_container = 
         {
+            .flow = { .vertical_alignment = Flow::CENTERED},
             .width = {100, Unit::AVAILABLE_PERCENT},
             .height = {100, Unit::AVAILABLE_PERCENT},
             .padding = theme.base_padding
@@ -1162,7 +1162,8 @@ namespace UI
             .width = {(float)new_panel_width},
             .height = {100, Unit::AVAILABLE_PERCENT},
             .background_color = theme.left_panel_color,
-            .corner_radius = theme.button_corner_radius
+            .corner_radius = theme.button_corner_radius,
+            .scissor = true
         };
 
         BoxStyle left_panel_title =
@@ -1192,10 +1193,27 @@ namespace UI
         panel_resize_button.corner_radius = theme.icon_corner_radius;
         BoxStyle right_panel
         {
+            .flow = {.axis = Flow::VERTICAL},
             .width = {100, Unit::AVAILABLE_PERCENT},
             .height = {100, Unit::AVAILABLE_PERCENT},
             .background_color = theme.right_panel_color,
-            .corner_radius = theme.button_corner_radius
+            .corner_radius = theme.button_corner_radius,
+            .scissor = true
+        };
+        BoxStyle right_panel_title =
+        {
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .padding = {10, 10, 10, 10}
+        };
+        BoxStyle right_panel_scroll_box =
+        {
+            .flow = {.axis = Flow::VERTICAL},
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = {100, Unit::AVAILABLE_PERCENT},
+            .padding = {0, 0, 10, 10},
+            .scroll_y = right_panel_scroll,
+            .scissor = true
         };
         BoxStyle base_resize_button
         {
@@ -1209,27 +1227,27 @@ namespace UI
         };
 
         // ================ Inspector UI TREE ======================
-        b.Box("base").Style(base).Run([&]
+        ui.Box("base").Style(base).Run([&]
         {
-            b.Box("base-title-bar")
+            ui.Box("base-title-bar")
             .Style(title_bar)
             .OnDirectHover([&] { if(mouse_pressed) window_pos_drag = true;})
-            .Run([&]{ b.Text(Fmt("[S:20][C:%s]Inspector", theme.text_color)).Run();});
+            .Run([&]{ ui.Text(Fmt("[S:20][C:%s]Inspector", theme.text_color)).Run();});
 
-            b.Box()
+            ui.Box()
             .Style(h_container)
             .Run([&]
             {
-                b.Box()
+                ui.Box()
                 .Style(left_panel)
                 .Run([&]
                 {
                     //Left panel content
-                    b.Box()
+                    ui.Box()
                     .Style(left_panel_title)
-                    .Run([&]{ b.Text(Fmt("[S:20][C:%s]Navigate", theme.text_color)).Run(); });
+                    .Run([&]{ ui.Text(Fmt("[S:20][C:%s]Navigate", theme.text_color)).Run(); });
 
-                    b.Box("left-panel-scroll-box")
+                    ui.Box("left-panel-scroll-box")
                     .Style(left_panel_scroll_box)
                     .OnHover([&]
                     {
@@ -1237,37 +1255,46 @@ namespace UI
                     })
                     .Run([&] 
                     {
-                        left_panel_scroll = Clamp(left_panel_scroll, 0, b.GetBoxInfo().MaxScrollY());
+                        left_panel_scroll = Clamp(left_panel_scroll, 0, ui.GetBoxInfo().MaxScrollY());
                         ConstructTree(root_node, 0); 
                     });
                 });
 
-                b.Box("left-panel-resize-button")
+                ui.Box("left-panel-resize-button")
                 .Style(panel_resize_button)
                 .OnDirectHover([&]
                 { 
                     if(mouse_pressed) panel_drag = true;
-                    b.GetStyle().background_color = theme.button_color_hover;
+                    ui.GetStyle().background_color = theme.button_color_hover;
                 })
                 .Run([&]
                 { 
-                    HexColor col = b.GetBoxInfo().IsDirectHover()? theme.text_color_hover: theme.text_color;
-                    b.Text(Fmt("[S:20][C:%s]||", col)).Run();
+                    HexColor col = ui.GetBoxInfo().IsDirectHover()? theme.text_color_hover: theme.text_color;
+                    ui.Text(Fmt("[S:20][C:%s]||", col)).Run();
                 });
 
-                b.Box()
+                ui.Box()
                 .Style(right_panel)
                 .Run([&]
                 {
+                    ui.Box()
+                    .Style(right_panel_title)
+                    .Run([&]{ui.Text(Fmt("[S:20][C:%s]Details", theme.text_color_hover)).Run();});
+                    ui.Box("right-panel-scroll-box")
+                    .Style(right_panel_scroll_box)
+                    .Run([&]
+                    {
+                        ConstructEditor();
+                    });
                     //Right panel content
                 });
             });
         });
-        b.Box("base-resize-button")
+        ui.Box("base-resize-button")
         .Style(base_resize_button)
         .OnDirectHover([&]
         {   
-            b.GetStyle().background_color = theme.button_color_hover;
+            ui.GetStyle().background_color = theme.button_color_hover;
             if(mouse_pressed) window_size_drag = true;
         }).Run();
 
@@ -1282,6 +1309,122 @@ namespace UI
             window_size_drag = false;
             panel_drag = false;
         }
+    }
+
+    void DebugInspector::ConstructEditor()
+    {
+        if(!selected_node)
+            return;
+        Builder ui; 
+        ui.SetContext(&ui_context);
+
+        auto GetUnitType = [](Unit::Type type) -> const char*
+        {
+            switch(type)
+            {
+                case Unit::Type::PIXEL: return "PIXEL";
+                case Unit::Type::PARENT_PERCENT: return "PARENT_PERCENT";
+                case Unit::Type::ROOT_PERCENT: return "ROOT_PERCENT";
+                case Unit::Type::CONTENT_PERCENT: return "CONTENT_PERCENT" ;
+                case Unit::Type::AVAILABLE_PERCENT: return "AVAILABLE_PERCENT";
+                case Unit::Type::WIDTH_PERCENT: return "WIDTH_PERCENT"; 
+                default: return "NONE";
+            }
+        };
+
+        BoxStyle editor_base = 
+        {
+            .flow = { .axis = Flow::VERTICAL },
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .padding = {10, 10, 10, 10}
+        };
+        BoxStyle v_container = 
+        {
+            .flow = {.axis = Flow::VERTICAL},
+            .width = {100, Unit::AVAILABLE_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT}
+        };
+        BoxStyle info_box = 
+        {
+            .flow = {.axis = Flow::VERTICAL},
+            .width = {100, Unit::AVAILABLE_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .min_width = {100, Unit::CONTENT_PERCENT},
+            .min_height = {(float)theme.button_corner_radius * 2},
+            .padding = {5,5,5,5},
+            .background_color = theme.info_box_color,
+            .corner_radius = theme.button_corner_radius
+        };
+        BoxStyle info_box_title_bar = 
+        {
+            .width = {100, Unit::CONTENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .padding = {5,5,5,5}
+        };
+
+        static bool is_pop_up = false;
+        if(mouse_pressed)
+            is_pop_up = false;
+        auto UnitSelectButton = [&] (Unit& unit)
+        {
+            BoxStyle button = 
+            {
+                .width = {100, Unit::CONTENT_PERCENT},
+                .height = {100, Unit::CONTENT_PERCENT},
+                .background_color = theme.button_color_hover
+            };
+
+            ui.Box(Fmt("UnitSelectBox(%ld)", (uintptr_t)&unit))
+            .OnDirectHover([&]
+            {
+                button.background_color = theme.button_color;
+            })
+            .Style(button)
+            .Run([&]
+            {
+                ui.Text(Fmt("[S:20][C:%s]%s", theme.text_color_hover, GetUnitType(unit.unit))).Run();     
+            });
+        };
+
+        auto layout_ui = [&]
+        {
+            ui.Box().Style(info_box_title_bar).Run([&] { ui.Text(Fmt("[S:20][C:%s]Layout Properties", theme.text_color_hover)).Run(); });
+            ui.Box()
+            .Style(info_box)
+            .Run([&]
+            {
+                Unit& width = selected_node->box.style.width;
+                ui.Text(Fmt("[S:20][C:%s]width = ", theme.text_color_hover)).Run();     
+                UnitSelectButton(width);
+            });
+        };
+
+        ui.Box()
+        .Style(editor_base)
+        .Run([&]
+        {
+            ui.Box()
+            .Style(info_box_title_bar)
+            .Run([&] { ui.Text(Fmt("[S:20][C:%s]Debug", theme.text_color_hover)).Run(); });
+            ui.Box()
+            .Style(info_box)
+            .Run([&]
+            {
+                ui.Text(Fmt("[S:18][C:%s]File: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.info_text_color, selected_node->box.debug_info.file)).Run();
+                ui.Text(Fmt("[S:18][C:%s]Line: [C:%s]%d", theme.text_color_hover, theme.info_text_color, selected_node->box.debug_info.line)).Run();
+                if(selected_node->box.label)
+                    ui.Text(Fmt("[S:18][C:%s]id: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.id_text_color, selected_node->box.label)).Run();
+                if(selected_node->box.text)
+                    ui.Text(Fmt("[S:18][C:%s]text: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.string_color, selected_node->box.text)).Run();
+            });
+
+            // ==== Layout Properties ====
+            layout_ui();
+        });
+
+
+
     }
 
     void DebugInspector::ConstructTree(TreeNodeDebug* node, int depth)
@@ -1337,14 +1480,14 @@ namespace UI
             button.background_color = theme.button_color_hover;
         };
         if(node == selected_node)
-            highlight_button();
+           highlight_button();
 
 
-        Builder b;
-        b.SetContext(&ui_context);
+        Builder ui;
+        ui.SetContext(&ui_context);
 
 
-        b.Box(Fmt("tree-element-button%ld", (uintptr_t)node))
+        ui.Box(Fmt("tree-element-button%ld", (uintptr_t)node))
         .OnDirectHover([&]
         {
             highlight_button();
@@ -1355,7 +1498,7 @@ namespace UI
         .Run([&]
         {
             // filler + line + filler
-            for(int i = 0; i<depth; i++) { b.Box().Style(filler).Run(); b.Box().Style(line).Run(); b.Box().Style(filler).Run(); }
+            for(int i = 0; i<depth; i++) { ui.Box().Style(filler).Run(); ui.Box().Style(line).Run(); ui.Box().Style(filler).Run(); }
 
             if(!node->children.IsEmpty())
             {
@@ -1368,7 +1511,7 @@ namespace UI
                     open_button.background_color = {100, 255, 100, 255};
                 }
                 // ============================
-                b.Box(Fmt("tree-element-open-button%ld", (uintptr_t)node))
+                ui.Box(Fmt("tree-element-open-button%ld", (uintptr_t)node))
                 .OnDirectHover([&]
                 {
                     if(!node->box.is_open)
@@ -1381,26 +1524,26 @@ namespace UI
                 .Style(open_button)
                 .Run([&]
                 {
-                    b.Text(Fmt("[S:20][C:%s]%c", icon_color, icon)).Run();
+                    ui.Text(Fmt("[S:20][C:%s]%c", icon_color, icon)).Run();
                 });
             }
-            b.Box().Style(content_box)
+            ui.Box().Style(content_box)
             .Run([&]
             {
                 const DebugBox& box = node->box;
-                b.Text(Fmt("[S:20][C:%s]%s ", text_color, box.text? "Text": node == root_node? "Root": "Box")).Run();
+                ui.Text(Fmt("[S:20][C:%s]%s ", text_color, box.text? "Text": node == root_node? "Root": "Box")).Run();
                 if(box.text)
                 {
-                    b.Text(Fmt("[S:20][C:%s][OFF]\"%s\"", theme.string_color, box.text)).Run();
+                    ui.Text(Fmt("[S:20][C:%s][OFF]\"%s\"", theme.string_color, box.text)).Run();
                 }
                 else if(box.style.background_color.a > 0)
                 {
                     color_icon.background_color = box.style.background_color;
-                    b.Box().Style(color_icon).Run();
+                    ui.Box().Style(color_icon).Run();
                 }
                 if(box.label)
                 {
-                    b.Text(Fmt("[S:20][C:%s]id: [C:%s][OFF]\"%s\"", text_color, theme.id_text_color, box.label)).Run();
+                    ui.Text(Fmt("[S:20][C:%s]id: [C:%s][OFF]\"%s\"", text_color, theme.id_text_color, box.label)).Run();
                 }
             });
         });
@@ -1414,165 +1557,7 @@ namespace UI
             }
         }
     }
-    /*
-    void DebugView::ConstructTree(TreeNodeDebug* node, int depth)
-    {
-        if(node == nullptr)
-            return;
-        
-        BoxStyle button;
-        button.flow.axis = Flow::HORIZONTAL;
-        button.flow.vertical_alignment = Flow::CENTERED;
-        button.width = {9999};
-        button.height = {100, Unit::CONTENT_PERCENT};
-        button.background_color = theme.button_color;
 
-
-        BoxStyle filler; 
-        filler.width = {9};
-        filler.height = {0};
-
-        BoxStyle line;
-        line.width = {1};
-        line.height = {100, Unit::PARENT_PERCENT};
-        line.background_color = theme.button_color_hover;
-
-        BoxStyle content_box;
-        content_box.width = {100, Unit::CONTENT_PERCENT};
-        content_box.height = {100, Unit::CONTENT_PERCENT};
-        content_box.gap_column = {4};
-
-        BoxStyle open_button;
-        open_button.flow.horizontal_alignment = Flow::CENTERED;
-        open_button.flow.vertical_alignment = Flow::CENTERED;
-        open_button.width = {18};
-        open_button.height = {18};
-        open_button.border_width = 1;
-        open_button.border_color = theme.button_color_hover;
-        open_button.corner_radius = 2;
-
-
-        HexColor button_text_color = theme.text_color;
-        HexColor open_button_text_color = theme.text_color;
-
-        const DebugBox& box = node->box;
-
-        BoxStyle color_icon;
-        color_icon.width = {18};
-        color_icon.height = {18};
-        color_icon.border_width = 1;
-        color_icon.background_color = box.style.background_color;
-        color_icon.border_color = theme.button_color_hover;
-        color_icon.corner_radius = theme.icon_corner_radius;
-
-        //Highlight button red
-        if(!box.is_rendered)
-        {
-            button.background_color = theme.invalid_button;
-        }
-
-        // ===== Button Logic =====
-        bool change_button_color = false;
-
-        //Button Logic
-        const char* button_id = Fmt("button_id%ld", (uintptr_t)node);
-        BoxInfo button_info = ui.GetBoxInfo(button_id);
-        if(button_info.valid && button_info.is_direct_hover)
-        {
-            hovered_element = box.dim;
-            change_button_color = true;
-            if(mouse_pressed)
-                selected_node = node;
-        }
-        if(node == selected_node)
-            change_button_color = true;
-
-        if(change_button_color)
-        {
-            //hovered_element = {10, 10, 100, 100};
-            button_text_color = theme.text_color_hover;
-            button.background_color = theme.button_color_hover;
-            line.background_color = theme.button_color;
-            open_button_text_color = theme.text_color_hover;
-            open_button.border_color = theme.button_color;
-            open_button_text_color = theme.text_color_hover;
-        }
-        // =============================
-
-
-        //====== open button logic =======
-        const char* open_button_id = Fmt("open_button_id%ld", (uintptr_t)node);
-        uint64_t open_button_key = Hash(open_button_id);
-        bool* is_open = tree_state.GetValue(open_button_key);
-        if(is_open == nullptr)
-            is_open = tree_state.Insert(open_button_key, false);
-        BoxInfo open_button_info = ui.GetBoxInfo(open_button_key);
-        if(open_button_info.valid && open_button_info.is_direct_hover)
-        {
-            open_button.background_color = theme.button_color_hover;
-            open_button.border_color = theme.button_color_hover;
-            open_button_text_color = theme.text_color_hover;
-            if(mouse_pressed && is_open)
-                *is_open = !*is_open;
-        }
-        char open_icon = '+';
-        if(is_open && *is_open)
-        {
-            open_icon = '-';
-            open_button.background_color = {130, 255, 130, 255};
-        }
-        // ===============================
-        const char* button_text = node == root_node? "Root": (box.text? "Text": "Box");
-
-        ui.BeginBox(button, button_id);
-        for(int i = 0; i<depth; i++)
-        {
-            ui.BeginBox(filler); ui.EndBox();
-            ui.BeginBox(line); ui.EndBox();
-            ui.BeginBox(filler); ui.EndBox();
-        }
-        if(!node->children.IsEmpty())
-        {
-            ui.BeginBox(open_button, open_button_id);
-                ui.InsertText(Fmt("[S:20][C:%s]%c", open_button_text_color, open_icon));
-            ui.EndBox();
-        }
-
-
-        // ===== Content =====
-        ui.BeginBox(content_box);
-        ui.InsertText(Fmt("[S:20][C:%s]%s", button_text_color, button_text));
-        if(box.style.background_color.a > 0)
-        {
-            ui.BeginBox(color_icon);
-            ui.EndBox();
-        }
-        if(box.text)
-        {
-                ui.InsertText(Fmt("[S:20][C:%s][OFF]\"%s\"", theme.string_color, box.text));
-        }
-        if(box.label)
-        {
-            ui.InsertText(Fmt("[S:20][C:%s]id [OFF]\"%s\"", theme.id_text_color, box.label));
-        }
-        ui.EndBox();
-        // ===================
-
-
-
-
-        ui.EndBox(); //End button
-
-        if(is_open && *is_open)
-        {
-            for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
-            {
-                DebugBox& box = temp->value.box;
-                ConstructTree(&temp->value, depth + 1);
-            }
-        }
-    }
-    */
 
     bool DebugInspector::SearchNodeAndOpenTree(TreeNodeDebug* node)
     {
@@ -1953,6 +1938,10 @@ namespace UI
         while(md.ComputeNextTextRun()){}
 
         if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+        {
+            box.width = md.GetMeasuredWidth() + 1;
+        }
+        else if (parent_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
         {
             box.width = md.GetMeasuredWidth() + 1;
         }
@@ -2780,6 +2769,5 @@ namespace UI
         }
         return *this;
     }
-
 
 }

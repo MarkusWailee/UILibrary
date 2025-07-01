@@ -42,7 +42,7 @@ int main(void)
         SpotifyExample();
 
 
-        DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
+        //DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
         EndDrawing();
     }
     CloseWindow();        // Close window and OpenGL context

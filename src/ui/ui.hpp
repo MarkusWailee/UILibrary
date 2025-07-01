@@ -12,7 +12,7 @@
         #include <source_location>
         #define UI_DEBUG {(int)std::source_location::current().line(), std::source_location::current().file_name()}
     #else
-        #define UI_DEBUG {__LINE__, __FILE__}
+        #define UI_DEBUG {__LINE__, __FILE__} //This does not work
     #endif
 #else
     #define UI_DEBUG {-1, nullptr}
@@ -481,12 +481,14 @@ namespace UI
             Color right_panel_color;
             Color button_color;
             Color button_color_hover;
+            Color info_box_color;
             Color invalid_button;
             Color title_bar_color;
             HexColor text_color;
             HexColor text_color_hover;
             HexColor string_color;
             HexColor id_text_color;
+            HexColor info_text_color;
             Spacing base_padding;
             uint8_t base_corner_radius;
             uint8_t icon_corner_radius;
@@ -499,12 +501,14 @@ namespace UI
             {38, 38, 38, 255},  //right_panel_color;
             {253, 253, 253, 255},   //button_color;
             {38, 38, 38, 255},  //button_color_hover;
+            {59, 59, 59, 255}, //info_box_color
             {255, 230, 230, 255}, //invalid_button
             {200, 200, 200, 255}, //title_bar_color;
             RGBAToHex({38, 38, 38, 255}),//text_color;
             RGBAToHex({253, 253, 253, 255}),//text_color_hover;
             RGBAToHex({70, 188, 70, 255}), //string_color;
             RGBAToHex({220, 173, 48, 255}), //id_text_color;
+            RGBAToHex({200, 200, 200, 255}), //info_text_color
             {10, 10, 10, 10}, //base_padding
             16, //base_corner_radius;
             3,  //icon_corner_radius;
@@ -528,8 +532,10 @@ namespace UI
 
         void ConstructMockUI(TreeNodeDebug* node);
         void ConstructInspector(int mouse_x, int mouse_y);
+        void ConstructEditor();
         void ConstructTree(TreeNodeDebug* node, int depth);
         bool SearchNodeAndOpenTree(TreeNodeDebug* node);
+
 
 
         Internal::MemoryArena arena; //only public to copy labels and strings. I dont feel like making a getter function
@@ -549,6 +555,7 @@ namespace UI
         bool panel_drag = false;
         int panel_width = 200;
         int left_panel_scroll = 0;
+        int right_panel_scroll = 0;
         // ====================
 
         // ===== User Input =====

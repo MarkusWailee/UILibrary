@@ -4,7 +4,6 @@
 #include <cstring>
 #include <cassert>
 
-
 namespace UI::Internal
 {
     template<typename T, unsigned int CAPACITY>
