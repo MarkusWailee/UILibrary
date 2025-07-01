@@ -1296,7 +1296,7 @@ namespace UI
             .height = {100, Unit::CONTENT_PERCENT},
             .background_color = theme.button_color
         };
-        BoxStyle filler = {.width = {9}, .height = {0}}; 
+        BoxStyle filler = {.width = {9}, .height = {100, Unit::PARENT_PERCENT}}; 
 
         BoxStyle line = 
         { 
@@ -1617,6 +1617,9 @@ namespace UI
     Context::Context(uint64_t arena_bytes) :
         arena(arena_bytes)
     {
+        uint32_t cap = arena_bytes / 2 / (sizeof(Internal::ArenaMap<BoxInfo>::Item) * 2);
+        bool err = double_buffer_map.AllocateBufferCapacity(cap, &arena);
+        assert(err && "Arena out of memory");
     }
     uint32_t Context::GetElementCount() const
     {
@@ -1660,7 +1663,7 @@ namespace UI
     void Context::ResetAllStates()
     {
         arena.Rewind(root_node);
-        double_buffer_map.RewindArena(&arena);
+        double_buffer_map.Reset();
 
         stack.Clear();
         deferred_elements.Clear();
@@ -1728,15 +1731,8 @@ namespace UI
         if(HasInternalError())
             return;
         ClearPreviousFrame();
-        if(double_buffer_map.ShouldResize())
-        {
-            //Rewind back to arena
-            double_buffer_map.RewindArena(&arena);
-            uint32_t capacity = double_buffer_map.Capacity() * 2;
-            capacity = capacity? capacity: 512;
-            bool err = double_buffer_map.AllocateBufferCapacity(capacity, &arena);
-            assert(err && "Arena out of memory");
-        }
+
+        assert(!double_buffer_map.ShouldResize() && "Double Buffer Map out of memory");
 
         assert(stack.IsEmpty());
         Box root_box;

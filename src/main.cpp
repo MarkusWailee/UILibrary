@@ -21,8 +21,10 @@ int main(void)
 
     UI::Init_impl();
     UI::Context ui_context(128 * UI::KB);
-    UI::DebugInspector ui_inspector(UI::MB);
-    UI::DebugInspector ui_inspector2(100 * UI::MB);
+    UI::DebugInspector ui_inspector1(UI::MB);
+    UI::DebugInspector ui_inspector2(2 * UI::MB);
+    ui_inspector2.theme.base_color = {100, 100, 120, 255};
+    ui_inspector2.theme.title_bar_color = {200, 200, 255, 255};
 
     UI::SetContext(&ui_context);
 
@@ -35,9 +37,8 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-
-        ui_inspector.GetContext()->SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_D), &ui_inspector2);
-        ui_context.SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_F), &ui_inspector);
+        ui_inspector1.GetContext()->SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_TWO), &ui_inspector2);
+        ui_context.SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_ONE), &ui_inspector1);
         SpotifyExample();
 
 

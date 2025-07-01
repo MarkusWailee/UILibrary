@@ -170,6 +170,7 @@ namespace UI::Internal
         ArenaMap<T> front;
         ArenaMap<T> back;
     public:
+        void Reset();
         uint32_t Capacity() const;
         bool ShouldResize() const;
         bool AllocateBufferCapacity(uint32_t capacity, MemoryArena* arena);
@@ -661,5 +662,11 @@ namespace UI::Internal
     uint32_t ArenaDoubleBufferMap<T>::Capacity() const
     {
         return front.Capacity();
+    }
+    template<typename T>
+    void ArenaDoubleBufferMap<T>::Reset()
+    {
+        front.Reset();
+        back.Reset();
     }
 }
