@@ -96,6 +96,7 @@ namespace UI
     int ParentPercentToPx(int value , Unit::Type unit_type, int parent_width);
     void ComputeParentWidthPercent(Box& box, int parent_width);
     void ComputeParentHeightPercent(Box& box, int parent_width);
+    void ComputeDetachPositions(Box& box,  const Box& parent);
 
 
     //Debugger
@@ -173,10 +174,8 @@ namespace UI
 //Box
 namespace UI
 {
-    inline void Box::SetPositioning(Positioning p){positioning = p;}
     inline void Box::SetFlowAxis(Flow::Axis axis){flow_axis = axis;}
     inline void Box::SetScissor(bool flag){scissor = flag;}
-    inline void Box::SetDetached(bool flag){detach = flag;}
     inline Layout Box::GetLayout() const
     {
         return layout;
@@ -185,17 +184,13 @@ namespace UI
     {
         return flow_axis;
     }
-    inline Positioning Box::GetPositioning() const
-    {
-        return positioning;
-    }
     inline bool Box::IsScissor() const
     {
         return scissor;
     }
     inline bool Box::IsDetached() const
     {
-        return detach;
+        return detach != Detach::NONE;
     }
     inline int Box::GetBoxExpansionWidth() const
     {
@@ -462,11 +457,10 @@ namespace UI
         box.padding =                   style.padding;
         box.margin =                    style.margin;
         box.layout =                    style.layout;
+        box.detach =                    style.detach;
 
-        box.SetPositioning(style.positioning);
         box.SetFlowAxis(style.flow.axis);
         box.SetScissor(style.scissor);
-        box.SetDetached(style.detach);
         return box;
     }
 
@@ -949,6 +943,66 @@ namespace UI
         if(box.max_height_unit == Unit::Type::WIDTH_PERCENT)
             box.max_height = box.width * box.max_height / 100;
     }
+    void ComputeDetachPositions(Box& box, const Box& parent)
+    {
+        switch(box.detach)
+        {
+            case Detach::RELATIVE:
+                box.x = parent.x + box.x;
+                box.y = parent.y + box.y;
+                break;
+           case Detach::LEFT:
+                box.x = parent.x - box.GetRenderingWidth() + box.x;
+                box.y = parent.y;
+                break;
+            case Detach::RIGHT:
+                box.x = parent.x + parent.GetRenderingWidth() + box.x;
+                box.y = parent.y;
+                break;
+            case Detach::TOP:
+                box.x = parent.x;
+                box.y = parent.y - box.GetRenderingHeight();
+                break;
+            case Detach::BOTTOM:
+                box.x = parent.x;
+                box.y = parent.y + parent.GetRenderingHeight();
+                break;
+           case Detach::LEFT_CENTER:
+                box.x = parent.x - box.GetRenderingWidth() + box.x;
+                box.y = parent.y + (parent.GetRenderingHeight() - box.GetRenderingHeight())/2;
+                break;
+            case Detach::RIGHT_CENTER:
+                box.x = parent.x + parent.GetRenderingWidth() + box.x;
+                box.y = parent.y + (parent.GetRenderingHeight() - box.GetRenderingHeight())/2;
+                break;
+            case Detach::TOP_CENTER:
+                box.x = parent.x + (parent.GetRenderingWidth() - box.GetRenderingWidth())/2;
+                box.y = parent.y - box.GetRenderingHeight();
+                break;
+            case Detach::BOTTOM_CENTER:
+                box.x = parent.x + (parent.GetRenderingWidth() - box.GetRenderingWidth())/2;
+                box.y = parent.y + parent.GetRenderingHeight();
+                break;
+           case Detach::LEFT_END:
+                box.x = parent.x - box.GetRenderingWidth() + box.x;
+                box.y = parent.y + parent.GetRenderingHeight() - box.GetRenderingHeight();
+                break;
+            case Detach::RIGHT_END:
+                box.x = parent.x + parent.GetRenderingWidth() + box.x;
+                box.y = parent.y + parent.GetRenderingHeight() - box.GetRenderingHeight();
+                break;
+            case Detach::TOP_END:
+                box.x = parent.x + parent.GetRenderingWidth() - box.GetRenderingWidth();
+                box.y = parent.y - box.GetRenderingHeight();
+                break;
+            case Detach::BOTTOM_END:
+                box.x = parent.x + parent.GetRenderingWidth() - box.GetRenderingWidth();
+                box.y = parent.y + parent.GetRenderingHeight();
+                break;
+            default:
+                break;
+        }
+    }
 
 
     DebugInspector::DebugInspector(uint64_t memory): ui_context(memory / 2), arena(memory / 2)
@@ -1025,7 +1079,7 @@ namespace UI
                 .background_color = {100, 100, 100, 100},
                 .border_color = {255, 255, 255, 255},  
                 .border_width = 1, 
-                .detach = true
+                .detach = Detach::ABSOLUTE
             };
             ui_context.BeginBox(hovered_element_outline, nullptr,UI_DEBUG("HoverOutline")); ui_context.EndBox();
         }
@@ -1043,7 +1097,7 @@ namespace UI
                 .background_color = {255, 0, 0, 10},
                 .border_color = {255, 0, 0, 255},  
                 .border_width = 1, 
-                .detach = true,
+                .detach = Detach::ABSOLUTE,
             };
             ui_context.BeginBox(selected_node_outline, nullptr, UI_DEBUG("SelectOutline")); ui_context.EndBox();
         }
@@ -1136,7 +1190,7 @@ namespace UI
             .height = {(float)base_dim.height},
             .background_color = theme.base_color,
             .corner_radius = theme.base_corner_radius,
-            .detach = true,
+            .detach = Detach::ABSOLUTE,
         };
 
         BoxStyle title_bar = 
@@ -1223,7 +1277,7 @@ namespace UI
             .height = {18},
             .background_color = theme.title_bar_color,
             .corner_radius = theme.icon_corner_radius,
-            .detach = true
+            .detach = Detach::ABSOLUTE
         };
 
         // ================ Inspector UI TREE ======================
@@ -1394,16 +1448,13 @@ namespace UI
             BoxStyle pop_up = 
             {
                 .flow = {.axis = Flow::VERTICAL},
-                .x = (float)x,
-                .y = (float)y,
-                //.width = {100},
                 .width = {100, Unit::CONTENT_PERCENT},
                 .height = {100, Unit::CONTENT_PERCENT},
                 .padding = {2,2,2,2},
                 .background_color = theme.base_color,
                 .gap_row = 2,
                 .corner_radius = theme.icon_corner_radius,
-                .detach = true
+                .detach = Detach::BOTTOM
             };
             if(!((valid >> selected) & 1))
                 button.background_color = error_color;
@@ -1415,8 +1466,8 @@ namespace UI
                 ui.GetStyle().background_color = theme.button_color_hover;
                 if(mouse_pressed)
                 {
-                    x = ui.GetBoxInfo().DrawX();
-                    y = ui.GetBoxInfo().DrawY() + ui.GetBoxInfo().DrawHeight();
+                    //x = ui.GetBoxInfo().DrawX();
+                    //y = ui.GetBoxInfo().DrawY() + ui.GetBoxInfo().DrawHeight();
                     is_pop_up = true;
                 }
             })
@@ -2586,8 +2637,8 @@ namespace UI
         Box& box = node->box;
 
         //Render
-        int render_x = box.GetPositioning() == UI::Positioning::ABSOLUTE? box.x : box.x + x;
-        int render_y = box.GetPositioning() == UI::Positioning::ABSOLUTE? box.y : box.y + y;
+        int render_x = box.x + x;
+        int render_y = box.y + y;
         int render_width =    box.GetRenderingWidth();
         int render_height =   box.GetRenderingHeight();
         int corner_radius =   box.corner_radius;
@@ -2608,7 +2659,6 @@ namespace UI
         DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
         box.x = render_x;
         box.y = render_y;
-        box.SetPositioning(Positioning::ABSOLUTE);
 
         if(box.text)
         {
@@ -2712,6 +2762,7 @@ namespace UI
 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                 {
+                    ComputeDetachPositions(temp->value.box, parent_box);
                     deferred_elements.Add(&temp->value, &arena);
                     continue;
                 }
@@ -2797,6 +2848,7 @@ namespace UI
 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                 {
+                    ComputeDetachPositions(temp->value.box, parent_box);
                     deferred_elements.Add(&temp->value, &arena);
                     continue;
                 }

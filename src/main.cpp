@@ -41,7 +41,6 @@ int main(void)
         ui_context.SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_F1), &ui_inspector1);
         SpotifyExample();
 
-
         //DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
         EndDrawing();
     }

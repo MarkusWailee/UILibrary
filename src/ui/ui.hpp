@@ -96,14 +96,13 @@ namespace UI
             CONTENT_PERCENT,   
             AVAILABLE_PERCENT,
 
-            WIDTH_PERCENT //only be applied to height
+            WIDTH_PERCENT, //only be applied to height
         };
 
         float value = 0;
         Unit::Type unit = Type::PIXEL;
     };
     enum class Layout: unsigned char { FLOW, GRID };
-    enum class Positioning: unsigned char { RELATIVE, ABSOLUTE };
     struct Flow
     {
         enum Axis : unsigned char {HORIZONTAL, VERTICAL};
@@ -152,11 +151,28 @@ namespace UI
 
     struct Spacing { unsigned char left = 0, right = 0, top = 0, bottom = 0; };
 
+    enum Detach : unsigned char
+    {
+        NONE,
+        ABSOLUTE,
+        RELATIVE,
+        LEFT,
+        RIGHT,
+        TOP,
+        BOTTOM,
+        LEFT_CENTER,
+        RIGHT_CENTER,
+        TOP_CENTER,
+        BOTTOM_CENTER,
+        LEFT_END,
+        RIGHT_END,
+        TOP_END,
+        BOTTOM_END
+    };
     // ========== Main Box Styling ========== 
     struct BoxStyle
     {
         //container
-        Positioning positioning = Positioning::RELATIVE;
         Layout layout = Layout::FLOW;
         Flow flow;
         Grid grid;
@@ -190,7 +206,7 @@ namespace UI
 
         //Potentially performance heavy
         bool scissor = false;
-        bool detach = false;
+        Detach detach = Detach::NONE;
     };
 
 
@@ -335,20 +351,17 @@ namespace UI
             Spacing padding;
             Spacing margin;
             Layout layout = Layout::FLOW;
+            Detach detach = Detach::NONE;
         private:
             //Values that can potentially use bit array
-            Positioning positioning = Positioning::RELATIVE;
             Flow::Axis flow_axis = Flow::Axis::HORIZONTAL;
             bool scissor = false;
-            bool detach = false;
         public:
-            void SetPositioning(Positioning p);
             void SetFlowAxis(Flow::Axis axis);
             void SetScissor(bool flag);
             void SetDetached(bool flag);
             Layout GetLayout() const;
             Flow::Axis GetFlowAxis() const;
-            Positioning GetPositioning() const;
             bool IsScissor() const;
             bool IsDetached() const;
             int GetBoxExpansionWidth() const;

@@ -117,7 +117,7 @@ void SpotifyExample()
                 pop_up.width = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
                 pop_up.height = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
                 pop_up.background_color = UI::Color{18, 18, 18, 255};
-                pop_up.detach = true;
+                pop_up.detach = UI::Detach::ABSOLUTE;
                 UI::BeginBox(pop_up, "Pop up");
                     for(int i = 0; i<10; i++)
                     {
