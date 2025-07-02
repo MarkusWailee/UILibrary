@@ -1027,7 +1027,7 @@ namespace UI
                 .border_width = 1, 
                 .detach = true
             };
-            ui_context.BeginBox(hovered_element_outline); ui_context.EndBox();
+            ui_context.BeginBox(hovered_element_outline, nullptr,UI_DEBUG("HoverOutline")); ui_context.EndBox();
         }
         hovered_element = Rect();
 
@@ -1045,7 +1045,7 @@ namespace UI
                 .border_width = 1, 
                 .detach = true,
             };
-            ui_context.BeginBox(selected_node_outline); ui_context.EndBox();
+            ui_context.BeginBox(selected_node_outline, nullptr, UI_DEBUG("SelectOutline")); ui_context.EndBox();
         }
         // ===================================
 
@@ -1087,7 +1087,7 @@ namespace UI
             return;
         }
 
-        ui_context.BeginBox(node->box.style, element_id);
+        ui_context.BeginBox(node->box.style, element_id, UI_DEBUG("CopiedElement"));
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
             ConstructMockUI(&temp->value);
         ui_context.EndBox();
@@ -1227,7 +1227,7 @@ namespace UI
         };
 
         // ================ Inspector UI TREE ======================
-        ui.Box("base").Style(base).Run([&]
+        ui.Box("base", UI_DEBUG("Inspector")).Style(base).Run([&]
         {
             ui.Box("base-title-bar")
             .Style(title_bar)
@@ -1363,28 +1363,85 @@ namespace UI
             .padding = {5,5,5,5}
         };
 
-        static bool is_pop_up = false;
-        if(mouse_pressed)
-            is_pop_up = false;
-        auto UnitSelectButton = [&] (Unit& unit)
+
+        auto ComboList = [&] (const char* id, const char** options, int& selected, uint16_t valid)
         {
+            static int x = 0, y = 0;
+            static bool is_pop_up = false;
+            constexpr Color error_color = {200, 80, 80, 255};
+            HexColor text_color = theme.text_color_hover;
+
+            assert(id && options);
+            assert(options[selected]);
+            if(mouse_pressed)
+                is_pop_up = false;
             BoxStyle button = 
             {
                 .width = {100, Unit::CONTENT_PERCENT},
                 .height = {100, Unit::CONTENT_PERCENT},
-                .background_color = theme.button_color_hover
+                .padding = {2,2,2,2},
+                .corner_radius = theme.icon_corner_radius
             };
-
-            ui.Box(Fmt("UnitSelectBox(%ld)", (uintptr_t)&unit))
+            BoxStyle pop_up_button =
+            {
+                .width = {100, Unit::PARENT_PERCENT},
+                .height = {100, Unit::CONTENT_PERCENT},
+                .padding = {2,2,2,2},
+                .background_color = theme.info_box_color,
+                .corner_radius = theme.icon_corner_radius
+            };
+            BoxStyle pop_up = 
+            {
+                .flow = {.axis = Flow::VERTICAL},
+                .x = (float)x,
+                .y = (float)y,
+                .width = {100},
+                .height = {100, Unit::CONTENT_PERCENT},
+                .padding = {2,2,2,2},
+                .background_color = theme.base_color,
+                .gap_row = 2,
+                .corner_radius = theme.icon_corner_radius,
+                .detach = true
+            };
+            if(!((valid >> selected) & 1))
+                button.background_color = error_color;
+            //1100 1100k
+            ui.Box(Fmt("ComboList-%d", id), UI_DEBUG("ComboList"))
+            .Style(button)
             .OnDirectHover([&]
             {
-                button.background_color = theme.button_color;
+                ui.GetStyle().background_color = theme.button_color_hover;
+                if(mouse_pressed)
+                {
+                    x = ui.GetBoxInfo().DrawX();
+                    y = ui.GetBoxInfo().DrawY() + ui.GetBoxInfo().DrawHeight();
+                    is_pop_up = true;
+                }
             })
-            .Style(button)
             .Run([&]
             {
-                ui.Text(Fmt("[S:20][C:%s]%s", theme.text_color_hover, GetUnitType(unit.unit))).Run();     
+                ui.Text(Fmt("[S:20][C:%s]%s", text_color, options[selected])).Run();
+                if(is_pop_up)
+                {
+                    ui.Box()
+                    .Style(pop_up)
+                    .Run([&]
+                    {
+                        for(int i = 0; options[i] != nullptr; i++)
+                        {
+                            ui.Box(Fmt("ComboList-popup-button-%d"))
+                            .Style(pop_up_button)
+                            .OnDirectHover([&]
+                            {
+                                ui.GetStyle().background_color = theme.button_color_hover;
+                            })
+                            .Run([&]{ ui.Text(Fmt("[S:20][C:%s]%s", text_color, options[i])).Run();});
+                        }
+                    });
+                }
             });
+
+
         };
 
         auto layout_ui = [&]
@@ -1394,9 +1451,12 @@ namespace UI
             .Style(info_box)
             .Run([&]
             {
-                Unit& width = selected_node->box.style.width;
-                ui.Text(Fmt("[S:20][C:%s]width = ", theme.text_color_hover)).Run();     
-                UnitSelectButton(width);
+                //Unit& width = selected_node->box.style.width;
+                //ui.Text(Fmt("[S:20][C:%s]width = ", theme.text_color_hover)).Run();     
+                //UnitSelectButton(width);
+            const char* options[] = {"Pixel", "Available%", "Parent%", "Content%", "Width%", nullptr};
+                int select = 0;
+                ComboList("Width", options, select, 0xFFFF);
             });
         };
 
@@ -1411,12 +1471,25 @@ namespace UI
             .Style(info_box)
             .Run([&]
             {
-                ui.Text(Fmt("[S:18][C:%s]File: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.info_text_color, selected_node->box.debug_info.file)).Run();
+                //ui.Text(Fmt("[S:18][C:%s]Name: [C:%s][OFF]none", theme.text_color_hover, theme.info_text_color)).Run();
+                HexColor unknown_value = {"EE0000FF"};
+                if(selected_node->box.debug_info.name)
+                    ui.Text(Fmt("[S:18][C:%s]Name: [C:%s][OFF]%s", theme.text_color_hover, theme.info_text_color, selected_node->box.debug_info.name)).Run();
+                else
+                    ui.Text(Fmt("[S:18][C:%s]Name: [C:%s][OFF]none", theme.text_color_hover, unknown_value)).Run();
+                if(selected_node->box.debug_info.file)
+                    ui.Text(Fmt("[S:18][C:%s]File: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.info_text_color, selected_node->box.debug_info.file)).Run();
+                else
+                    ui.Text(Fmt("[S:18][C:%s]File: [C:%s][OFF]none", theme.text_color_hover, unknown_value)).Run();
                 ui.Text(Fmt("[S:18][C:%s]Line: [C:%s]%d", theme.text_color_hover, theme.info_text_color, selected_node->box.debug_info.line)).Run();
                 if(selected_node->box.label)
-                    ui.Text(Fmt("[S:18][C:%s]id: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.id_text_color, selected_node->box.label)).Run();
+                    ui.Text(Fmt("[S:18][C:%s]Id: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.id_text_color, selected_node->box.label)).Run();
+                else
+                    ui.Text(Fmt("[S:18][C:%s]Id: [C:%s][OFF]none", theme.text_color_hover, unknown_value)).Run();
                 if(selected_node->box.text)
-                    ui.Text(Fmt("[S:18][C:%s]text: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.string_color, selected_node->box.text)).Run();
+                    ui.Text(Fmt("[S:18][C:%s]Text: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.string_color, selected_node->box.text)).Run();
+                //else
+                //    ui.Text(Fmt("[S:18][C:%s]Text: [C:%s][OFF]none", theme.text_color_hover, unknown_value)).Run();
             });
 
             // ==== Layout Properties ====
@@ -1487,7 +1560,7 @@ namespace UI
         ui.SetContext(&ui_context);
 
 
-        ui.Box(Fmt("tree-element-button%ld", (uintptr_t)node))
+        ui.Box(Fmt("tree-element-button%ld", (uintptr_t)node), UI_DEBUG("TreeButton"))
         .OnDirectHover([&]
         {
             highlight_button();
@@ -1531,7 +1604,10 @@ namespace UI
             .Run([&]
             {
                 const DebugBox& box = node->box;
-                ui.Text(Fmt("[S:20][C:%s]%s ", text_color, box.text? "Text": node == root_node? "Root": "Box")).Run();
+                if(box.debug_info.name)
+                    ui.Text(Fmt("[S:20][C:%s]%s ", text_color, box.debug_info.name)).Run();
+                else
+                    ui.Text(Fmt("[S:20][C:%s]Unnamed ", text_color)).Run();
                 if(box.text)
                 {
                     ui.Text(Fmt("[S:20][C:%s][OFF]\"%s\"", theme.string_color, box.text)).Run();

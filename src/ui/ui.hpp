@@ -10,12 +10,12 @@
 #if UI_ENABLE_DEBUG
     #if __cplusplus >= 202002L
         #include <source_location>
-        #define UI_DEBUG {(int)std::source_location::current().line(), std::source_location::current().file_name()}
+        #define UI_DEBUG(name) {name, std::source_location::current().file_name(), (int)std::source_location::current().line()}
     #else
-        #define UI_DEBUG {__LINE__, __FILE__} //This does not work
+        #define UI_DEBUG(name) {name, __FILE__, __LINE__} //This does not work
     #endif
 #else
-    #define UI_DEBUG {-1, nullptr}
+    #define UI_DEBUG(name) {name, nullptr, -1}
 #endif
 
 //Only used for Fmt
@@ -224,8 +224,9 @@ namespace UI
     };
     struct DebugInfo
     {
-        int line = -1;
+        const char* name = nullptr;
         const char* file = nullptr;
+        int line = -1;
     };
 
     // ========== Main Functions ==========
@@ -236,8 +237,8 @@ namespace UI
     void SetDebugInput(bool mouse_pressed, bool mouse_release, int mouse_scroll, bool activate_pressed);
     void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
     void EndRoot();
-    void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
-    void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG);
+    void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+    void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
     void EndBox();
     void Draw();
 
@@ -394,11 +395,11 @@ namespace UI
             BoxInfo GetBoxInfo(const char* label);
             BoxInfo GetBoxInfo(uint64_t key);
             void SetMousePos(int x, int y);
-            void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, DebugInfo debug_info = UI_DEBUG);
-            void BeginRoot(int x, int y, int screen_width, int screen_height, DebugInfo debug_info = UI_DEBUG);
+            void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, DebugInfo debug_info = UI_DEBUG("Root"));
+            void BeginRoot(int x, int y, int screen_width, int screen_height, DebugInfo debug_info = UI_DEBUG("Root"));
             void EndRoot();
-            void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG);
-            void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG);
+            void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+            void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
             void EndBox();
             void Draw();
             uint32_t GetElementCount() const;
@@ -578,8 +579,8 @@ namespace UI
         //Main 3 options
         template<typename Func>
         void Root(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, Func&& func);
-        Builder& Text(const char* text, const char* id = nullptr, bool should_copy = true, DebugInfo debug_info = UI_DEBUG);
-        Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG);
+        Builder& Text(const char* text, const char* id = nullptr, bool should_copy = true, DebugInfo debug_info = UI_DEBUG("Text"));
+        Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
 
         //Parmeters
         Builder& Style(const BoxStyle& style);
