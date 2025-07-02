@@ -26,6 +26,7 @@ namespace UI
 {
     void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color brdr, Color bg)
     {
+        corner_radius = Min(corner_radius, width / 2);
         #if 0 //Testing performance
         {
             DrawRectangle(x, y, width, height, {bg.r, bg.g, bg.b, bg.a});

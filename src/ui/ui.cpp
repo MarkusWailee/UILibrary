@@ -1188,7 +1188,7 @@ namespace UI
         panel_resize_button.flow.horizontal_alignment = Flow::CENTERED;
         panel_resize_button.margin = {2,2};
         panel_resize_button.width = {8};
-        panel_resize_button.height = {60};
+        panel_resize_button.height = {60, Unit::AVAILABLE_PERCENT};
         panel_resize_button.background_color = theme.title_bar_color;
         panel_resize_button.corner_radius = theme.icon_corner_radius;
         BoxStyle right_panel
@@ -1384,8 +1384,9 @@ namespace UI
             };
             BoxStyle pop_up_button =
             {
-                .width = {100, Unit::PARENT_PERCENT},
+                .width = {100, Unit::AVAILABLE_PERCENT},
                 .height = {100, Unit::CONTENT_PERCENT},
+                .min_width = {100, Unit::CONTENT_PERCENT},
                 .padding = {2,2,2,2},
                 .background_color = theme.info_box_color,
                 .corner_radius = theme.icon_corner_radius
@@ -1395,7 +1396,8 @@ namespace UI
                 .flow = {.axis = Flow::VERTICAL},
                 .x = (float)x,
                 .y = (float)y,
-                .width = {100},
+                //.width = {100},
+                .width = {100, Unit::CONTENT_PERCENT},
                 .height = {100, Unit::CONTENT_PERCENT},
                 .padding = {2,2,2,2},
                 .background_color = theme.base_color,
@@ -1454,7 +1456,7 @@ namespace UI
                 //Unit& width = selected_node->box.style.width;
                 //ui.Text(Fmt("[S:20][C:%s]width = ", theme.text_color_hover)).Run();     
                 //UnitSelectButton(width);
-            const char* options[] = {"Pixel", "Available%", "Parent%", "Content%", "Width%", nullptr};
+            const char* options[] = {"Pixel", "Available%", "Parent%", "Content%", "Width%", "Some Fat Piece of text", nullptr};
                 int select = 0;
                 ComboList("Width", options, select, 0xFFFF);
             });
@@ -2091,6 +2093,10 @@ namespace UI
                     box.width = Clamp(box.width, box.min_width, box.max_width);
                     content_width += box.GetBoxModelWidth();
                 }
+                else
+                {
+                    content_width += box.GetBoxExpansionWidth() + box.min_width;
+                }
                 content_width += parent_box.gap_column;
             }
             content_width -= parent_box.gap_column;
@@ -2111,6 +2117,12 @@ namespace UI
                 {
                     box.width = Clamp(box.width, box.min_width, box.max_width);
                     int width = box.GetBoxModelWidth();
+                    if(largest_width < width)
+                        largest_width = width;
+                }
+                else
+                {
+                    int width = box.GetBoxExpansionWidth() + box.min_width;
                     if(largest_width < width)
                         largest_width = width;
                 }
@@ -2489,7 +2501,14 @@ namespace UI
                     box.min_height_unit != Unit::Type::PARENT_PERCENT && 
                     box.max_height_unit != Unit::Type::PARENT_PERCENT)
                 {
+                    box.height = Clamp(box.height, box.min_height, box.max_height);
                     int height = box.GetBoxModelHeight();
+                    if(largest_height < height)
+                        largest_height = height;
+                }
+                else
+                {
+                    int height = box.GetBoxExpansionHeight() + box.min_height;
                     if(largest_height < height)
                         largest_height = height;
                 }
@@ -2521,7 +2540,12 @@ namespace UI
                     box.min_height_unit != Unit::Type::PARENT_PERCENT && 
                     box.max_height_unit != Unit::Type::PARENT_PERCENT)
                 {
+                    box.height = Clamp(box.height, box.min_height, box.max_height);
                     content_height += box.GetBoxModelHeight();
+                }
+                else
+                {
+                    content_height += box.GetBoxExpansionHeight() + box.min_height;
                 }
                 content_height += parent_box.gap_row;
             }
