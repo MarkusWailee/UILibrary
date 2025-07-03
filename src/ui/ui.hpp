@@ -57,9 +57,10 @@ namespace UI
     const char *Fmt(const char *text, ...);
 
     //Math helpers
-    float MillimeterToPixels();
-    float CentimeterToPixels(float cm);
-    float InchToPixels(float inches);
+    constexpr float DPI = 96.0f;
+    inline float MillimeterToPixels(float mm) { return mm * DPI / 25.4f; } 
+    inline float CentimeterToPixels(float cm) { return cm * DPI / 2.54f; }
+    inline float InchToPixels(float inches) { return inches * DPI; }
     template<typename T>
     inline T Min(T a, T b) {return a < b? a: b;}
     template<typename T>
@@ -87,9 +88,6 @@ namespace UI
         {
 
             PIXEL,
-            MM,
-            CM,
-            INCH,
             //Limited to width/height
             PARENT_PERCENT,
             ROOT_PERCENT,
@@ -278,13 +276,11 @@ namespace UI
     };
     //Implement these functions
     void LogError_impl(const char* text);
-    void LogError_impl(int num);
+
     void Init_impl();
     void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color border_color, Color background_color);
-    void SetFont_impl(const char* file_path);
     void DrawText_impl(TextPrimitive draw_command);
     int MeasureChar_impl(char c, int font_size, int spacing);
-    int MeasureText_impl(const char* text, int size, int spacing);
     void BeginScissorMode_impl(float x, float y, float width, float height);
     void EndScissorMode_impl();
 }
@@ -552,7 +548,7 @@ namespace UI
 
         //Widgets
         void CustomComboList(const char * id, int& selected, const char** options, uint64_t valid);
-        void CustomDigitInput(int& value);
+        void CustomDigitInput(const char* id, int& value);
         void UnitEditBox(const char* name, Unit& unit, uint64_t valid);
 
 

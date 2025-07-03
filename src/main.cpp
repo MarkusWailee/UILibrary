@@ -38,13 +38,19 @@ int main(void)
     {
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
-
+        
+        //while(int c = GetCharPressed())
+        //{
+        //    std::cout<<c<<' '<<(char)c<<'\n';
+        //}
+        if(IsKeyPressedRepeat(KEY_D))
+            std::cout<<"teset\n";
         ui_inspector2.GetContext()->SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_F3), &ui_inspector3);
         ui_inspector1.GetContext()->SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_F2), &ui_inspector2);
         ui_context.SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_F1), &ui_inspector1);
         SpotifyExample();
 
-        DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
+        //DrawText(TextFormat("fps = %d", GetFPS()), 9, 10, 20, WHITE);
         EndDrawing();
     }
     CloseWindow();        // Close window and OpenGL context

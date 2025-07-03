@@ -26,6 +26,8 @@ namespace UI
 {
     void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color brdr, Color bg)
     {
+        if(brdr.a  == 0&& bg.a == 0)
+            return;
         corner_radius = Min(corner_radius, width / 2);
         #if 0 //Testing performance
         {
@@ -69,10 +71,6 @@ namespace UI
             DrawRectangle(x + width - border_size, y + near_offset, border_size, height - far_offset, {brdr.r, brdr.g, brdr.b, brdr.a}); //right
             DrawRectangle(x + near_offset, y + height - border_size, width - far_offset, border_size, {brdr.r, brdr.g, brdr.b, brdr.a}); //bottom
         }
-    }
-    void SetFont_impl(const char* file_path)
-    {
-        
     }
 
     //This is not an optimal implementation for performance, but this works for testing
@@ -138,10 +136,6 @@ void UI::LogError_impl(const char* msg)
 {
     if(msg != nullptr)
         std::cout<<msg; 
-}
-void UI::LogError_impl(int n)
-{
-    std::cout<<n; 
 }
 
 

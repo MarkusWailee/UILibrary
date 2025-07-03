@@ -110,7 +110,6 @@ namespace UI
     bool debug_view_activate = false;
     bool debug_view_copy_tree = false;
 
-    static float dpi = 96.0f;
     static Context* context = nullptr;
 }
 
@@ -372,17 +371,6 @@ namespace UI
         }
         return r;
     }
-    inline float MillimeterToPixels(float mm)
-    {
-        return mm * dpi / 25.4f;
-    } inline float CentimeterToPixels(float cm)
-    {
-        return cm * dpi / 2.54f;
-    }
-    inline float InchToPixels(float inches)
-    {
-        return inches * dpi;
-    }
 
 
 //Pass 1
@@ -393,10 +381,6 @@ namespace UI
         {
             case Unit::Type::PIXEL:
                 return (int)unit.value;
-            case Unit::Type::MM:
-                return (int)MillimeterToPixels((float)unit.value);
-            case Unit::Type::CM:
-                return (int)CentimeterToPixels((float)unit.value);
             case Unit::Type::ROOT_PERCENT: 
                 return (int)unit.value * root_size / 100;
             default:
@@ -1695,7 +1679,7 @@ namespace UI
             }
         });
     };
-    void DebugInspector::CustomDigitInput(int& value)
+    void DebugInspector::CustomDigitInput(const char* id, int& value)
     {
         Builder ui;
         ui.SetContext(&ui_context);
@@ -1710,8 +1694,14 @@ namespace UI
             .corner_radius = theme.icon_corner_radius
         };
         HexColor text_color = theme.text_color_hover;
-        ui.Box(Fmt("CustomDigitInput %ld", (uintptr_t)&value))
+        ui.Box(Fmt("CustomDigitInput %s", id))
         .Style(button)
+        .OnDirectHover([&]
+        {
+            text_color = theme.text_color;
+            value += mouse_scroll * 2;
+            ui.GetStyle().background_color = theme.button_color;
+        })
         .Run([&]
         {
             ui.InsertText(Fmt("[S:20][C:%s]%d", text_color, value));
@@ -1753,7 +1743,7 @@ namespace UI
             {
                 int digit = unit.value;
                 int select = unit.unit;
-                CustomDigitInput(digit);
+                CustomDigitInput(name, digit);
                 CustomComboList(name, select, unit_options, valid);
                 unit.value = digit;
                 unit.unit = (Unit::Type)select;
@@ -1916,8 +1906,8 @@ namespace UI
         }
         else
         {
-            assert(0);
-            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "There can only be 1 Root node"});
+            //assert(0 && "ERROR: More than one Root Node");
+            HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "More than one BeginRoot()"});
             return;
         }
     }
