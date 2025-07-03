@@ -137,9 +137,16 @@ namespace UI
     }
     void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
     {
+        BoxStyle root
+        {
+            .x = x,
+            .y = y,
+            .width = screen_width,
+            .height = screen_height,
+        };
         if(context)
         {
-            context->BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
+            context->BeginRoot(root);
         }
     }
     void EndRoot()
@@ -1047,7 +1054,12 @@ namespace UI
         assert(root_node && "root_node should have been initialized"); //this is for more own sanity
         //root_node->box.style.width = {(float)screen_width};
         //root_node->box.style.height = {(float)screen_height};
-        ui_context.BeginRoot(x, y, screen_width, screen_height, mouse_x, mouse_y);
+        BoxStyle root = 
+        {
+            .width = GetScreenWidth(),
+            .height = GetScreenHeight()
+        };
+        ui_context.BeginRoot(root);
 
         ConstructMockUI(root_node);
 
@@ -1831,11 +1843,6 @@ namespace UI
         root_node = nullptr;
         element_count = 0;
     }
-    void Context::SetMousePos(int x, int y)
-    {
-        this->mouse_x = x;
-        this->mouse_y = y;
-    }
     void Context::SetInspector(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed, DebugInspector* inspector)
     {
         debug_inspector = inspector; 
@@ -1853,26 +1860,27 @@ namespace UI
         }
 
     }
-    void Context::BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y, DebugInfo debug_info)
+    void Context::BeginRoot(BoxStyle style, DebugInfo debug_info)
     {
-        SetMousePos(mouse_x, mouse_y);
-        this->BeginRoot(x, y, screen_width, screen_height, debug_info);
-    }
-    void Context::BeginRoot(int x, int y, int screen_width, int screen_height, DebugInfo debug_info)
-    {
+        style.width = {style.width.value - style.padding.right - style.padding.left - style.margin.right - style.margin.left, Unit::PIXEL};
+        style.height = {style.height.value - style.padding.top - style.padding.bottom - style.margin.top - style.margin.bottom, Unit::PIXEL};
+        style.min_height.unit = Unit::PIXEL;
+        style.min_width.unit = Unit::PIXEL;
+        style.max_height.unit = Unit::PIXEL;
+        style.max_width.unit = Unit::PIXEL;
         #if UI_ENABLE_DEBUG
         if(debug_inspector)
         {
             if(is_inspecting)
             {
-                debug_inspector->RunDebugInspector(x, y, screen_width, screen_height, mouse_x, mouse_y);
+                debug_inspector->RunDebugInspector(0, 0, GetScreenWidth(), GetScreenWidth(), GetMouseX(), GetMouseY());
                 return;
             }
             if(copy_tree)
             {
                 DebugBox box;
                 box.debug_info = debug_info;
-                box.style = { .x = {(float)x}, .y = {(float)y}, .width = {(float)screen_width}, .height = {(float)screen_height}, };
+                box.style = style;
                 debug_inspector->PushNode(box);
             }
         }
@@ -1886,11 +1894,7 @@ namespace UI
         assert(!double_buffer_map.ShouldResize() && "Double Buffer Map out of memory");
 
         assert(stack.IsEmpty());
-        Box root_box;
-        root_box.width = screen_width;
-        root_box.height = screen_height;
-        root_box.x = x;
-        root_box.y = y;
+        Box root_box = ComputeStyleSheet(style, Box());
         // ========== Debug Mode Only ==========
         #if UI_ENABLE_DEBUG
             root_box.debug_info = debug_info;
@@ -2674,8 +2678,8 @@ namespace UI
         Box& box = node->box;
 
         //Render
-        int render_x = box.x + x;
-        int render_y = box.y + y;
+        int render_x = box.x + box.margin.left + x;
+        int render_y = box.y + box.margin.top + y;
         int render_width =    box.GetRenderingWidth();
         int render_height =   box.GetRenderingHeight();
         int corner_radius =   box.corner_radius;
@@ -2716,7 +2720,7 @@ namespace UI
                 info->margin = box.margin;
                 info->is_rendered = true;
                 //Handling mouse hover next frame
-                if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}), mouse_x, mouse_y))
+                if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}), GetMouseX(), GetMouseY()))
                 {
                     directly_hovered_element_key = box.label_hash;
                     info->is_hover = true;
@@ -2824,8 +2828,8 @@ namespace UI
                         cursor_y = parent_box.height/2 - box_model_height/2;
                         break;
                 }
-                int layout_x =        x + cursor_x - parent_box.scroll_x + box.margin.left + parent_box.padding.left;
-                int layout_y =        y + cursor_y - parent_box.scroll_y + box.margin.top + parent_box.padding.top;
+                int layout_x =        x + cursor_x - parent_box.scroll_x + parent_box.padding.left;
+                int layout_y =        y + cursor_y - parent_box.scroll_y + parent_box.padding.top;
                 DrawPass(&temp->value, layout_x, layout_y, parent_box, parent_aabb);
                 cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
             }
@@ -2911,8 +2915,8 @@ namespace UI
                         cursor_x = parent_box.width/2 - box_model_width/2;
                         break;
                 }
-                int layout_x =        x + cursor_x - parent_box.scroll_x + box.margin.left + parent_box.padding.left;
-                int layout_y =        y + cursor_y - parent_box.scroll_y + box.margin.top + parent_box.padding.top;
+                int layout_x =        x + cursor_x - parent_box.scroll_x + parent_box.padding.left;
+                int layout_y =        y + cursor_y - parent_box.scroll_y + parent_box.padding.top;
                 DrawPass(&temp->value, layout_x, layout_y, parent_box, parent_aabb);
                 cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;
             }

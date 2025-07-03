@@ -311,7 +311,7 @@ void SpotifyExample()
         bottom_bar.background_color = UI::Color{0, 0, 0, 255};
         bottom_bar.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
         bottom_bar.flow.horizontal_alignment = UI::Flow::Alignment::CENTERED;
-        bottom_bar.height = UI::Unit{UI::CentimeterToPixels(2.05)};
+        bottom_bar.height = UI::Unit{UI::CmToPx(2.05)};
         bottom_bar.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
         UI::BeginBox(bottom_bar);
                 UI::BoxStyle load_bar;
