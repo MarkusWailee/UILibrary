@@ -1369,6 +1369,8 @@ namespace UI
     {
         if(!selected_node)
             return;
+        DebugBox& box = selected_node->box;
+        BoxStyle& style = box.style;
         Builder ui; 
         ui.SetContext(&ui_context);
 
@@ -1418,100 +1420,6 @@ namespace UI
         };
 
 
-        auto ComboList = [&] (const char* id, const char** options, int& selected, uint16_t valid)
-        {
-            static int x = 0, y = 0;
-            static bool is_pop_up = false;
-            constexpr Color error_color = {200, 80, 80, 255};
-            HexColor text_color = theme.text_color_hover;
-
-            assert(id && options);
-            assert(options[selected]);
-            if(mouse_pressed)
-                is_pop_up = false;
-            BoxStyle button = 
-            {
-                .width = {100, Unit::CONTENT_PERCENT},
-                .height = {100, Unit::CONTENT_PERCENT},
-                .padding = {2,2,2,2},
-                .corner_radius = theme.icon_corner_radius
-            };
-            BoxStyle pop_up_button =
-            {
-                .width = {100, Unit::AVAILABLE_PERCENT},
-                .height = {100, Unit::CONTENT_PERCENT},
-                .min_width = {100, Unit::CONTENT_PERCENT},
-                .padding = {2,2,2,2},
-                .background_color = theme.info_box_color,
-                .corner_radius = theme.icon_corner_radius
-            };
-            BoxStyle pop_up = 
-            {
-                .flow = {.axis = Flow::VERTICAL},
-                .width = {100, Unit::CONTENT_PERCENT},
-                .height = {100, Unit::CONTENT_PERCENT},
-                .padding = {2,2,2,2},
-                .background_color = theme.base_color,
-                .gap_row = 2,
-                .corner_radius = theme.icon_corner_radius,
-                .detach = Detach::BOTTOM
-            };
-            if(!((valid >> selected) & 1))
-                button.background_color = error_color;
-            //1100 1100k
-            ui.Box(Fmt("ComboList-%d", id), UI_DEBUG("ComboList"))
-            .Style(button)
-            .OnDirectHover([&]
-            {
-                ui.GetStyle().background_color = theme.button_color_hover;
-                if(mouse_pressed)
-                {
-                    //x = ui.GetBoxInfo().DrawX();
-                    //y = ui.GetBoxInfo().DrawY() + ui.GetBoxInfo().DrawHeight();
-                    is_pop_up = true;
-                }
-            })
-            .Run([&]
-            {
-                ui.Text(Fmt("[S:20][C:%s]%s", text_color, options[selected])).Run();
-                if(is_pop_up)
-                {
-                    ui.Box()
-                    .Style(pop_up)
-                    .Run([&]
-                    {
-                        for(int i = 0; options[i] != nullptr; i++)
-                        {
-                            ui.Box(Fmt("ComboList-popup-button-%d"))
-                            .Style(pop_up_button)
-                            .OnDirectHover([&]
-                            {
-                                ui.GetStyle().background_color = theme.button_color_hover;
-                            })
-                            .Run([&]{ ui.Text(Fmt("[S:20][C:%s]%s", text_color, options[i])).Run();});
-                        }
-                    });
-                }
-            });
-
-
-        };
-
-        auto layout_ui = [&]
-        {
-            ui.Box().Style(info_box_title_bar).Run([&] { ui.Text(Fmt("[S:20][C:%s]Layout Properties", theme.text_color_hover)).Run(); });
-            ui.Box()
-            .Style(info_box)
-            .Run([&]
-            {
-                //Unit& width = selected_node->box.style.width;
-                //ui.Text(Fmt("[S:20][C:%s]width = ", theme.text_color_hover)).Run();     
-                //UnitSelectButton(width);
-            const char* options[] = {"Pixel", "Available%", "Parent%", "Content%", "Width%", "Some Fat Piece of text", nullptr};
-                int select = 0;
-                ComboList("Width", options, select, 0xFFFF);
-            });
-        };
 
         ui.Box()
         .Style(editor_base)
@@ -1541,12 +1449,17 @@ namespace UI
                     ui.Text(Fmt("[S:18][C:%s]Id: [C:%s][OFF]none", theme.text_color_hover, unknown_value)).Run();
                 if(selected_node->box.text)
                     ui.Text(Fmt("[S:18][C:%s]Text: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.string_color, selected_node->box.text)).Run();
-                //else
-                //    ui.Text(Fmt("[S:18][C:%s]Text: [C:%s][OFF]none", theme.text_color_hover, unknown_value)).Run();
             });
 
             // ==== Layout Properties ====
-            layout_ui();
+            ui.Box().Style(info_box_title_bar).Run([&] { ui.Text(Fmt("[S:20][C:%s]Layout Properties", theme.text_color_hover)).Run(); });
+            ui.Box()
+            .Style(info_box)
+            .Run([&]
+            {
+                UnitEditBox("width", style.width, 0xFFFFFFFF);
+                UnitEditBox("height", style.height, 0xFFFFFFFF);
+            });
         });
 
 
@@ -1712,6 +1625,140 @@ namespace UI
             node->box.is_open = false;
             return false;
         }
+    }
+    void DebugInspector::CustomComboList(const char * id, int& selected, const char** options, uint64_t valid)
+    {
+        uint64_t key = Hash(id);
+
+        Builder ui;
+        ui.SetContext(&ui_context);
+        HexColor text_color = theme.text_color_hover;
+        BoxStyle button = 
+        {
+            .flow = {.horizontal_alignment = Flow::END},
+            .width = {100, Unit::AVAILABLE_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .min_width = {100, Unit::CONTENT_PERCENT},
+            .padding = {4,4,1,1},
+            .background_color = theme.button_color_hover,
+            .corner_radius = theme.icon_corner_radius
+        };
+        BoxStyle button2 = button; 
+        button2.width = {80}; 
+        BoxStyle pop_up = 
+        {
+            .flow = {.axis = Flow::VERTICAL},
+            .width = {100, Unit::CONTENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .padding = {2,2,2,2},
+            .background_color = theme.base_color,
+            .gap_row = 2,
+            .corner_radius = theme.icon_corner_radius,
+            .detach = Detach::RIGHT
+        };
+        bool hover = ui_context.GetBoxInfo(Fmt("ComnboList-popup-id-%s", id)).IsHover();
+        ui.Box(Fmt("ComboList-button-id-%s", id), UI_DEBUG("[C:6666FF]ComboListBox"))
+        .Style(button2)
+        .OnDirectHover([&]
+        {
+            hover = true;
+            text_color = theme.text_color;
+            ui.GetStyle().background_color = theme.button_color;
+        })
+        .Run([&]
+        {
+            ui.Text(Fmt("[S:20][C:%s]%s", text_color, options[selected])).Run();
+            if(hover)
+            {
+                ui.Box(Fmt("ComnboList-popup-id-%s", id))
+                .Style(pop_up)
+                .Run([&]
+                {
+                    button.background_color = theme.button_color_hover;
+                    for(int i = 0; options[i] != nullptr; i++)
+                    {
+                        text_color = theme.text_color_hover;
+                        ui.Box(Fmt("ComboList-button-%s-id-%s", options[i], id))
+                        .Style(button)
+                        .OnDirectHover([&] 
+                        {
+                            text_color = theme.text_color;
+                            if(mouse_pressed)
+                            {
+                                selected = i;
+                            }
+                            ui.GetStyle().background_color = theme.button_color;
+                        })
+                        .Run([&] { ui.InsertText(Fmt("[S:18][C:%s]%s", text_color, options[i])); });
+                    }
+                });
+            }
+        });
+    };
+    void DebugInspector::CustomDigitInput(int& value)
+    {
+        Builder ui;
+        ui.SetContext(&ui_context);
+        BoxStyle button = 
+        {
+            .flow = {.horizontal_alignment = Flow::END},
+            .width = {60},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .min_width = {100, Unit::CONTENT_PERCENT},
+            .padding = {1,1,1,1},
+            .background_color = theme.button_color_hover,
+            .corner_radius = theme.icon_corner_radius
+        };
+        HexColor text_color = theme.text_color_hover;
+        ui.Box(Fmt("CustomDigitInput %ld", (uintptr_t)&value))
+        .Style(button)
+        .Run([&]
+        {
+            ui.InsertText(Fmt("[S:20][C:%s]%d", text_color, value));
+        });
+    }
+    void DebugInspector::UnitEditBox(const char* name, Unit& unit, uint64_t valid)
+    {
+        Builder ui;
+        ui.SetContext(GetContext());
+        BoxStyle h_container =
+        {
+            .width = {100, Unit::AVAILABLE_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .min_width = {100, Unit::CONTENT_PERCENT}
+        };
+        BoxStyle input_container = 
+        {
+            .width = {100, Unit::CONTENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .min_width = {100, Unit::CONTENT_PERCENT}
+        };
+        const char* unit_options[]
+        {
+            "PIXEL",
+            "PARENT_PERCENT",
+            "ROOT_PERCENT",
+            "CONTENT_PERCENT",   
+            "AVAILABLE_PERCENT",
+            "WIDTH_PERCENT",
+        };
+        ui.Box()
+        .Style(h_container)
+        .Run([&]
+        {
+            ui.InsertText(Fmt("[S:20][C:%s]%s", theme.text_color_hover, name));
+            ui.Box()
+            .Style(input_container)
+            .Run([&]
+            {
+                int digit = unit.value;
+                int select = unit.unit;
+                CustomDigitInput(digit);
+                CustomComboList(name, select, unit_options, valid);
+                unit.value = digit;
+                unit.unit = (Unit::Type)select;
+            });
+        });
     }
 
 

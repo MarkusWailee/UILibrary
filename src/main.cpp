@@ -4,6 +4,7 @@
 #include "UI_Demo.hpp"
 #include "ui_inspector.hpp"
 
+#include <vector>
 void ExampleDemo()
 {
     UI::BeginRoot(0, 0, GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
@@ -23,6 +24,7 @@ int main(void)
     UI::Context ui_context(128 * UI::KB);
     UI::DebugInspector ui_inspector1(UI::MB);
     UI::DebugInspector ui_inspector2(2 * UI::MB);
+    UI::DebugInspector ui_inspector3(4 * UI::MB);
     ui_inspector2.theme.base_color = {100, 100, 120, 255};
     ui_inspector2.theme.title_bar_color = {200, 200, 255, 255};
 
@@ -37,11 +39,12 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
+        ui_inspector2.GetContext()->SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_F3), &ui_inspector3);
         ui_inspector1.GetContext()->SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_F2), &ui_inspector2);
         ui_context.SetInspector(IsMouseButtonPressed(0), IsMouseButtonReleased(0), GetMouseWheelMove(), IsKeyPressed(KEY_F1), &ui_inspector1);
         SpotifyExample();
 
-        //DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
+        DrawText(TextFormat("fps = %d", GetFPS()), 10, 10, 20, WHITE);
         EndDrawing();
     }
     CloseWindow();        // Close window and OpenGL context

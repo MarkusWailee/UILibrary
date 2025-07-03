@@ -30,6 +30,9 @@ namespace UI
         #if 0 //Testing performance
         {
             DrawRectangle(x, y, width, height, {bg.r, bg.g, bg.b, bg.a});
+            //DrawRectangleRounded({x+border_size, y+border_size, width-border_size, height-border_size}, ((float)corner_radius / Min(width-border_size, height - border_size)), 4, {bg.r, bg.g, bg.b, bg.a});
+            //DrawRectangleRoundedLinesEx({x+border_size, y+border_size, width-border_size, height-border_size}, ((float)corner_radius / Min(width-border_size, height - border_size)), 4,border_size, {brdr.r, brdr.g, brdr.b, brdr.a});
+            
             return;
         }
         #endif

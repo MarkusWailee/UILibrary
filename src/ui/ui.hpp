@@ -550,6 +550,11 @@ namespace UI
         void ConstructTree(TreeNodeDebug* node, int depth);
         bool SearchNodeAndOpenTree(TreeNodeDebug* node);
 
+        //Widgets
+        void CustomComboList(const char * id, int& selected, const char** options, uint64_t valid);
+        void CustomDigitInput(int& value);
+        void UnitEditBox(const char* name, Unit& unit, uint64_t valid);
+
 
 
         Internal::MemoryArena arena; //only public to copy labels and strings. I dont feel like making a getter function
@@ -570,6 +575,9 @@ namespace UI
         int panel_width = 200;
         int left_panel_scroll = 0;
         int right_panel_scroll = 0;
+        // ===== BoxStyle states =====
+
+
         // ====================
 
         // ===== User Input =====
@@ -607,6 +615,7 @@ namespace UI
 
         //Executes begin/end
         void Run();
+        void InsertText(const char* text, bool should_copy = true, DebugInfo debug_info = UI_DEBUG("Text"));
 
         //Executes begin/end with lambda
         template<typename Func>
@@ -728,5 +737,10 @@ namespace UI
                 context->EndBox();
             }
         }
+    }
+    inline void Builder::InsertText(const char* text, bool should_copy, DebugInfo debug_info)
+    {
+        if(context)
+            context->InsertText(text, nullptr, should_copy, debug_info);
     }
 }
