@@ -1258,7 +1258,7 @@ namespace UI
                     })
                     .Run([&] 
                     {
-                        left_panel_scroll = Clamp(left_panel_scroll, 0, ui.GetBoxInfo().MaxScrollY());
+                        left_panel_scroll = Clamp(left_panel_scroll, 0, ui.Info().MaxScrollY());
                         ConstructTree(root_node, 0); 
                     });
                 });
@@ -1268,11 +1268,11 @@ namespace UI
                 .OnDirectHover([&]
                 { 
                     if(IsMousePressed(MOUSE_LEFT)) panel_drag = true;
-                    ui.GetStyle().background_color = theme.button_color_hover;
+                    ui.Style().background_color = theme.button_color_hover;
                 })
                 .Run([&]
                 { 
-                    HexColor col = ui.GetBoxInfo().IsDirectHover()? theme.text_color_hover: theme.text_color;
+                    HexColor col = ui.Info().IsDirectHover()? theme.text_color_hover: theme.text_color;
                     ui.Text(Fmt("[S:20][C:%s]||", col)).Run();
                 });
 
@@ -1297,7 +1297,7 @@ namespace UI
         .Style(base_resize_button)
         .OnDirectHover([&]
         {   
-            ui.GetStyle().background_color = theme.button_color_hover;
+            ui.Style().background_color = theme.button_color_hover;
             if(IsMousePressed(MOUSE_LEFT)) window_size_drag = true;
         }).Run();
 
@@ -1610,7 +1610,7 @@ namespace UI
         {
             hover = true;
             text_color = theme.text_color;
-            ui.GetStyle().background_color = theme.button_color;
+            ui.Style().background_color = theme.button_color;
         })
         .Run([&]
         {
@@ -1634,7 +1634,7 @@ namespace UI
                             {
                                 selected = i;
                             }
-                            ui.GetStyle().background_color = theme.button_color;
+                            ui.Style().background_color = theme.button_color;
                         })
                         .Run([&] { ui.InsertText(Fmt("[S:18][C:%s]%s", text_color, options[i])); });
                     }
@@ -1663,7 +1663,7 @@ namespace UI
         {
             text_color = theme.text_color;
             value += GetMouseScroll() * 2;
-            ui.GetStyle().background_color = theme.button_color;
+            ui.Style().background_color = theme.button_color;
         })
         .Run([&]
         {

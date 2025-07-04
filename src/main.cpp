@@ -51,8 +51,9 @@ int main(void)
         };
 
         SpotifyExample(&context);
-        UI::BeginRoot(&context2, root);
 
+        UI::BeginRoot(&context2, root);
+    
         UI::EndRoot();
 
 

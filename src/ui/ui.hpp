@@ -375,6 +375,18 @@ namespace UI
     void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
     void EndBox();
     void Draw();
+    // ====================================
+
+    // ========== Builder Notation ==========
+    template<typename Func>
+    void Root(Context* context, const BoxStyle& style, Func&& func, DebugInfo debug_info = UI_DEBUG("Root"));
+    //Builder& Text(const char* text, const char* id = nullptr, bool should_copy = true, DebugInfo debug_info = UI_DEBUG("Text"));
+    //Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+    //BoxInfo Info();
+    //BoxStyle& Style();
+    //bool IsHover();
+    //bool IsDirectHover();
+    // ======================================
 
 
     struct TextPrimitive
@@ -729,14 +741,18 @@ namespace UI
     {
     public: 
         void SetContext(Context* context);
-        BoxInfo GetBoxInfo() const;
-        BoxStyle& GetStyle();
 
         //Main 3 options
+
+        //Also Implemented as global functions
         template<typename Func>
         void Root(BoxStyle style, Func&& func, DebugInfo debug_info = UI_DEBUG("Root"));
         Builder& Text(const char* text, const char* id = nullptr, bool should_copy = true, DebugInfo debug_info = UI_DEBUG("Text"));
         Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+        BoxInfo Info() const;
+        BoxStyle& Style();
+        bool IsHover() const;
+        bool IsDirectHover() const;
 
         //Parmeters
         Builder& Style(const BoxStyle& style);
@@ -744,9 +760,9 @@ namespace UI
         Builder& OnHover(Func&& func);
         template<typename Func>
         Builder& OnDirectHover(Func&& func);
+        template<typename Func>
+        Builder& Pre();
 
-        bool IsHover() const;
-        bool IsDirectHover() const;
 
         //Executes begin/end
         void Run();
@@ -775,6 +791,15 @@ namespace UI
 //Builder Implementation
 namespace UI
 {
+    template<typename Func>
+    inline void Root(Context* context, const BoxStyle& style, Func&& func, DebugInfo debug_info)
+    {
+        UI::BeginRoot(context, style, debug_info);
+        func();
+        UI::EndBox();
+    }
+
+
     inline void Builder::SetContext(Context* context)
     {
         this->context = context;
@@ -802,7 +827,7 @@ namespace UI
         debug_info = DebugInfo();
         should_copy = true;
     }
-    inline BoxInfo Builder::GetBoxInfo() const
+    inline BoxInfo Builder::Info() const
     {
         return info;
     }
@@ -814,7 +839,7 @@ namespace UI
     {
         return info.IsDirectHover();
     }
-    inline BoxStyle& Builder::GetStyle()
+    inline BoxStyle& Builder::Style()
     {
         return style;
     }
