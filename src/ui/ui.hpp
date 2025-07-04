@@ -44,7 +44,7 @@ namespace UI
 }
 namespace UI::Internal
 {
-    struct Box;
+    struct BoxInternal;
     struct TreeNode;
 }
 
@@ -288,7 +288,7 @@ namespace UI
         TOP_END,
         BOTTOM_END
     };
-    // ========== Main Box Styling ========== 
+    // ========== Box Styling ========== 
     struct BoxStyle
     {
         //container
@@ -366,26 +366,25 @@ namespace UI
 
     // ========== Main Functions ==========
     BoxInfo GetBoxInfo(const char* label);
-    bool IsContextActive();
     Context* GetContext();
-    void SetFreeze(bool state);
+    bool IsContextActive();
     void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info = UI_DEBUG("Root"));
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
-    void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
     void EndBox();
+    void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
     void Draw();
     // ====================================
 
     // ========== Builder Notation ==========
     template<typename Func>
     void Root(Context* context, const BoxStyle& style, Func&& func, DebugInfo debug_info = UI_DEBUG("Root"));
-    //Builder& Text(const char* text, const char* id = nullptr, bool should_copy = true, DebugInfo debug_info = UI_DEBUG("Text"));
-    //Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
-    //BoxInfo Info();
-    //BoxStyle& Style();
-    //bool IsHover();
-    //bool IsDirectHover();
+    Builder& Text(const char* text, const char* id = nullptr, bool should_copy = true, DebugInfo debug_info = UI_DEBUG("Text"));
+    Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+    BoxInfo Info();
+    BoxStyle& Style();
+    bool IsHover();
+    bool IsDirectHover();
     // ======================================
 
 
@@ -448,7 +447,7 @@ namespace UI
     //Internal namespace is just used for seperation in public api
     namespace Internal
     {
-        struct Box
+        struct BoxInternal
         {
             // ========= Only used when debugging is enabled
             #if UI_ENABLE_DEBUG
@@ -524,7 +523,7 @@ namespace UI
         };
         struct TreeNode
         {
-            Box box;
+            BoxInternal box;
             ArenaLL<TreeNode> children;
         };
     }
@@ -574,7 +573,7 @@ namespace UI
         private:
             void ClearPreviousFrame();
             //These functions are for internals only
-        using Box = Internal::Box;
+        using Box = Internal::BoxInternal;
         using TreeNode = Internal::TreeNode;
         bool HasInternalError();
         //Returns false and does nothing if no error
@@ -742,7 +741,6 @@ namespace UI
     public: 
         void SetContext(Context* context);
 
-        //Main 3 options
 
         //Also Implemented as global functions
         template<typename Func>
@@ -796,7 +794,7 @@ namespace UI
     {
         UI::BeginRoot(context, style, debug_info);
         func();
-        UI::EndBox();
+        UI::EndRoot();
     }
 
 

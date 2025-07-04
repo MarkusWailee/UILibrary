@@ -5,13 +5,13 @@ namespace UI
 {
     using namespace Internal;
     void DisplayError(const Error& error);
-    Error CheckUnitErrors(const Box& style);
-    Error CheckLeafNodeContradictions(const Box& leaf);
-    Error CheckNodeContradictions(const Box& child, const Box& parent);
+    Error CheckUnitErrors(const BoxInternal& style);
+    Error CheckLeafNodeContradictions(const BoxInternal& leaf);
+    Error CheckNodeContradictions(const BoxInternal& child, const BoxInternal& parent);
 
     //Used during tree descending
     int FixedUnitToPx(Unit unit, int root_size);
-    Box ComputeStyleSheet(const BoxStyle& style, const Box& root);
+    BoxInternal ComputeStyleSheet(const BoxStyle& style, const BoxInternal& root);
 
     //Size should include '\0'
     void StringCopy(char* dst, const char* src, uint32_t size);
@@ -93,9 +93,9 @@ namespace UI
 
     //Computing PARENT_PERCENT
     int ParentPercentToPx(int value , Unit::Type unit_type, int parent_width);
-    void ComputeParentWidthPercent(Box& box, int parent_width);
-    void ComputeParentHeightPercent(Box& box, int parent_width);
-    void ComputeDetachPositions(Box& box,  const Box& parent);
+    void ComputeParentWidthPercent(BoxInternal& box, int parent_width);
+    void ComputeParentHeightPercent(BoxInternal& box, int parent_width);
+    void ComputeDetachPositions(BoxInternal& box,  const BoxInternal& parent);
 
 
     //Debugger
@@ -108,6 +108,7 @@ namespace UI
 {
     Internal::FixedStack<Context*, 16> context_stack;
     Internal::FixedQueue<Context*, 16> context_queue;
+    Builder builder;
     void PushContext(Context* context);
 }
 
@@ -142,6 +143,7 @@ namespace UI
     void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info)
     {
         PushContext(context);
+        builder.SetContext(GetContext());
         if(IsContextActive())
         {
             GetContext()->BeginRoot(style, debug_info);
@@ -154,6 +156,9 @@ namespace UI
 
         assert(!context_stack.IsEmpty() && "No context has been pushed");
         context_stack.Pop();
+
+        if(IsContextActive()) 
+            builder.SetContext(GetContext());
     }
     void BeginBox(const UI::BoxStyle& box_style, const char* label, DebugInfo debug_info)
     {
@@ -179,52 +184,79 @@ namespace UI
             context_queue.Pop();
         }
     }
+
+
+    // ========== Builder Notation ===========
+    Builder& Text(const char* text, const char* id, bool should_copy, DebugInfo debug_info)
+    {
+        return builder.Text(text, id, should_copy, debug_info);
+    }
+    Builder& Box(const char* id, DebugInfo debug_info)
+    {
+        return builder.Box(id, debug_info);
+    }
+    BoxInfo Info()
+    {
+        return builder.Info();
+    }
+    BoxStyle& Style()
+    {
+        return builder.Style();
+    }
+    bool IsHover()
+    {
+        return builder.IsHover();
+    }
+    bool IsDirectHover()
+    {
+        return builder.IsDirectHover();
+    }
 }
 
 
 //Box
 namespace UI
 {
-    inline void Box::SetFlowAxis(Flow::Axis axis){flow_axis = axis;}
-    inline void Box::SetScissor(bool flag){scissor = flag;}
-    inline Layout Box::GetLayout() const
+    inline void BoxInternal::SetFlowAxis(Flow::Axis axis){flow_axis = axis;}
+    inline void BoxInternal::SetScissor(bool flag){scissor = flag;}
+    inline Layout BoxInternal::GetLayout() const
     {
         return layout;
     }
-    inline Flow::Axis Box::GetFlowAxis() const
+    inline Flow::Axis BoxInternal::GetFlowAxis() const
     {
         return flow_axis;
     }
-    inline bool Box::IsScissor() const
+    inline bool BoxInternal::IsScissor() const
     {
         return scissor;
     }
-    inline bool Box::IsDetached() const
+    inline bool BoxInternal::IsDetached() const
     {
         return detach != Detach::NONE;
     }
-    inline int Box::GetBoxExpansionWidth() const
+    inline int BoxInternal::GetBoxExpansionWidth() const
     {
         return margin.left + margin.right + padding.left + padding.right;
     }
-    inline int Box::GetBoxExpansionHeight() const
+    inline int BoxInternal::GetBoxExpansionHeight() const
     {
         return margin.top + margin.bottom + padding.top + padding.bottom;
     }
-    inline int Box::GetBoxModelWidth() const
+    inline int BoxInternal::GetBoxModelWidth() const
     {
         //internal box model
         return margin.left + padding.left + width + padding.right + margin.right;
     }
-    inline int Box::GetBoxModelHeight() const
+    inline int BoxInternal::GetBoxModelHeight() const
     {
         return margin.top + padding.top + height + padding.bottom + margin.bottom;
     }
-    inline int Box::GetRenderingWidth() const
+    inline int BoxInternal::GetRenderingWidth() const
     {
         return padding.left + width + padding.right;
     }
-    inline int Box::GetRenderingHeight() const
+    inline int BoxInternal::GetRenderingHeight() const
     {
         return padding.top + height + padding.bottom;
     }
@@ -244,7 +276,7 @@ namespace UI
             error.type = error_type;\
             StringCopy(error.msg, Fmt(#error_type"\n"#value" = " #illegal_unit"\nFile: %s\nLine: %d\n", debug_info.file, debug_info.line), ERROR_MSG_SIZE);\
         }
-    Error CheckUnitErrors(const Box& style)
+    Error CheckUnitErrors(const BoxInternal& style)
     {
         //The following units cannot equal the specified Unit Types 
 
@@ -266,7 +298,7 @@ namespace UI
 
 
 
-    Error CheckLeafNodeContradictions(const Box& leaf)
+    Error CheckLeafNodeContradictions(const BoxInternal& leaf)
     {
         //The Following erros are contradictions
         Error error;
@@ -286,7 +318,7 @@ namespace UI
         return error;
     }
 
-    Error CheckNodeContradictions(const Box& child, const Box& parent)
+    Error CheckNodeContradictions(const BoxInternal& child, const BoxInternal& parent)
     {
         //The following errors are contradictions between parent and child
         Error error;
@@ -357,14 +389,14 @@ namespace UI
                 return (int)unit.value; //Only meant for width/height
         }
     }
-    Box ComputeStyleSheet(const BoxStyle& style, const Box& root)
+    BoxInternal ComputeStyleSheet(const BoxStyle& style, const BoxInternal& root)
     {
         int root_width = root.width - style.margin.left - style.margin.right - style.padding.left - style.padding.right;
         int root_height = root.height - style.margin.top - style.margin.bottom - style.padding.top - style.padding.bottom;
         root_width = Max(0, root_width);
         root_height = Max(0, root_height);
 
-        Box box;
+        BoxInternal box;
         box.background_color =          style.background_color;
         box.border_color =              style.border_color;
         //type 3
@@ -863,7 +895,7 @@ namespace UI
     {
         return unit_type == Unit::Type::PARENT_PERCENT? value * parent_size / 100: value;
     }
-    void ComputeParentWidthPercent(Box& box, int parent_width)
+    void ComputeParentWidthPercent(BoxInternal& box, int parent_width)
     {
         parent_width -= box.padding.left + box.padding.right + box.margin.left + box.margin.right;
         parent_width = Max(0, parent_width);
@@ -874,7 +906,7 @@ namespace UI
     }
 
     //Height
-    void ComputeParentHeightPercent(Box& box, int parent_height)
+    void ComputeParentHeightPercent(BoxInternal& box, int parent_height)
     {
         parent_height -= box.padding.top + box.padding.bottom + box.margin.top + box.margin.bottom;
         parent_height = Max(0, parent_height);
@@ -884,7 +916,7 @@ namespace UI
         box.max_height =                (uint16_t)Max(0, ParentPercentToPx(box.max_height,       box.max_height_unit,        parent_height)); 
         box.grid_cell_height =          (uint16_t)Max(0, ParentPercentToPx(box.grid_cell_height, box.grid_cell_height_unit,  parent_height)); 
     }
-    void ComputeWidthPercentForHeight(Box& box)
+    void ComputeWidthPercentForHeight(BoxInternal& box)
     {
         if(box.height_unit == Unit::Type::WIDTH_PERCENT)
             box.height = box.width * box.height / 100;
@@ -893,7 +925,7 @@ namespace UI
         if(box.max_height_unit == Unit::Type::WIDTH_PERCENT)
             box.max_height = box.width * box.max_height / 100;
     }
-    void ComputeDetachPositions(Box& box, const Box& parent)
+    void ComputeDetachPositions(BoxInternal& box, const BoxInternal& parent)
     {
         switch(box.detach)
         {
@@ -1756,7 +1788,7 @@ namespace UI
     BoxInfo Context::GetBoxInfo(uint64_t key)
     {
         #if UI_ENABLE_DEBUG
-        if(debug_inspector && is_inspecting || copy_tree)
+        if(debug_inspector && is_inspecting)
             return BoxInfo();
         #endif
 
