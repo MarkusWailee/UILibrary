@@ -9,7 +9,7 @@ bool PlaylistButtonWidget(const char* playlist_title, const char* author, UI::Co
     button_style.height = UI::Unit{60, UI::Unit::PIXEL};
     button_style.flow.vertical_alignment = UI::Flow::Alignment::CENTERED;
     button_style.corner_radius = 2;
-    UI::BoxInfo info = UI::GetBoxInfo(button_id);
+    UI::BoxInfo info = UI::Info(button_id);
     if(info.valid)
     {
         if(info.is_direct_hover)
@@ -46,7 +46,7 @@ bool RoundedButton(const char* text, UI::Color bg, const char* id, UI::Spacing p
     button_style.corner_radius = 14;
     button_style.background_color = bg;
 
-    UI::BoxInfo info = UI::GetBoxInfo(id);
+    UI::BoxInfo info = UI::Info(id);
     bool result = false;
     if(info.valid)
     {
@@ -107,8 +107,8 @@ void SpotifyExample(UI::Context* context)
             UI::EndBox();
             RoundedButton("[S:18]Options", UI::Color{20, 20, 20, 255}, "Options Button", {9,9,5,5});
             RoundedButton("[S:18]Profile", UI::Color{20, 20, 20, 255}, "Profile Button", {9,9,5,5});
-            UI::BoxInfo option_info = UI::GetBoxInfo("Options Button");
-            if(option_info.is_hover || UI::GetBoxInfo("Pop up").is_hover)
+            UI::BoxInfo option_info = UI::Info("Options Button");
+            if(option_info.is_hover || UI::Info("Pop up").is_hover)
             {
                 UI::BoxStyle pop_up;
                 pop_up.flow.axis = UI::Flow::Axis::VERTICAL;
@@ -177,7 +177,7 @@ void SpotifyExample(UI::Context* context)
 
 
 
-                UI::BoxInfo playlist_panel_info = UI::GetBoxInfo("Playlist Panel");
+                UI::BoxInfo playlist_panel_info = UI::Info("Playlist Panel");
                 if(playlist_panel_info.IsValid())
                 {
                     if(playlist_panel_info.is_hover)
@@ -212,7 +212,7 @@ void SpotifyExample(UI::Context* context)
             song_panel.height = UI::Unit{100, UI::Unit::PARENT_PERCENT};
             song_panel.min_width = UI::Unit{200, UI::Unit::PIXEL};
             song_panel.scissor = true;
-            UI::BoxInfo liked_song_info = UI::GetBoxInfo("Liked Songs Panel");
+            UI::BoxInfo liked_song_info = UI::Info("Liked Songs Panel");
             if(liked_song_info.valid)
             {
                 if(liked_song_info.is_hover)

@@ -365,7 +365,7 @@ namespace UI
     };
 
     // ========== Main Functions ==========
-    BoxInfo GetBoxInfo(const char* label);
+    BoxInfo Info(const char* label);
     Context* GetContext();
     bool IsContextActive();
     void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info = UI_DEBUG("Root"));
@@ -554,8 +554,8 @@ namespace UI
         {
         public:
             Context(uint64_t arena_bytes);
-            BoxInfo GetBoxInfo(const char* label);
-            BoxInfo GetBoxInfo(uint64_t key);
+            BoxInfo Info(const char* label);
+            BoxInfo Info(uint64_t key);
             void SetMousePos(int x, int y);
             void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
             void EndRoot();
@@ -759,7 +759,7 @@ namespace UI
         template<typename Func>
         Builder& OnDirectHover(Func&& func);
         template<typename Func>
-        Builder& Pre();
+        Builder& PreRun(Func&& func);
 
 
         //Executes begin/end
@@ -862,6 +862,12 @@ namespace UI
         {
             func();
         }
+        return *this;
+    }
+    template<typename Func>
+    Builder& Builder::PreRun(Func&& func)
+    {
+        func();
         return *this;
     }
     inline void Builder::Run()

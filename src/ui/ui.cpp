@@ -134,10 +134,10 @@ namespace UI
         assert(!context_stack.IsEmpty() && context_stack.Peek() && "No context has been pushed");
         return context_stack.Peek();
     }
-    BoxInfo GetBoxInfo(const char* label)
+    BoxInfo Info(const char* label)
     {
         if(IsContextActive())
-            return GetContext()->GetBoxInfo(label);
+            return GetContext()->Info(label);
         return BoxInfo();
     }
     void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info)
@@ -1096,7 +1096,7 @@ namespace UI
             return;
 
         const char* element_id = Fmt("mock_element%ld",(uintptr_t)node);
-        BoxInfo info = ui_context.GetBoxInfo(element_id);
+        BoxInfo info = ui_context.Info(element_id);
         if(info.valid)
         {
             DebugBox& box = node->box;
@@ -1635,7 +1635,7 @@ namespace UI
             .corner_radius = theme.icon_corner_radius,
             .detach = Detach::RIGHT
         };
-        bool hover = ui_context.GetBoxInfo(Fmt("ComnboList-popup-id-%s", id)).IsHover();
+        bool hover = ui_context.Info(Fmt("ComnboList-popup-id-%s", id)).IsHover();
         ui.Box(Fmt("ComboList-button-id-%s", id), UI_DEBUG("[C:6666FF]ComboListBox"))
         .Style(button2)
         .OnDirectHover([&]
@@ -1785,7 +1785,7 @@ namespace UI
         }
         return false;
     }
-    BoxInfo Context::GetBoxInfo(uint64_t key)
+    BoxInfo Context::Info(uint64_t key)
     {
         #if UI_ENABLE_DEBUG
         if(debug_inspector && is_inspecting)
@@ -1802,9 +1802,9 @@ namespace UI
         }
         return BoxInfo();
     }
-    BoxInfo Context::GetBoxInfo(const char* label)
+    BoxInfo Context::Info(const char* label)
     {
-        return GetBoxInfo(Hash(label));
+        return Info(Hash(label));
     }
     void Context::ResetAllStates()
     {
@@ -2937,7 +2937,7 @@ namespace UI
             this->text = text;
             this->id = id;
             this->should_copy = should_copy;
-            info = context->GetBoxInfo(id);
+            info = context->Info(id);
         }
         return *this;
     }
@@ -2948,7 +2948,7 @@ namespace UI
         {
             this->debug_info = debug_info;
             this->id = id; 
-            info = context->GetBoxInfo(id);
+            info = context->Info(id);
         }
         return *this;
     }

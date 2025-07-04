@@ -50,8 +50,6 @@ int main(void)
             .corner_radius = 10
         };
 
-        //UI::BeginRoot(&context2, root);
-        //UI::EndRoot();
         //SpotifyExample(&context);
         context2.SetInspector(UI::IsKeyPressed(UI::KEY_F2), &ui_inspector2);
         UI::Root(&context2, root, [&]
@@ -62,21 +60,17 @@ int main(void)
             {
                 UI::Style().background_color = {255, 0, 0, 255};
             })
-            .Run([&]
+            .PreRun([&]
             {
-    
-            });
-            UI::Box("LeftPanel2")
-            .Style(left_panel)
-            .OnHover([&]
-            {
-                UI::Style().background_color = {255, 0, 0, 255};
+                //Optional, stuff before .Run
+
             })
             .Run([&]
             {
     
             });
         });
+
 
 
 
