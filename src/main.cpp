@@ -30,8 +30,6 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
         
-        //ui_inspector1.GetContext()->SetInspector(IsKeyPressed(KEY_F2), &ui_inspector2);
-        context.SetInspector(UI::IsKeyPressed(UI::KEY_F1), &ui_inspector1);
         //SpotifyExample(&ui_context);
 
         UI::BoxStyle root = 
@@ -45,14 +43,18 @@ int main(void)
         UI::BoxStyle left_panel =
         {
             .width = {50, UI::Unit::PARENT_PERCENT},
-            .height = {100, UI::Unit::PARENT_PERCENT},
+            .height = {50, UI::Unit::PARENT_PERCENT},
             .background_color = {60, 60, 60, 255},
             .corner_radius = 10
         };
+        UI::BoxStyle pop_up =
+        {
+            .background_color = {0, 255, 0, 255},
+            .detach = UI::Detach::BOTTOM
+        };
 
-        //SpotifyExample(&context);
-        context2.SetInspector(UI::IsKeyPressed(UI::KEY_F2), &ui_inspector2);
-        UI::Root(&context2, root, [&]
+        context.SetInspector(UI::IsKeyPressed(UI::KEY_F1), &ui_inspector1);
+        UI::Root(&context, root, [&]
         {
             UI::Box("LeftPanel")
             .Style(left_panel)
@@ -60,16 +62,22 @@ int main(void)
             {
                 UI::Style().background_color = {255, 0, 0, 255};
             })
-            .PreRun([&]
-            {
-                //Optional, stuff before .Run
-
-            })
             .Run([&]
             {
-    
+                UI::Box().Style(pop_up)
+                .Run([&]
+                {
+                    UI::Box().Style(pop_up)
+                    .PreRun([&]{UI::Style().background_color = {200, 200, 200, 255};})
+                    .Run([&]
+                    {
+
+                    });
+                });
             });
         });
+
+        //SpotifyExample(&context);
 
 
 

@@ -743,8 +743,6 @@ namespace UI
 
 
         //Also Implemented as global functions
-        template<typename Func>
-        void Root(BoxStyle style, Func&& func, DebugInfo debug_info = UI_DEBUG("Root"));
         Builder& Text(const char* text, const char* id = nullptr, bool should_copy = true, DebugInfo debug_info = UI_DEBUG("Text"));
         Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
         BoxInfo Info() const;
@@ -801,16 +799,6 @@ namespace UI
     inline void Builder::SetContext(Context* context)
     {
         this->context = context;
-    }
-    template<typename Func>
-    void Builder::Root(BoxStyle style, Func&& func, DebugInfo debug_info) 
-    {
-        if(HasContext())
-        {
-            context->BeginRoot(style, debug_info);
-            func();
-            context->EndRoot();
-        }
     }
     inline bool Builder::HasContext() const
     {

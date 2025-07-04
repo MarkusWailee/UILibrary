@@ -1044,7 +1044,7 @@ namespace UI
             .width = GetScreenWidth(),
             .height = GetScreenHeight()
         };
-        ui_context.BeginRoot(root);
+        UI::BeginRoot(&ui_context, root);
 
         ConstructMockUI(root_node);
 
@@ -1062,7 +1062,7 @@ namespace UI
                 .border_width = 1, 
                 .detach = Detach::ABSOLUTE
             };
-            ui_context.BeginBox(hovered_element_outline, nullptr,UI_DEBUG("HoverOutline")); ui_context.EndBox();
+            UI::Box(nullptr, UI_DEBUG("HoverOutline")).Style(hovered_element_outline).Run();
         }
         hovered_element = Rect();
 
@@ -1080,15 +1080,13 @@ namespace UI
                 .border_width = 1, 
                 .detach = Detach::ABSOLUTE,
             };
-            ui_context.BeginBox(selected_node_outline, nullptr, UI_DEBUG("SelectOutline")); ui_context.EndBox();
+            UI::Box(nullptr, UI_DEBUG("SelectOutline")).Style(selected_node_outline).Run();
         }
         // ===================================
 
         ConstructInspector(mouse_x, mouse_y);
 
-        ui_context.EndRoot();
-
-        ui_context.Draw();
+        UI::EndRoot();
     }
     void DebugInspector::ConstructMockUI(TreeNodeDebug* node)
     {
@@ -1158,9 +1156,6 @@ namespace UI
         base_dim.height = Max(125, base_dim.height);
         new_panel_width = Clamp(new_panel_width, 20, base_dim.width - 50);
         // ====================
-
-        Builder ui;
-        ui.SetContext(&ui_context);
 
         BoxStyle base = 
         {
@@ -1262,27 +1257,27 @@ namespace UI
         };
 
         // ================ Inspector UI TREE ======================
-        ui.Box("base", UI_DEBUG("Inspector")).Style(base).Run([&]
+        UI::Box("base", UI_DEBUG("Inspector")).Style(base).Run([&]
         {
-            ui.Box("base-title-bar")
+            UI::Box("base-title-bar")
             .Style(title_bar)
             .OnDirectHover([&] { if(IsMousePressed(MOUSE_LEFT)) window_pos_drag = true;})
-            .Run([&]{ ui.Text(Fmt("[S:20][C:%s]Inspector", theme.text_color)).Run();});
-
-            ui.Box()
+            .Run([&]{ UI::InsertText(Fmt("[S:20][C:%s]Inspector", theme.text_color));});
+            UI::Box()
             .Style(h_container)
             .Run([&]
             {
-                ui.Box()
+                UI::Box()
                 .Style(left_panel)
                 .Run([&]
                 {
                     //Left panel content
-                    ui.Box()
-                    .Style(left_panel_title)
-                    .Run([&]{ ui.Text(Fmt("[S:20][C:%s]Navigate", theme.text_color)).Run(); });
 
-                    ui.Box("left-panel-scroll-box")
+                    UI::Box()
+                    .Style(left_panel_title)
+                    .Run([&]{ UI::InsertText(Fmt("[S:20][C:%s]Navigate", theme.text_color)); });
+
+                    UI::Box("left-panel-scroll-box")
                     .Style(left_panel_scroll_box)
                     .OnHover([&]
                     {
@@ -1290,32 +1285,32 @@ namespace UI
                     })
                     .Run([&] 
                     {
-                        left_panel_scroll = Clamp(left_panel_scroll, 0, ui.Info().MaxScrollY());
+                        left_panel_scroll = Clamp(left_panel_scroll, 0, UI::Info().MaxScrollY());
                         ConstructTree(root_node, 0); 
                     });
                 });
 
-                ui.Box("left-panel-resize-button")
+                UI::Box("left-panel-resize-button")
                 .Style(panel_resize_button)
                 .OnDirectHover([&]
                 { 
                     if(IsMousePressed(MOUSE_LEFT)) panel_drag = true;
-                    ui.Style().background_color = theme.button_color_hover;
+                    UI::Style().background_color = theme.button_color_hover;
                 })
                 .Run([&]
                 { 
-                    HexColor col = ui.Info().IsDirectHover()? theme.text_color_hover: theme.text_color;
-                    ui.Text(Fmt("[S:20][C:%s]||", col)).Run();
+                    HexColor col = UI::Info().IsDirectHover()? theme.text_color_hover: theme.text_color;
+                    UI::InsertText(Fmt("[S:20][C:%s]||", col));
                 });
 
-                ui.Box()
+                UI::Box()
                 .Style(right_panel)
                 .Run([&]
                 {
-                    ui.Box()
+                    UI::Box()
                     .Style(right_panel_title)
-                    .Run([&]{ui.Text(Fmt("[S:20][C:%s]Details", theme.text_color_hover)).Run();});
-                    ui.Box("right-panel-scroll-box")
+                    .Run([&]{UI::InsertText(Fmt("[S:20][C:%s]Details", theme.text_color_hover));});
+                    UI::Box("right-panel-scroll-box")
                     .Style(right_panel_scroll_box)
                     .Run([&]
                     {
@@ -1325,11 +1320,11 @@ namespace UI
                 });
             });
         });
-        ui.Box("base-resize-button")
+        UI::Box("base-resize-button")
         .Style(base_resize_button)
         .OnDirectHover([&]
         {   
-            ui.Style().background_color = theme.button_color_hover;
+            UI::Style().background_color = theme.button_color_hover;
             if(IsMousePressed(MOUSE_LEFT)) window_size_drag = true;
         }).Run();
 
