@@ -291,7 +291,7 @@ char UI::GetPressedChar()
 }
 bool UI::IsMousePressed(MouseButton button)
 {
-    return ::IsMouseButtonDown(button);
+    return ::IsMouseButtonPressed(button);
 }
 bool UI::IsMouseReleased(MouseButton button)
 {

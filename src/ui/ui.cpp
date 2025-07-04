@@ -7,7 +7,6 @@ namespace UI
     void DisplayError(const Error& error);
     Error CheckUnitErrors(const Box& style);
     Error CheckLeafNodeContradictions(const Box& leaf);
-    Error CheckRootNodeConflicts(const Box& root);
     Error CheckNodeContradictions(const Box& child, const Box& parent);
 
     //Used during tree descending
@@ -107,10 +106,7 @@ namespace UI
 //GLOBALS
 namespace UI
 {
-    bool debug_view_activate = false;
-    bool debug_view_copy_tree = false;
-
-    static Context* context = nullptr;
+    Internal::FixedStack<Context*, 8> context_stack;
 }
 
 
@@ -118,61 +114,56 @@ namespace UI
 //IMPLEMENTATION
 namespace UI
 {
-    void SetDebugInput(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed)
+    bool IsContextActive()
     {
-    }
-    void SetContext(UI::Context* context)
-    {
-        UI::context = context;
+        return !context_stack.IsEmpty() && context_stack.Peek();
     }
     Context* GetContext()
     {
-        return context;
+        assert(!context_stack.IsEmpty() && context_stack.Peek() && "No context has been pushed");
+        return context_stack.Peek();
     }
     BoxInfo GetBoxInfo(const char* label)
     {
-        if(context)
-            return context->GetBoxInfo(label);
+        if(IsContextActive())
+            return GetContext()->GetBoxInfo(label);
         return BoxInfo();
     }
-    void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
+    void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info)
     {
-        BoxStyle root
+        assert(context_stack.Size() <= context_stack.Capacity() && "Why are you using so many Context's :(");
+        context_stack.Push(context);
+        if(IsContextActive())
         {
-            .x = x,
-            .y = y,
-            .width = screen_width,
-            .height = screen_height,
-        };
-        if(context)
-        {
-            context->BeginRoot(root);
+            GetContext()->BeginRoot(style, debug_info);
         }
     }
     void EndRoot()
     {
-        if(context)
-            context->EndRoot();
+        if(IsContextActive())
+            GetContext()->EndRoot();
     }
     void BeginBox(const UI::BoxStyle& box_style, const char* label, DebugInfo debug_info)
     {
-        if(context)
-            context->BeginBox(box_style, label, debug_info);
+        if(IsContextActive())
+            GetContext()->BeginBox(box_style, label, debug_info);
     }
     void InsertText(const char* text, const char* label, bool copy_text, DebugInfo debug_info)
     {
-        if(context)
-            context->InsertText(text, label, copy_text, debug_info);
+        if(IsContextActive())
+            GetContext()->InsertText(text, label, copy_text, debug_info);
     }
     void EndBox()
     {
-        if(context)
-            context->EndBox();
+        if(IsContextActive())
+            GetContext()->EndBox();
     }
     void Draw()
     {
-        if(context)
-            context->Draw();
+        if(IsContextActive())
+            GetContext()->Draw();
+        assert(!context_stack.IsEmpty() && "No context has been pushed");
+        context_stack.Pop();
     }
 }
 
@@ -247,12 +238,8 @@ namespace UI
         Error error;
         #if UI_ENABLE_DEBUG
             DebugInfo debug_info = style.debug_info;
-            UNIT_CONFLICT(style.x_unit,                     Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-            UNIT_CONFLICT(style.y_unit,                     Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
             UNIT_CONFLICT(style.grid_cell_width_unit,       Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
             UNIT_CONFLICT(style.grid_cell_height_unit,      Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-            UNIT_CONFLICT(style.x_unit,                     Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-            UNIT_CONFLICT(style.y_unit,                     Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
             UNIT_CONFLICT(style.grid_cell_width_unit,       Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
             UNIT_CONFLICT(style.grid_cell_height_unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
             UNIT_CONFLICT(style.min_width_unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
@@ -285,44 +272,6 @@ namespace UI
         return error;
     }
 
-    Error CheckRootNodeConflicts(const Box& root)
-    {
-        //Root node style sheet cannot equal any of these Unit types
-        //The following errors are contradictions
-        //Parent%
-        Error error;
-        #if UI_ENABLE_DEBUG
-            DebugInfo debug_info = root.debug_info;
-            UNIT_CONFLICT(root.width_unit,      Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.height_unit,     Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.min_width_unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.min_height_unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.max_width_unit,  Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.max_height_unit, Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.x_unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.y_unit,          Unit::Type::PARENT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            //Available%
-            UNIT_CONFLICT(root.width_unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.height_unit,     Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.min_width_unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.min_height_unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.max_width_unit,  Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.max_height_unit, Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.x_unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.y_unit,          Unit::Type::AVAILABLE_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            //Root%
-            UNIT_CONFLICT(root.width_unit,      Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.height_unit,     Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.min_width_unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.min_height_unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.max_width_unit,  Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.max_height_unit, Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.x_unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-            UNIT_CONFLICT(root.y_unit,          Unit::Type::ROOT_PERCENT, Error::Type::ROOT_NODE_CONTRADICTION);
-        #endif
-        return error;
-    }
-        
     Error CheckNodeContradictions(const Box& child, const Box& parent)
     {
         //The following errors are contradictions between parent and child
@@ -409,6 +358,8 @@ namespace UI
         box.scroll_x =                  style.scroll_x;
         box.scroll_y =                  style.scroll_y;
         
+        box.x =                          style.x;
+        box.y =                          style.y;
         box.width =                     (uint16_t)Max(0, FixedUnitToPx(style.width, root_width));
         box.height =                    (uint16_t)Max(0, FixedUnitToPx(style.height, root_height));
         box.gap_row =                    style.gap_row;
@@ -417,8 +368,6 @@ namespace UI
         box.max_width =                 (uint16_t)Max(0, FixedUnitToPx(style.max_width, root_width));
         box.min_height =                (uint16_t)Max(0, FixedUnitToPx(style.min_height, root_height));
         box.max_height =                (uint16_t)Max(0, FixedUnitToPx(style.max_height, root_height));
-        box.x =                         (int16_t)FixedUnitToPx(style.x, root_width);
-        box.y =                         (int16_t)FixedUnitToPx(style.y, root_height);
         box.grid_cell_width =           (uint16_t)Max(0, FixedUnitToPx(style.grid.cell_width, root_width));
         box.grid_cell_height =          (uint16_t)Max(0, FixedUnitToPx(style.grid.cell_height, root_width));
 
@@ -428,8 +377,6 @@ namespace UI
         box.max_width_unit =            style.max_width.unit;
         box.min_height_unit =           style.min_height.unit;
         box.max_height_unit =           style.max_height.unit;
-        box.x_unit =                    style.x.unit;
-        box.y_unit =                    style.y.unit;
         box.grid_cell_width_unit =      style.grid.cell_width.unit;
         box.grid_cell_height_unit =     style.grid.cell_height.unit;
 
@@ -909,7 +856,6 @@ namespace UI
         box.width =                     (uint16_t)Max(0, ParentPercentToPx(box.width,            box.width_unit,             parent_width)); 
         box.min_width =                 (uint16_t)Max(0, ParentPercentToPx(box.min_width,        box.min_width_unit,         parent_width)); 
         box.max_width =                 (uint16_t)Max(0, ParentPercentToPx(box.max_width,        box.max_width_unit,         parent_width)); 
-        box.x =                                 (int16_t)ParentPercentToPx(box.x,                box.x_unit,                 parent_width); 
         box.grid_cell_width =           (uint16_t)Max(0, ParentPercentToPx(box.grid_cell_width,  box.grid_cell_width_unit,   parent_width)); 
     }
 
@@ -922,7 +868,6 @@ namespace UI
         box.gap_row =                   (uint16_t)Max(0, ParentPercentToPx(box.gap_row,          box.gap_row_unit,           parent_height)); 
         box.min_height =                (uint16_t)Max(0, ParentPercentToPx(box.min_height,       box.min_height_unit,        parent_height)); 
         box.max_height =                (uint16_t)Max(0, ParentPercentToPx(box.max_height,       box.max_height_unit,        parent_height)); 
-        box.y =                                 (int16_t)ParentPercentToPx(box.y,                box.y_unit,                 parent_height); 
         box.grid_cell_height =          (uint16_t)Max(0, ParentPercentToPx(box.grid_cell_height, box.grid_cell_height_unit,  parent_height)); 
     }
     void ComputeWidthPercentForHeight(Box& box)
@@ -1015,12 +960,6 @@ namespace UI
         arena.Reset();
         ui_context.ResetAllStates();
     }
-    void DebugInspector::SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll)
-    {
-        this->mouse_pressed = mouse_pressed;
-        this->mouse_released = mouse_released;
-        this->mouse_scroll = mouse_scroll;
-    }
     void DebugInspector::PushNode(const DebugBox& box)
     {
         if(root_node == nullptr)
@@ -1068,10 +1007,10 @@ namespace UI
         {
             BoxStyle hovered_element_outline = 
             { 
-                .x = {(float)hovered_element.x}, 
-                .y = {(float)hovered_element.y}, 
-                .width = {(float)hovered_element.width}, 
-                .height = {(float)hovered_element.height}, 
+                .x = {hovered_element.x}, 
+                .y = {hovered_element.y}, 
+                .width = {hovered_element.width}, 
+                .height = {hovered_element.height}, 
                 .background_color = {100, 100, 100, 100},
                 .border_color = {255, 255, 255, 255},  
                 .border_width = 1, 
@@ -1086,10 +1025,10 @@ namespace UI
             const DebugBox& box = selected_node->box;
             BoxStyle selected_node_outline = 
             {
-                .x = (float)box.dim.x,
-                .y = (float)box.dim.y,
-                .width = (float)box.dim.width,
-                .height = (float)box.dim.height,
+                .x = box.dim.x,
+                .y = box.dim.y,
+                .width = box.dim.width,
+                .height = box.dim.height,
                 .background_color = {255, 0, 0, 10},
                 .border_color = {255, 0, 0, 255},  
                 .border_width = 1, 
@@ -1124,7 +1063,7 @@ namespace UI
                 hovered_element.x = box.dim.x;
                 hovered_element.y = box.dim.y;
                 //Selecting node from mock ui
-                if(mouse_pressed)
+                if(IsMousePressed(MOUSE_LEFT))
                 {
                     selected_node = node;
                     SearchNodeAndOpenTree(root_node);
@@ -1145,7 +1084,7 @@ namespace UI
     void DebugInspector::ConstructInspector(int mouse_x, int mouse_y)
     {
         // === Draggin Logic ===
-        if(mouse_pressed)
+        if(IsMousePressed(MOUSE_LEFT))
         {
             mouse_drag_x = mouse_x;
             mouse_drag_y = mouse_y;
@@ -1180,10 +1119,10 @@ namespace UI
         BoxStyle base = 
         {
             .flow = { .axis = Flow::VERTICAL},
-            .x = {(float)base_dim.x},
-            .y = {(float)base_dim.y},
-            .width = {(float)base_dim.width},
-            .height = {(float)base_dim.height},
+            .x = {base_dim.x},
+            .y = {base_dim.y},
+            .width = {base_dim.width},
+            .height = {base_dim.height},
             .background_color = theme.base_color,
             .corner_radius = theme.base_corner_radius,
             .detach = Detach::ABSOLUTE,
@@ -1209,7 +1148,7 @@ namespace UI
         BoxStyle left_panel =
         {
             .flow = {.axis = Flow::VERTICAL},
-            .width = {(float)new_panel_width},
+            .width = {new_panel_width},
             .height = {100, Unit::AVAILABLE_PERCENT},
             .background_color = theme.left_panel_color,
             .corner_radius = theme.button_corner_radius,
@@ -1267,8 +1206,8 @@ namespace UI
         };
         BoxStyle base_resize_button
         {
-            .x = {(float)base_dim.x + base_dim.width - 18},
-            .y = {(float)base_dim.y + base_dim.height - 18},
+            .x = {base_dim.x + base_dim.width - 18},
+            .y = {base_dim.y + base_dim.height - 18},
             .width{18},
             .height = {18},
             .background_color = theme.title_bar_color,
@@ -1281,7 +1220,7 @@ namespace UI
         {
             ui.Box("base-title-bar")
             .Style(title_bar)
-            .OnDirectHover([&] { if(mouse_pressed) window_pos_drag = true;})
+            .OnDirectHover([&] { if(IsMousePressed(MOUSE_LEFT)) window_pos_drag = true;})
             .Run([&]{ ui.Text(Fmt("[S:20][C:%s]Inspector", theme.text_color)).Run();});
 
             ui.Box()
@@ -1301,7 +1240,7 @@ namespace UI
                     .Style(left_panel_scroll_box)
                     .OnHover([&]
                     {
-                        left_panel_scroll -= mouse_scroll * 20;
+                        left_panel_scroll -= GetMouseScroll() * 20;
                     })
                     .Run([&] 
                     {
@@ -1314,7 +1253,7 @@ namespace UI
                 .Style(panel_resize_button)
                 .OnDirectHover([&]
                 { 
-                    if(mouse_pressed) panel_drag = true;
+                    if(IsMousePressed(MOUSE_LEFT)) panel_drag = true;
                     ui.GetStyle().background_color = theme.button_color_hover;
                 })
                 .Run([&]
@@ -1345,13 +1284,13 @@ namespace UI
         .OnDirectHover([&]
         {   
             ui.GetStyle().background_color = theme.button_color_hover;
-            if(mouse_pressed) window_size_drag = true;
+            if(IsMousePressed(MOUSE_LEFT)) window_size_drag = true;
         }).Run();
 
 
         // ======================== END Inspector UI TREE ==================================
 
-        if(mouse_released)
+        if(IsMouseReleased(MOUSE_LEFT))
         {
             window_dim = base_dim;
             window_pos_drag = false;
@@ -1403,7 +1342,7 @@ namespace UI
             .width = {100, Unit::AVAILABLE_PERCENT},
             .height = {100, Unit::CONTENT_PERCENT},
             .min_width = {100, Unit::CONTENT_PERCENT},
-            .min_height = {(float)theme.button_corner_radius * 2},
+            .min_height = {theme.button_corner_radius * 2},
             .padding = {5,5,5,5},
             .background_color = theme.info_box_color,
             .corner_radius = theme.button_corner_radius
@@ -1453,8 +1392,6 @@ namespace UI
             .Style(info_box)
             .Run([&]
             {
-                UnitEditBox("width", style.width, 0xFFFFFFFF);
-                UnitEditBox("height", style.height, 0xFFFFFFFF);
             });
         });
 
@@ -1526,7 +1463,7 @@ namespace UI
         .OnDirectHover([&]
         {
             highlight_button();
-            if(mouse_pressed) selected_node = node;
+            if(IsMousePressed(MOUSE_LEFT)) selected_node = node;
             hovered_element = node->box.dim;
         })
         .Style(button)
@@ -1553,7 +1490,7 @@ namespace UI
                         open_button.background_color = theme.button_color_hover;
                     open_button.border_color = theme.button_color_hover;
                     icon_color = theme.text_color_hover;
-                    if(mouse_pressed)
+                    if(IsMousePressed(MOUSE_LEFT))
                         node->box.is_open = !node->box.is_open;
                 })
                 .Style(open_button)
@@ -1679,7 +1616,7 @@ namespace UI
                         .OnDirectHover([&] 
                         {
                             text_color = theme.text_color;
-                            if(mouse_pressed)
+                            if(IsMousePressed(MOUSE_LEFT))
                             {
                                 selected = i;
                             }
@@ -1711,7 +1648,7 @@ namespace UI
         .OnDirectHover([&]
         {
             text_color = theme.text_color;
-            value += mouse_scroll * 2;
+            value += GetMouseScroll() * 2;
             ui.GetStyle().background_color = theme.button_color;
         })
         .Run([&]
@@ -1843,12 +1780,11 @@ namespace UI
         root_node = nullptr;
         element_count = 0;
     }
-    void Context::SetInspector(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed, DebugInspector* inspector)
+    void Context::SetInspector(bool activate_pressed, DebugInspector* inspector)
     {
         debug_inspector = inspector; 
         if(debug_inspector)
         {
-            debug_inspector->SetUserInput(mouse_pressed, mouse_released, mouse_scroll);
             if(activate_pressed)
             {
                 debug_inspector->Reset();
@@ -1859,6 +1795,8 @@ namespace UI
             }
         }
 
+        if(is_inspecting)
+            debug_inspector->RunDebugInspector(0, 0, GetScreenWidth(), GetScreenWidth(), GetMouseX(), GetMouseY());
     }
     void Context::BeginRoot(BoxStyle style, DebugInfo debug_info)
     {
@@ -1872,10 +1810,7 @@ namespace UI
         if(debug_inspector)
         {
             if(is_inspecting)
-            {
-                debug_inspector->RunDebugInspector(0, 0, GetScreenWidth(), GetScreenWidth(), GetMouseX(), GetMouseY());
                 return;
-            }
             if(copy_tree)
             {
                 DebugBox box;

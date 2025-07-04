@@ -179,9 +179,9 @@ namespace UI
 
     //Math helpers
     constexpr float DPI = 96.0f;
-    inline float MmToPx(float mm) { return mm * DPI / 25.4f; } 
-    inline float CmToPx(float cm) { return cm * DPI / 2.54f; }
-    inline float InchToPx(float inches) { return inches * DPI; }
+    inline int MmToPx(float mm) { return int(mm * DPI / 25.4f); } 
+    inline int CmToPx(float cm) { return int(cm * DPI / 2.54f); }
+    inline int InchToPx(float inches) { return int(inches * DPI); }
     template<typename T>
     inline T Min(T a, T b) {return a < b? a: b;}
     template<typename T>
@@ -218,7 +218,7 @@ namespace UI
             WIDTH_PERCENT, //only be applied to height
         };
 
-        float value = 0;
+        int value = 0;
         Unit::Type unit = Type::PIXEL;
     };
     enum class Layout: unsigned char { FLOW, GRID };
@@ -296,8 +296,8 @@ namespace UI
         Flow flow;
         Grid grid;
 
-        Unit x = Unit{0, Unit::Type::PIXEL};
-        Unit y = Unit{0, Unit::Type::PIXEL};
+        int x = 0;
+        int y = 0;
 
         Unit width =    Unit{50, Unit::Type::PIXEL};
         Unit height =   Unit{50, Unit::Type::PIXEL};
@@ -345,7 +345,7 @@ namespace UI
         bool is_hover =         false;
         bool is_direct_hover =  false;
         bool is_rendered =      false;
-        bool IsValid() const { return valid; }
+        bool IsValid() const { return key != 0; }
         bool IsDirectHover() const {return is_direct_hover; }
         bool IsHover() const {return is_hover; }
         bool IsRendered() const { return is_rendered; }
@@ -366,11 +366,10 @@ namespace UI
 
     // ========== Main Functions ==========
     BoxInfo GetBoxInfo(const char* label);
-    void SetContext(UI::Context* context);
+    bool IsContextActive();
     Context* GetContext();
     void SetFreeze(bool state);
-    void SetDebugInput(bool mouse_pressed, bool mouse_release, int mouse_scroll, bool activate_pressed);
-    void BeginRoot(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
+    void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info = UI_DEBUG("Root"));
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
     void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
@@ -473,8 +472,6 @@ namespace UI
             Unit::Type max_width_unit =          Unit::Type::PIXEL;
             Unit::Type min_height_unit =         Unit::Type::PIXEL;
             Unit::Type max_height_unit =         Unit::Type::PIXEL;
-            Unit::Type x_unit =                  Unit::Type::PIXEL;
-            Unit::Type y_unit =                  Unit::Type::PIXEL;
             Unit::Type grid_cell_width_unit =    Unit::Type::PIXEL;
             Unit::Type grid_cell_height_unit =   Unit::Type::PIXEL;
 
@@ -557,7 +554,7 @@ namespace UI
             void Draw();
             uint32_t GetElementCount() const;
 
-            void SetInspector(bool mouse_pressed, bool mouse_released, int mouse_scroll, bool activate_pressed, DebugInspector* inspector_context); 
+            void SetInspector(bool activate_pressed, DebugInspector* inspector_context); 
             //For Advanced Purposes
 
             //Might not even use this
@@ -674,7 +671,6 @@ namespace UI
     private:
 
         const char* CopyStringToArena(const char* str);
-        void SetUserInput(bool mouse_pressed, bool mouse_released, int mouse_scroll); 
         void Reset();
         //Only used for copying ui tree
         void PushNode(const DebugBox& box);
@@ -779,6 +775,10 @@ namespace UI
 //Builder Implementation
 namespace UI
 {
+    inline void Builder::SetContext(Context* context)
+    {
+        this->context = context;
+    }
     template<typename Func>
     void Builder::Root(BoxStyle style, Func&& func, DebugInfo debug_info) 
     {
@@ -788,10 +788,6 @@ namespace UI
             func();
             context->EndRoot();
         }
-    }
-    inline void Builder::SetContext(Context* context)
-    {
-        this->context = context;
     }
     inline bool Builder::HasContext() const
     {

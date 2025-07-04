@@ -74,12 +74,13 @@ bool RoundedButton(const char* text, UI::Color bg, const char* id, UI::Spacing p
 
 int song_panel_scroll = 0;
 int playlist_panel_scroll = 0;
-void SpotifyExample()
+void SpotifyExample(UI::Context* context)
 {
     UI::BoxStyle h_fill;
     h_fill.width = UI::Unit{60, UI::Unit::AVAILABLE_PERCENT};
 
-    UI::BeginRoot(0, 0,GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY());
+    UI::BoxStyle root = {.width = GetScreenWidth(), .height = GetScreenHeight()};
+    UI::BeginRoot(context, root);
     UI::BoxStyle base_v_panel;
     base_v_panel.flow.axis = UI::Flow::Axis::VERTICAL;
     base_v_panel.width = UI::Unit{100, UI::Unit::PARENT_PERCENT};
@@ -112,8 +113,8 @@ void SpotifyExample()
                 UI::BoxStyle pop_up;
                 pop_up.flow.axis = UI::Flow::Axis::VERTICAL;
                 pop_up.corner_radius = 5;
-                pop_up.x = UI::Unit{(float)option_info.DrawX(), UI::Unit::PIXEL};
-                pop_up.y = UI::Unit{(float)option_info.DrawY() + option_info.DrawHeight(), UI::Unit::PIXEL};
+                pop_up.x = option_info.DrawX(); 
+                pop_up.y = option_info.DrawY() + option_info.DrawHeight();
                 pop_up.width = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
                 pop_up.height = UI::Unit{100, UI::Unit::CONTENT_PERCENT};
                 pop_up.background_color = UI::Color{18, 18, 18, 255};
@@ -177,7 +178,7 @@ void SpotifyExample()
 
 
                 UI::BoxInfo playlist_panel_info = UI::GetBoxInfo("Playlist Panel");
-                if(playlist_panel_info.valid)
+                if(playlist_panel_info.IsValid())
                 {
                     if(playlist_panel_info.is_hover)
                         playlist_panel_scroll -= GetMouseWheelMove() * 20;
