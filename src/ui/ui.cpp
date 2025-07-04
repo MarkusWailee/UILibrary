@@ -106,7 +106,9 @@ namespace UI
 //GLOBALS
 namespace UI
 {
-    Internal::FixedStack<Context*, 8> context_stack;
+    Internal::FixedStack<Context*, 16> context_stack;
+    Internal::FixedQueue<Context*, 16> context_queue;
+    void PushContext(Context* context);
 }
 
 
@@ -117,6 +119,14 @@ namespace UI
     bool IsContextActive()
     {
         return !context_stack.IsEmpty() && context_stack.Peek();
+    }
+    void PushContext(Context* context)
+    {
+        assert(context && "Context nullptr");
+        assert(!context_stack.IsFull() && "Why are you using so many contexts");
+        assert(!context_queue.IsFull() && "Why are you using so many contexts");
+        context_stack.Push(context);
+        context_queue.Push(context);
     }
     Context* GetContext()
     {
@@ -131,8 +141,7 @@ namespace UI
     }
     void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info)
     {
-        assert(context_stack.Size() <= context_stack.Capacity() && "Why are you using so many Context's :(");
-        context_stack.Push(context);
+        PushContext(context);
         if(IsContextActive())
         {
             GetContext()->BeginRoot(style, debug_info);
@@ -142,6 +151,9 @@ namespace UI
     {
         if(IsContextActive())
             GetContext()->EndRoot();
+
+        assert(!context_stack.IsEmpty() && "No context has been pushed");
+        context_stack.Pop();
     }
     void BeginBox(const UI::BoxStyle& box_style, const char* label, DebugInfo debug_info)
     {
@@ -160,10 +172,12 @@ namespace UI
     }
     void Draw()
     {
-        if(IsContextActive())
-            GetContext()->Draw();
-        assert(!context_stack.IsEmpty() && "No context has been pushed");
-        context_stack.Pop();
+        while(!context_queue.IsEmpty())
+        {
+            assert(context_queue.Front() && "Context nullptr");
+            context_queue.Front()->Draw();
+            context_queue.Pop();
+        }
     }
 }
 
@@ -1795,8 +1809,6 @@ namespace UI
             }
         }
 
-        if(is_inspecting)
-            debug_inspector->RunDebugInspector(0, 0, GetScreenWidth(), GetScreenWidth(), GetMouseX(), GetMouseY());
     }
     void Context::BeginRoot(BoxStyle style, DebugInfo debug_info)
     {
@@ -2074,8 +2086,11 @@ namespace UI
     void Context::Draw()
     {
         #if UI_ENABLE_DEBUG
-        if(is_inspecting && debug_inspector || copy_tree)
+        if(is_inspecting && debug_inspector)
+        {
+            debug_inspector->RunDebugInspector(0, 0, GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY()); 
             return;
+        }
         #endif
 
 
@@ -2105,6 +2120,7 @@ namespace UI
             DrawPass(node, 0, 0, Box(), UI::Rect{0, 0, INT_MAX, INT_MAX});
             deferred_elements.PopHead();
         }
+
     }
     void Context::WidthContentPercentPass_Flow(TreeNode* node)
     {

@@ -338,5 +338,5 @@ void SpotifyExample(UI::Context* context)
 
     UI::EndRoot();
 
-    UI::Draw();
+    //UI::Draw();
 }

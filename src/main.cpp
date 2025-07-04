@@ -17,12 +17,12 @@ int main(void)
 
     //UI::Init_impl("assets/fonts/Raleway-Regular.ttf");
     UI::Init_impl("assets/fonts/Roboto-Regular.ttf");
-    UI::Context ui_context(128 * UI::KB);
+    UI::Context context(128 * UI::KB);
+    UI::Context context2(128 * UI::KB);
     UI::DebugInspector ui_inspector1(UI::MB);
     UI::DebugInspector ui_inspector2(2 * UI::MB);
     ui_inspector2.theme.base_color = {100, 100, 120, 255};
     ui_inspector2.theme.title_bar_color = {200, 200, 255, 255};
-
 
 
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -31,8 +31,8 @@ int main(void)
         ClearBackground(Color{0, 0, 0, 255});
         
         ui_inspector1.GetContext()->SetInspector(IsKeyPressed(KEY_F2), &ui_inspector2);
-        ui_context.SetInspector(UI::IsKeyPressed(UI::KEY_F1), &ui_inspector1);
-        SpotifyExample(&ui_context);
+        context.SetInspector(UI::IsKeyPressed(UI::KEY_F1), &ui_inspector1);
+        //SpotifyExample(&ui_context);
 
         UI::BoxStyle root = 
         {
@@ -50,21 +50,14 @@ int main(void)
             .corner_radius = 10
         };
 
-        //UI::Builder ui;
-        //ui.SetContext(UI::GetContext());
-        //ui.Root(root, [&]
-        //{
-        //    ui.Box()
-        //    .Style(left_panel)
-        //    .Run([&]{
+        SpotifyExample(&context);
+        UI::BeginRoot(&context2, root);
 
-        //    });
-        //});
-        //UI::Draw();
-    
-        //ui_context.Draw();
+        UI::EndRoot();
 
-        //DrawText(TextFormat("fps = %d", GetFPS()), 9, 10, 20, WHITE);
+
+
+        UI::Draw();
         EndDrawing();
     }
     CloseWindow();        // Close window and OpenGL context

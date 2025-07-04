@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cassert>
 
+
 namespace UI::Internal
 {
     template<typename T, unsigned int CAPACITY>
@@ -43,20 +44,39 @@ namespace UI::Internal
     template<typename T, unsigned int CAPACITY>
     class FixedStack
     {
-        T data[CAPACITY];
-        unsigned int size = 0;
+        T data[CAPACITY]{};
+        uint32_t size = 0;
     public:
-        inline void Push(const T& value);
-        inline void Pop();
-        inline T& Peek();
-        inline void Clear();
-        inline bool IsEmpty() const;
-        inline unsigned int Size() const;
-        inline unsigned int Capacity() const;
-        inline T& operator[](unsigned int index) ;
-        inline T* Data();
+        void Push(const T& value);
+        void Pop();
+        T& Peek();
+        void Clear();
+        bool IsEmpty() const;
+        bool IsFull() const;
+        uint32_t Size() const;
+        uint32_t Capacity() const;
+        T& operator[](unsigned int index) ;
+        T* Data();
     };
 
+    template<typename T, uint32_t CAPACITY>
+    class FixedQueue
+    {
+        T data[CAPACITY]{};
+        uint32_t size = 0;
+        uint32_t front = 0;
+        uint32_t back = 0;
+    public:
+        void Push(const T& value);
+        void Pop();
+        T& Front();
+        T& Back();
+        void Clear();
+        bool IsFull() const;
+        bool IsEmpty() const;
+        uint32_t Size() const;
+        uint32_t Capacity() const;
+    };
 
     template<typename T>
     class Map
@@ -228,12 +248,12 @@ namespace UI::Internal
         size = 0; 
     }
     template<typename T, unsigned int CAPACITY>
-    inline unsigned int FixedStack<T, CAPACITY>::Size() const
+    inline uint32_t FixedStack<T, CAPACITY>::Size() const
     {
         return size;
     }
     template<typename T, unsigned int CAPACITY>
-    inline unsigned int FixedStack<T, CAPACITY>::Capacity() const
+    inline uint32_t FixedStack<T, CAPACITY>::Capacity() const
     {
         return CAPACITY;
     }
@@ -252,6 +272,68 @@ namespace UI::Internal
     inline bool FixedStack<T, CAPACITY>::IsEmpty() const
     {
         return size == 0;
+    }
+    template<typename T, unsigned int CAPACITY>
+    inline bool FixedStack<T, CAPACITY>::IsFull() const
+    {
+        return size == CAPACITY;
+    }
+
+
+    template<typename T, uint32_t CAPACITY>
+    void FixedQueue<T, CAPACITY>::Push(const T& value)
+    {
+        assert(!IsFull() && "Queue is full");
+        data[back] = value;
+        back = (back + 1) % CAPACITY;
+        size++;
+    }
+    template<typename T, uint32_t CAPACITY>
+    void FixedQueue<T, CAPACITY>::Pop()
+    {
+        assert(!IsEmpty() && "Queue is empty");
+        front = (front + 1) % CAPACITY;
+        size--;
+    }
+    template<typename T, uint32_t CAPACITY>
+    T& FixedQueue<T, CAPACITY>::Front()
+    {
+        assert(!IsEmpty() && "Queue is empty");
+        return data[front];
+    }
+    template<typename T, uint32_t CAPACITY>
+    T& FixedQueue<T, CAPACITY>::Back()
+    {
+        assert(!IsEmpty() && "Queue is empty");
+        uint32_t i = back == 0? CAPACITY - 1: back - 1;
+        return data[i];
+    }
+    template<typename T, uint32_t CAPACITY>
+    void FixedQueue<T, CAPACITY>::Clear()
+    {
+        size = 0;
+        front = 0;
+        back = 0;
+    }
+    template<typename T, uint32_t CAPACITY>
+    bool FixedQueue<T, CAPACITY>::IsFull() const
+    {
+        return size >= CAPACITY;
+    }
+    template<typename T, uint32_t CAPACITY>
+    bool FixedQueue<T, CAPACITY>::IsEmpty() const
+    {
+        return size == 0;
+    }
+    template<typename T, uint32_t CAPACITY>
+    uint32_t FixedQueue<T, CAPACITY>::Size() const
+    {
+        return size;
+    }
+    template<typename T, uint32_t CAPACITY>
+    uint32_t FixedQueue<T, CAPACITY>::Capacity() const
+    {
+        return CAPACITY;
     }
 
     template<typename T>
