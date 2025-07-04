@@ -1742,7 +1742,7 @@ namespace UI
     BoxInfo Context::GetBoxInfo(uint64_t key)
     {
         #if UI_ENABLE_DEBUG
-        if(debug_inspector && is_inspecting)
+        if(debug_inspector && is_inspecting || copy_tree)
             return BoxInfo();
         #endif
 
@@ -1809,15 +1809,16 @@ namespace UI
         #if UI_ENABLE_DEBUG
         if(debug_inspector)
         {
-            if(is_inspecting)
-                return;
             if(copy_tree)
             {
                 DebugBox box;
                 box.debug_info = debug_info;
                 box.style = style;
                 debug_inspector->PushNode(box);
+                return;
             }
+            if(is_inspecting)
+                return;
         }
         #endif
 
@@ -1855,14 +1856,15 @@ namespace UI
         #if UI_ENABLE_DEBUG
         if(debug_inspector)
         {
-            if(is_inspecting)
-                return;
             if(copy_tree)
             {
                 copy_tree = false;
                 is_inspecting = true;
                 debug_inspector->PopNode();
+                return;
             }
+            if(is_inspecting)
+                return;
         }
         #endif
 
@@ -1889,8 +1891,6 @@ namespace UI
         #if UI_ENABLE_DEBUG
         if(debug_inspector)
         {
-            if(is_inspecting)
-                return;
             if(copy_tree) 
             {
                 DebugBox box;
@@ -1902,7 +1902,10 @@ namespace UI
                     assert(box.label && "Inspector out of memory");
                 }
                 debug_inspector->PushNode(box);
+                return;
             }
+            if(is_inspecting)
+                return;
         }
         #endif
 
@@ -1952,10 +1955,13 @@ namespace UI
         #if UI_ENABLE_DEBUG
         if(debug_inspector)
         {
+            if(copy_tree)
+            {
+                debug_inspector->PopNode();
+                return;
+            }
             if(is_inspecting)
                 return;
-            if(copy_tree)
-                debug_inspector->PopNode();
         }
         #endif
 
@@ -1987,9 +1993,7 @@ namespace UI
         #if UI_ENABLE_DEBUG
         if(debug_inspector)
         {
-            if(is_inspecting)
-                return;
-            if(copy_tree && debug_inspector)
+            if(copy_tree)
             {
                 DebugBox box;
                 box.debug_info = debug_info;
@@ -2005,7 +2009,10 @@ namespace UI
                 }
                 debug_inspector->PushNode(box);
                 debug_inspector->PopNode();
+                return;
             }
+            if(is_inspecting)
+                return;
         }
         #endif
 
@@ -2067,7 +2074,7 @@ namespace UI
     void Context::Draw()
     {
         #if UI_ENABLE_DEBUG
-        if(is_inspecting && debug_inspector)
+        if(is_inspecting && debug_inspector || copy_tree)
             return;
         #endif
 

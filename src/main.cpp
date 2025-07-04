@@ -16,7 +16,7 @@ int main(void)
     //SetTargetFPS(256);
 
     //UI::Init_impl("assets/fonts/Raleway-Regular.ttf");
-    UI::Init_impl("assets/fonts/Archivo-Regular.ttf");
+    UI::Init_impl("assets/fonts/Roboto-Regular.ttf");
     UI::Context ui_context(128 * UI::KB);
     UI::DebugInspector ui_inspector1(UI::MB);
     UI::DebugInspector ui_inspector2(2 * UI::MB);
