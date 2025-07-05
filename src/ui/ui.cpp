@@ -2131,7 +2131,6 @@ namespace UI
             HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing EndRoot()"});
             return;
         }
-        const Box& root_box = root_node->box;
 
 
         //Layout pipeline
@@ -2139,12 +2138,14 @@ namespace UI
         WidthPass(root_node);
         HeightContentPercentPass(root_node);
         HeightPass(root_node);
-        DrawPass(root_node, 0, 0, Box(), Rect{root_box.x, root_box.y, root_box.width, root_box.height});
+        PositionPass(root_node, Box());
+        DrawPass(root_node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
 
         while(!deferred_elements.IsEmpty())
         {
             TreeNode* node = deferred_elements.GetHead()->value;
-            DrawPass(node, 0, 0, Box(), UI::Rect{0, 0, INT_MAX, INT_MAX});
+            node->box.detach = Detach::NONE;
+            DrawPass(node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
             deferred_elements.PopHead();
         }
 
@@ -2654,45 +2655,169 @@ namespace UI
 
 
 
-    void Context::DrawPass(TreeNode* node, int x, int y, const Box& parent_box, Rect parent_aabb)
+    void Context::PositionPass(TreeNode* node, const Box& parent_box)
     {
-
-
         if(node == nullptr)
             return;
         Box& box = node->box;
+        box.x += box.margin.left;
+        box.y += box.margin.top;
 
-        //Render
-        int render_x = box.x + box.margin.left + x;
-        int render_y = box.y + box.margin.top + y;
-        int render_width =    box.GetRenderingWidth();
-        int render_height =   box.GetRenderingHeight();
-        int corner_radius =   box.corner_radius;
-        int border_size =     box.border_width;
-        Color border_c =        box.border_color;
-        Color bg_c =            box.background_color;
+        if(box.IsDetached())
+            deferred_elements.Add(node, &arena);
+
+        if(node->children.IsEmpty())
+            return;
+
+        if(box.GetLayout() == Layout::FLOW)
+        {
+            PositionPass_FlowNoWrap(node->children.GetHead(), box);
+        }
+        else
+        {
+            assert(0 && "Have not added grid yet");
+        }
+    }
+    void Context::PositionPass_FlowNoWrap(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent)
+    {
+        assert(child);
+        int content_height = 0;
+        int content_width = 0;
+        if(parent.GetFlowAxis() == Flow::HORIZONTAL)
+        {
+            int count = 0;
+            for(auto temp = child; temp != nullptr; temp = temp->next)
+            {
+                const Box& box = temp->value.box;
+                if(box.IsDetached()) continue;
+                count++;
+                content_width += box.GetBoxModelWidth();
+            }
+            content_width += Max(0, count - 1) * parent.gap_column;
+            int cursor_x = 0;
+            int offset = 0;
+            int available_width = parent.width - content_width;
+            switch(parent.flow_horizontal_alignment)
+            {
+                case Flow::END:             cursor_x = available_width; break;
+                case Flow::CENTERED:        cursor_x = available_width/2; break;
+                case Flow::SPACE_AROUND:    cursor_x = offset = available_width / (count + 1); break;
+                case Flow::SPACE_BETWEEN:   if(count > 1) offset = available_width / (count - 1); break;
+                default: break;
+            }
+            for(auto temp = child; temp != nullptr; temp = temp->next)
+            {
+                Box& box = temp->value.box;
+                if(box.IsDetached())
+                {
+                    ComputeDetachPositions(box, parent);
+                    PositionPass(&temp->value, parent);
+                    continue;
+                }
+                int cursor_y = 0;
+                int box_height = box.GetBoxModelHeight();
+                if(content_height < box_height)
+                    content_height = box_height;
+                int available_height = parent.height - box_height;
+                switch(parent.flow_vertical_alignment)
+                {
+                    case Flow::START:   break;
+                    case Flow::END:     cursor_y = available_height; break;
+                    default:            cursor_y = available_height/2; break; 
+                }
+                box.x += cursor_x + parent.x - parent.scroll_x + parent.padding.left;
+                box.y += cursor_y + parent.y - parent.scroll_y + parent.padding.top;
+                PositionPass(&temp->value, parent);
+                cursor_x += box.GetBoxModelWidth() + parent.gap_column + offset;
+
+            }
+        }
+        else
+        {
+            int count = 0;
+            for(auto temp = child; temp != nullptr; temp = temp->next)
+            {
+                const Box& box = temp->value.box;
+                if(box.IsDetached()) continue;
+                count++;
+                content_height += box.GetBoxModelHeight();
+            }
+            content_height += Max(0, count - 1) * parent.gap_row;
+            int cursor_y = 0;
+            int offset = 0;
+            int available_height = parent.height - content_height;
+            switch(parent.flow_vertical_alignment)
+            {
+                case Flow::END:             cursor_y = available_height; break;
+                case Flow::CENTERED:        cursor_y = available_height/2; break;
+                case Flow::SPACE_AROUND:    cursor_y = offset = available_height / (count + 1); break;
+                case Flow::SPACE_BETWEEN:   if(count > 1) offset = available_height / (count - 1); break;
+                default: break;
+            }
+            for(auto temp = child; temp != nullptr; temp = temp->next)
+            {
+                Box& box = temp->value.box;
+                if(box.IsDetached())
+                {
+                    ComputeDetachPositions(box, parent);
+                    PositionPass(&temp->value, parent);
+                    continue;
+                }
+                int cursor_x = 0;
+                int box_width = box.GetBoxModelWidth();
+                if(content_width < box_width)
+                    content_width = box_width;
+                int available_width = parent.width - box_width;
+                switch(parent.flow_horizontal_alignment)
+                {
+                    case Flow::START:   break;
+                    case Flow::END:     cursor_x = available_width; break;
+                    default:            cursor_x = available_width/2; break; 
+                }
+                box.x += cursor_x + parent.x - parent.scroll_x + parent.padding.left;
+                box.y += cursor_y + parent.y - parent.scroll_y + parent.padding.top;
+                PositionPass(&temp->value, parent);
+                cursor_y += box.GetBoxModelHeight() + parent.gap_column + offset;
+            }
+        }
+        if(parent.label_hash)
+        {
+            BoxInfo* info = double_buffer_map.BackValue(parent.label_hash);
+            if(info)
+            {
+                info->content_width = content_width;
+                info->content_height = content_height;
+            }
+        }
+    }
+
+
+    void Context::DrawPass(TreeNode* node, const Box& parent_box, Rect parent_aabb)
+    {
+        if(node == nullptr)
+            return;
+        const Box& box = node->box;
+
+        int render_width = box.GetRenderingWidth();
+        int render_height = box.GetRenderingHeight();
+
         if(parent_box.IsScissor())
         {
-            if(!Rect::Overlap(parent_aabb, Rect{render_x, render_y, render_width, render_height}))
-            {
+            if(!Rect::Overlap(parent_aabb, {box.x, box.y, render_width, render_height}))
                 return;
-            }
             else
-            {
                 BeginScissorMode_impl(parent_aabb.x, parent_aabb.y, parent_aabb.width, parent_aabb.height);
-            }
         }
-        DrawRectangle_impl(render_x, render_y, render_width, render_height, corner_radius, border_size, border_c, bg_c);
-        box.x = render_x;
-        box.y = render_y;
+
+        if(box.IsDetached())
+            return;
+
+        DrawRectangle_impl(box.x, box.y, render_width, render_height, box.corner_radius, box.border_width, box.border_color, box.background_color);
 
         if(box.text)
-        {
-            DrawTextNode(box.text, box.width, box.height, render_x, render_y);
-        }
-
-        //Handling Next Frame info
-        if(box.label_hash != 0)
+            DrawTextNode(box.text, box.width, box.height, box.x, box.y);
+        
+        if(box.label_hash)
         {
             BoxInfo* info = double_buffer_map.BackValue(box.label_hash);
             if(info)
@@ -2704,11 +2829,10 @@ namespace UI
                 info->padding = box.padding;
                 info->margin = box.margin;
                 info->is_rendered = true;
-                //Handling mouse hover next frame
-                if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{render_x, render_y, render_width, render_height}), GetMouseX(), GetMouseY()))
+                if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{box.x, box.y, render_width, render_height}), GetMouseX(), GetMouseY()))
                 {
-                    directly_hovered_element_key = box.label_hash;
                     info->is_hover = true;
+                    directly_hovered_element_key = box.label_hash;
                 }
                 else if(directly_hovered_element_key == box.label_hash)
                 {
@@ -2717,209 +2841,15 @@ namespace UI
             }
         }
 
-        if(node->children.IsEmpty())
-            return;
-        //Next Recurse
-        if(box.GetLayout() == Layout::FLOW)
+        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
-            DrawPass_FlowNoWrap(node->children.GetHead(), box, render_x, render_y, parent_aabb);
-        }
-        else
-        {
-            assert("Grid has not been added yet");
-        }
-
-    } //end of DrawPass()
-
-    void Context::DrawPass_FlowNoWrap(ArenaLL<TreeNode>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb)
-    {
-        ArenaLL<TreeNode>::Node* temp = child;
-        assert(temp);
-        if(parent_box.IsScissor())
-        {
-            //initially is grandparent_aabb
-            parent_aabb = Rect::Intersection(parent_aabb, Rect{x + parent_box.padding.left, y + parent_box.padding.top, parent_box.width, parent_box.height});
-        }
-        //Horizontal
-        if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
-        {
-            int count = 0;
-            int content_width = 0;
-            for(temp = child; temp!=nullptr; temp = temp->next)
-            {
-                const Box& box = temp->value.box;
-
-                if(box.IsDetached()) //Ignore layout for detached boxes
-                    continue;
-
-                count++;
-                content_width += box.GetBoxModelWidth();
-            }
-            content_width = count? content_width + (count-1) * parent_box.gap_column: content_width;
-
-            int cursor_x = 0;
-            int offset_x = 0;
-            int available_width = parent_box.width - content_width;
-            //handling alignment 
-            switch(parent_box.flow_horizontal_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
-            {
-                case Flow::Alignment::START:
-                    cursor_x = 0;
-                    break;
-                case Flow::Alignment::END:
-                    cursor_x = parent_box.width - content_width;
-                    break;
-                case Flow::Alignment::CENTERED:
-                    cursor_x = available_width/2;
-                    break;
-                case Flow::Alignment::SPACE_AROUND:
-                    offset_x = available_width/(count + 1);
-                    cursor_x = offset_x;
-                    break;
-                case Flow::Alignment::SPACE_BETWEEN:
-                    if(count > 1)
-                        offset_x = available_width/(count - 1);
-                    break;
-            }
-            int content_height = 0;
-            for(temp = child; temp!=nullptr; temp = temp->next)
-            {
-                const Box& box = temp->value.box;
-
-                if(box.IsDetached()) //Ignore layout for detached boxes
-                {
-                    ComputeDetachPositions(temp->value.box, parent_box);
-                    deferred_elements.Add(&temp->value, &arena);
-                    continue;
-                }
-
-                int cursor_y = 0;
-
-                //Computing content_height
-                int box_model_height = box.GetBoxModelHeight();
-                if(content_height < box_model_height)
-                    content_height = box_model_height;
-
-                //Handling alignment
-                switch(parent_box.flow_vertical_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
-                {
-                    case Flow::Alignment::START:
-                        cursor_y = 0;
-                        break;
-                    case Flow::Alignment::END:
-                        cursor_y = parent_box.height - box_model_height;
-                        break;
-                    default:
-                        cursor_y = parent_box.height/2 - box_model_height/2;
-                        break;
-                }
-                int layout_x =        x + cursor_x - parent_box.scroll_x + parent_box.padding.left;
-                int layout_y =        y + cursor_y - parent_box.scroll_y + parent_box.padding.top;
-                DrawPass(&temp->value, layout_x, layout_y, parent_box, parent_aabb);
-                cursor_x += box.GetBoxModelWidth() + parent_box.gap_column + offset_x;
-            }
-            if(parent_box.label_hash != 0) //next frame info
-            {
-                BoxInfo* info = double_buffer_map.BackValue(parent_box.label_hash);
-                if(info)
-                {
-                    info->content_width = content_width;
-                    info->content_height = content_height;
-                }
-            }
-        }
-        else //Vertical
-        {
-            int count = 0;
-            int content_height = 0;
-            for(temp = child; temp!=nullptr; temp = temp->next)
-            {
-                const Box& box = temp->value.box;
-
-                if(box.IsDetached()) //Ignore layout for detached boxes
-                    continue;
-
-                count++;
-                content_height += box.GetBoxModelHeight();
-            }
-            content_height = count? content_height + (count-1) * parent_box.gap_row: content_height;
-
-            int cursor_y = 0;
-            int offset_y = 0;
-            int available_height = parent_box.height - content_height;
-            switch(parent_box.flow_vertical_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
-            {
-                case Flow::Alignment::START:
-                    cursor_y = 0;
-                    break;
-                case Flow::Alignment::END:
-                    cursor_y = parent_box.height - content_height;
-                    break;
-                case Flow::Alignment::CENTERED:
-                    cursor_y = available_height/2;
-                    break;
-                case Flow::Alignment::SPACE_AROUND:
-                    offset_y = available_height/(count + 1);
-                    cursor_y = offset_y;
-                    break;
-                case Flow::Alignment::SPACE_BETWEEN:
-                    if(count > 1)
-                        offset_y = available_height/(count - 1);
-                    break;
-            }
-            int content_width = 0;
-            for(temp = child; temp!=nullptr; temp = temp->next)
-            {
-                const Box& box = temp->value.box;
-
-                if(box.IsDetached()) //Ignore layout for detached boxes
-                {
-                    ComputeDetachPositions(temp->value.box, parent_box);
-                    deferred_elements.Add(&temp->value, &arena);
-                    continue;
-                }
-
-                int cursor_x = 0;
-
-
-                //Computing content_width
-                int box_model_width = box.GetBoxModelWidth();
-                if(content_width < box_model_width)
-                    content_width = box_model_width;
-                
-                //Handling alignment
-                switch(parent_box.flow_horizontal_alignment) //START, END, CENTERED, SPACE_AROUND, SPACE_BETWEEN
-                {
-                    case Flow::Alignment::START:
-                        cursor_x = 0;
-                        break;
-                    case Flow::Alignment::END:
-                        cursor_x = parent_box.width - box_model_width;
-                        break;
-                    default:
-                        cursor_x = parent_box.width/2 - box_model_width/2;
-                        break;
-                }
-                int layout_x =        x + cursor_x - parent_box.scroll_x + parent_box.padding.left;
-                int layout_y =        y + cursor_y - parent_box.scroll_y + parent_box.padding.top;
-                DrawPass(&temp->value, layout_x, layout_y, parent_box, parent_aabb);
-                cursor_y += box.GetBoxModelHeight() + parent_box.gap_row + offset_y;
-            }
-            if(parent_box.label_hash != 0) //next frame info
-            {
-                BoxInfo* info = double_buffer_map.BackValue(parent_box.label_hash);
-                if(info)
-                {
-                    info->content_width = content_width;
-                    info->content_height = content_height;
-                }
-            }
+            if(box.IsScissor())
+                parent_aabb = Rect::Intersection(parent_aabb, {box.x, box.y, render_width, render_height});
+            DrawPass(&temp->value, box, parent_aabb);
         }
         if(parent_box.IsScissor())
             EndScissorMode_impl();
-    } //End of DrawPass_FlowNoWrap()
-
-
+    }
 
 
     //Builder Implementation

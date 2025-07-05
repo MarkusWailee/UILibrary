@@ -508,7 +508,6 @@ namespace UI
         public:
             void SetFlowAxis(Flow::Axis axis);
             void SetScissor(bool flag);
-            void SetDetached(bool flag);
             Layout GetLayout() const;
             Flow::Axis GetFlowAxis() const;
             bool IsScissor() const;
@@ -594,9 +593,10 @@ namespace UI
         void HeightPass_Flow(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box); //Recurse Helper
 
         //Computes position and draws.
-        void DrawPass_FlowNoWrap(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box, int x, int y, Rect parent_aabb);
-        void DrawPass(TreeNode* node, int x, int y, const Box& parent_box, Rect parent_aabb);
+        void PositionPass_FlowNoWrap(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box);
+        void PositionPass(TreeNode* node, const Box& parent_box);
         // ================================
+        void DrawPass(TreeNode* node, const Box& parent_box, Rect parent_aabb);
 
     private:
 
