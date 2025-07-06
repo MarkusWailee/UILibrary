@@ -2134,12 +2134,37 @@ namespace UI
 
 
         //Layout pipeline
+        StopWatch s;
+        double time = 0;
+        s.Start();
         WidthContentPercentPass(root_node);
+        time = s.Stop();
+        std::cout<<"WidthContent:   "<<time<<'\n';
+
+        s.Start();
         WidthPass(root_node);
+        time = s.Stop();
+        std::cout<<"WidthPass:      "<<time<<'\n';
+
+        s.Start();
         HeightContentPercentPass(root_node);
+        time = s.Stop();
+        std::cout<<"HeightContent:  "<<time<<'\n';
+
+        s.Start();
         HeightPass(root_node);
+        time = s.Stop();
+        std::cout<<"HeightPass:     "<<time<<'\n';
+
+        s.Start();
         PositionPass(root_node, Box());
+        time = s.Stop();
+        std::cout<<"PositionPass:   "<<time<<'\n';
+
+        s.Start();
         DrawPass(root_node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
+        time = s.Stop();
+        std::cout<<"DrawPass:       "<<time<<"\n\n";
 
         while(!deferred_elements.IsEmpty())
         {
@@ -2565,8 +2590,8 @@ namespace UI
 
                 if(box.text)
                 {
-                    Markdown md;
                     //Width should be computed by this point
+                    Markdown md;
                     box.width = Min(parent_box.width, box.width);
                     md.SetInput(box.text, box.width, INT_MAX);
                     while(md.ComputeNextTextRun()){}
@@ -2583,12 +2608,12 @@ namespace UI
                     int height = box.GetBoxModelHeight();
                     if(largest_height < height)
                         largest_height = height;
-                }
-                else
-                {
-                    int height = box.GetBoxExpansionHeight() + box.min_height;
-                    if(largest_height < height)
-                        largest_height = height;
+                    }
+                    else
+                    {
+                        int height = box.GetBoxExpansionHeight() + box.min_height;
+                        if(largest_height < height)
+                            largest_height = height;
                 }
             }
             content_height = largest_height;
@@ -2605,8 +2630,8 @@ namespace UI
 
                 if(box.text)
                 {
-                    Markdown md;
                     //Width should be computed by this point
+                    Markdown md;
                     box.width = Min(parent_box.width, box.width);
                     md.SetInput(box.text, box.width, INT_MAX);
                     while(md.ComputeNextTextRun()){}
@@ -2840,7 +2865,6 @@ namespace UI
                 }
             }
         }
-
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
             if(box.IsScissor())

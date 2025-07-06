@@ -328,6 +328,10 @@ namespace UI
         Detach detach = Detach::NONE;
     };
 
+    struct Vertex
+    {
+        float x, y, r, g, b, a; 
+    };
 
     struct BoxInfo
     {
@@ -356,6 +360,16 @@ namespace UI
         int MaxScrollX() const { return Max(0, content_width - width);}
         int MaxScrollY() const { return Max(0, content_height - height);}
         uint64_t GetKey() const { return key; }
+    };
+
+    struct Vec2
+    {
+        float x = 0;
+        float y = 0;
+    };
+    struct Triangle
+    {
+        Vec2 position;
     };
     struct DebugInfo
     {
@@ -386,6 +400,7 @@ namespace UI
     bool IsHover();
     bool IsDirectHover();
     // ======================================
+
 
 
     struct TextPrimitive

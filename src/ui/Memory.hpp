@@ -4,6 +4,25 @@
 #include <cstring>
 #include <cassert>
 
+#include <chrono>
+class StopWatch
+{
+public:
+    void Start()
+    {
+        start_time = std::chrono::high_resolution_clock::now();
+    }
+
+    double Stop()
+    {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> duration_ms = end_time - start_time;
+        return duration_ms.count(); // milliseconds as double
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;
+};
 
 namespace UI::Internal
 {
