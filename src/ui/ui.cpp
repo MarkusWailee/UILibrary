@@ -29,6 +29,7 @@ namespace UI
     //Should copy data
 
     //Stack allocated string for convenience
+
     template<uint32_t CAPACITY>
     class FixedString
     {
@@ -44,7 +45,6 @@ namespace UI
         void Clear();
         char& operator[](uint32_t index);
     };
-
     //Custom markdown language
     #define FLUSH_CAP 512
     class Markdown
@@ -478,7 +478,7 @@ namespace UI
         char* temp = (char*)arena->NewArrayZero<char>(n);
         if(temp == nullptr)
             return nullptr;
-        StringCopy(temp, text, n);
+        memcpy(temp, text, n);
         return temp;
     }
     bool StringCompare(const char* s1, const char* s2)
@@ -520,8 +520,8 @@ namespace UI
     {
         if(!text)
             return -1;
-        int i;
-        for(i = 0; text[i]; i++);
+        int i = 0;
+        for(; text[i]; i++);
         return i;
     }
     inline uint32_t StrToU32(const char* text, bool* error)
