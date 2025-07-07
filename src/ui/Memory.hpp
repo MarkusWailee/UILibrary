@@ -132,13 +132,18 @@ namespace UI::Internal
         MemoryArena(uint64_t cap);
         ~MemoryArena();
         void ResizeAndReset(uint64_t bytes);
-        void* Allocate(uint64_t bytes);
+        void* Allocate(uint64_t bytes, uint8_t alignment = 8);
 
         template<typename T>
-        T* New(uint64_t count);
+        T* NewArray(uint64_t count);
+
+        template<typename T>
+        T* NewArrayZero(uint64_t count);
 
         template<typename T>
         T* New();
+        template<typename T>
+        T* New(const T& value);
 
         void Rewind(void* ptr);
 
@@ -514,10 +519,13 @@ namespace UI::Internal
         current_offset = 0;
         assert(data); //should not happen
     }
-    inline void* MemoryArena::Allocate(uint64_t bytes)
+    inline void* MemoryArena::Allocate(uint64_t bytes, uint8_t alignment)
     {
-        uint64_t aligned_bytes = (bytes + 7) & ~7;
-        uint64_t new_offset = current_offset + aligned_bytes; 
+        assert(bytes && "0 byte");
+        assert((alignment & (alignment - 1)) == 0 && "Alignment must be power of 2");
+        alignment--;
+        current_offset = (current_offset + alignment) & ~alignment;
+        uint64_t new_offset = current_offset + bytes; 
         if(new_offset <= capacity)
         {
             void* ptr = (data + current_offset);
@@ -527,9 +535,10 @@ namespace UI::Internal
         return nullptr;
     }
     template<typename T>
-    inline T* MemoryArena::New(uint64_t count)
+    inline T* MemoryArena::NewArray(uint64_t count)
     {
-        T* temp = (T*)Allocate(count * sizeof(T)); 
+        assert(count && "0 count");
+        T* temp = (T*)Allocate(count * sizeof(T), alignof(T)); 
         if(!temp) return nullptr;
         //initialize
         for(uint64_t i = 0; i<count; i++)
@@ -537,22 +546,37 @@ namespace UI::Internal
         return temp;
     }
     template<typename T>
+    inline T* MemoryArena::NewArrayZero(uint64_t count)
+    {
+        assert(count && "0 count");
+        T* temp = (T*)Allocate(count * sizeof(T), alignof(T)); 
+        if(!temp) return nullptr;
+        //initialize
+        memset(temp, 0, count * sizeof(T));
+        return temp;
+    }
+    template<typename T>
     inline T* MemoryArena::New()
     {
-        T* temp = (T*)Allocate(sizeof(T)); 
+        T* temp = (T*)Allocate(sizeof(T), alignof(T)); 
         if(!temp) return nullptr;
-        //initialize;
         *temp = T();
+        return temp;
+    }
+    template<typename T>
+    inline T* MemoryArena::New(const T& value)
+    {
+        T* temp = (T*)Allocate(sizeof(T), alignof(T)); 
+        if(!temp) return nullptr;
+        *temp = value;
         return temp;
     }
     inline void MemoryArena::Rewind(void* ptr)
     {
         if(ptr == nullptr)
             return;
-        assert(ptr >= data && ptr <= data + capacity);
-        assert((uintptr_t)ptr % 8 == 0);
+        assert(ptr >= data && ptr < data + capacity);
         uint64_t new_offset = ((char*)ptr - data);
-
         if(new_offset < current_offset)
             current_offset = new_offset; 
     }
@@ -623,7 +647,7 @@ namespace UI::Internal
     bool ArenaMap<T>::AllocateCapacity(uint32_t capacity, MemoryArena* arena)
     {
         assert(arena);
-        data = arena->New<Item>(capacity);
+        data = arena->NewArray<Item>(capacity);
         if(data == nullptr)
         {
             cap1 = 0;

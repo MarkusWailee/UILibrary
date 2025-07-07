@@ -475,7 +475,7 @@ namespace UI
         assert(text && "no text padded");
         assert(arena && "no arena passed");
         int n = StringLength(text) + 1;
-        char* temp = (char*)arena->Allocate(n);
+        char* temp = (char*)arena->NewArrayZero<char>(n);
         if(temp == nullptr)
             return nullptr;
         StringCopy(temp, text, n);
