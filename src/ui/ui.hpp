@@ -232,11 +232,12 @@ namespace UI
     };
     struct Grid
     {
-        unsigned char row_max = 0,      column_max = 0;
-        unsigned char row_start = 0,    column_start = 0; 
-        unsigned char row_end = 0,      column_end = 0; 
-        Unit cell_width;
-        Unit cell_height;
+        // parent
+        uint8_t row_count = 1, column_count = 1;
+
+        //child
+        uint8_t x = 0, y = 0;
+        uint8_t span_x = 1, span_y = 1;
     };
     struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
 
@@ -487,8 +488,6 @@ namespace UI
             uint16_t max_height =       UINT16_MAX;
             int16_t x =                 0;
             int16_t y =                 0;
-            uint16_t grid_cell_width =  0;
-            uint16_t grid_cell_height = 0;
 
             Unit::Type width_unit =              Unit::Type::PIXEL;
             Unit::Type height_unit =             Unit::Type::PIXEL;
@@ -498,15 +497,13 @@ namespace UI
             Unit::Type max_width_unit =          Unit::Type::PIXEL;
             Unit::Type min_height_unit =         Unit::Type::PIXEL;
             Unit::Type max_height_unit =         Unit::Type::PIXEL;
-            Unit::Type grid_cell_width_unit =    Unit::Type::PIXEL;
-            Unit::Type grid_cell_height_unit =   Unit::Type::PIXEL;
 
-            uint8_t grid_row_max = 0;
-            uint8_t grid_column_max = 0;
-            uint8_t grid_row_start = 0;
-            uint8_t grid_column_start = 0; 
-            uint8_t grid_row_end = 0;
-            uint8_t grid_column_end = 0; 
+            uint8_t grid_row_count = 0;
+            uint8_t grid_column_count = 0;
+            uint8_t grid_x =                    0;
+            uint8_t grid_y =                    0;
+            uint8_t grid_span_x =               1;
+            uint8_t grid_span_y =               1;
 
             Flow::Alignment flow_vertical_alignment = Flow::Alignment::START;
             Flow::Alignment flow_horizontal_alignment = Flow::Alignment::START;
@@ -533,6 +530,8 @@ namespace UI
             int GetBoxModelHeight() const;
             int GetRenderingWidth() const;
             int GetRenderingHeight() const;
+            int GetGridCellWidth() const;
+            int GetGridCellHeight() const;
 
         };
         struct TreeNode
@@ -598,17 +597,22 @@ namespace UI
 
         //Width
         void WidthContentPercentPass_Flow(TreeNode* node);
+        void WidthContentPercentPass_Grid(TreeNode* node);
         void WidthContentPercentPass(TreeNode* node);
         void WidthPass(TreeNode* node);
         void WidthPass_Flow(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box); //Recurse Helper
+        void WidthPass_Grid(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box); //Recurse Helper
         //Height
         void HeightContentPercentPass_Flow(TreeNode* node);
+        void HeightContentPercentPass_Grid(TreeNode* node);
         void HeightContentPercentPass(TreeNode* node);
         void HeightPass(TreeNode* node);
         void HeightPass_Flow(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box); //Recurse Helper
+        void HeightPass_Grid(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box); //Recurse Helpe
 
         //Computes position and draws.
-        void PositionPass_FlowNoWrap(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box);
+        void PositionPass_Flow(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box);
+        void PositionPass_Grid(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box);
         void PositionPass(TreeNode* node, const Box& parent_box);
         // ================================
         void DrawPass(TreeNode* node, const Box& parent_box, Rect parent_aabb);

@@ -260,6 +260,14 @@ namespace UI
     {
         return padding.top + height + padding.bottom;
     }
+    inline int BoxInternal::GetGridCellWidth() const
+    {
+        return (width - gap_column * (grid_column_count - 1)) / Max((uint8_t)1, grid_column_count);
+    }
+    inline int BoxInternal::GetGridCellHeight() const
+    {
+        return (height - gap_row * (grid_row_count - 1)) / Max((uint8_t)1, grid_row_count);
+    }
 
 
     //Common helpers and error checking
@@ -284,10 +292,6 @@ namespace UI
         Error error;
         #if UI_ENABLE_DEBUG
             DebugInfo debug_info = style.debug_info;
-            UNIT_CONFLICT(style.grid_cell_width_unit,       Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-            UNIT_CONFLICT(style.grid_cell_height_unit,      Unit::Type::CONTENT_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-            UNIT_CONFLICT(style.grid_cell_width_unit,       Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-            UNIT_CONFLICT(style.grid_cell_height_unit,      Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
             UNIT_CONFLICT(style.min_width_unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
             UNIT_CONFLICT(style.min_height_unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
             UNIT_CONFLICT(style.max_width_unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
@@ -414,8 +418,6 @@ namespace UI
         box.max_width =                 (uint16_t)Max(0, FixedUnitToPx(style.max_width, root_width));
         box.min_height =                (uint16_t)Max(0, FixedUnitToPx(style.min_height, root_height));
         box.max_height =                (uint16_t)Max(0, FixedUnitToPx(style.max_height, root_height));
-        box.grid_cell_width =           (uint16_t)Max(0, FixedUnitToPx(style.grid.cell_width, root_width));
-        box.grid_cell_height =          (uint16_t)Max(0, FixedUnitToPx(style.grid.cell_height, root_width));
 
         box.width_unit =                style.width.unit;
         box.height_unit =               style.height.unit;
@@ -423,15 +425,13 @@ namespace UI
         box.max_width_unit =            style.max_width.unit;
         box.min_height_unit =           style.min_height.unit;
         box.max_height_unit =           style.max_height.unit;
-        box.grid_cell_width_unit =      style.grid.cell_width.unit;
-        box.grid_cell_height_unit =     style.grid.cell_height.unit;
 
-        box.grid_row_max =              style.grid.row_max;
-        box.grid_column_max =           style.grid.column_max;
-        box.grid_row_start =            style.grid.row_start;
-        box.grid_column_start =         style.grid.column_start; 
-        box.grid_row_end =              style.grid.row_end;
-        box.grid_column_end =           style.grid.column_end; 
+        box.grid_row_count =            Max((uint8_t)1, style.grid.row_count);
+        box.grid_column_count =         Max((uint8_t)1, style.grid.column_count);
+        box.grid_x =                    style.grid.x;
+        box.grid_y =                    style.grid.y;
+        box.grid_span_x =               Max((uint8_t)1, style.grid.span_x);
+        box.grid_span_y =               Max((uint8_t)1, style.grid.span_y);
 
         box.flow_vertical_alignment =   style.flow.vertical_alignment;
         box.flow_horizontal_alignment = style.flow.horizontal_alignment;
@@ -902,7 +902,6 @@ namespace UI
         box.width =                     (uint16_t)Max(0, ParentPercentToPx(box.width,            box.width_unit,             parent_width)); 
         box.min_width =                 (uint16_t)Max(0, ParentPercentToPx(box.min_width,        box.min_width_unit,         parent_width)); 
         box.max_width =                 (uint16_t)Max(0, ParentPercentToPx(box.max_width,        box.max_width_unit,         parent_width)); 
-        box.grid_cell_width =           (uint16_t)Max(0, ParentPercentToPx(box.grid_cell_width,  box.grid_cell_width_unit,   parent_width)); 
     }
 
     //Height
@@ -914,7 +913,6 @@ namespace UI
         box.gap_row =                   (uint16_t)Max(0, ParentPercentToPx(box.gap_row,          box.gap_row_unit,           parent_height)); 
         box.min_height =                (uint16_t)Max(0, ParentPercentToPx(box.min_height,       box.min_height_unit,        parent_height)); 
         box.max_height =                (uint16_t)Max(0, ParentPercentToPx(box.max_height,       box.max_height_unit,        parent_height)); 
-        box.grid_cell_height =          (uint16_t)Max(0, ParentPercentToPx(box.grid_cell_height, box.grid_cell_height_unit,  parent_height)); 
     }
     void ComputeWidthPercentForHeight(BoxInternal& box)
     {
@@ -2163,8 +2161,6 @@ namespace UI
 
         s.Start();
         DrawPass(root_node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
-        time = s.Stop();
-        std::cout<<"DrawPass:       "<<time<<"\n\n";
 
         while(!deferred_elements.IsEmpty())
         {
@@ -2173,7 +2169,8 @@ namespace UI
             DrawPass(node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
             deferred_elements.PopHead();
         }
-
+        time = s.Stop();
+        std::cout<<"DrawPass:       "<<time<<"\n\n";
     }
     void Context::WidthContentPercentPass_Flow(TreeNode* node)
     {
@@ -2240,6 +2237,35 @@ namespace UI
         if(parent_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
             parent_box.max_width = content_width * parent_box.max_width / 100;
     }
+    void Context::WidthContentPercentPass_Grid(TreeNode* node)
+    {
+        assert(node);
+        Box& parent_box = node->box;
+        int content_width = 0;
+        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+        {
+            WidthContentPercentPass(&temp->value);
+            Box& box = temp->value.box;
+            //if(box.IsDetached())
+            //    return;
+            //if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
+            //box.width_unit != Unit::Type::PARENT_PERCENT &&
+            //box.max_width_unit != Unit::Type::PARENT_PERCENT &&
+            //box.min_width_unit != Unit::Type::PARENT_PERCENT)
+            //{
+            //    box.width = Clamp(box.width, box.min_width, box.max_width);
+            //    int width = box.GetBoxModelWidth();
+            //    if(content_width < width)
+            //        content_width = width;
+            //}
+            //else
+            //{
+            //    int width = box.GetBoxExpansionWidth() + box.min_width;
+            //    if(content_width < width)
+            //        content_width = width;
+            //}
+        }
+    }
     void Context::WidthContentPercentPass(TreeNode* node)
     {
         if(!node)
@@ -2251,7 +2277,7 @@ namespace UI
         }
         else
         {
-            assert(0 && "Have not added grid yet");
+            WidthContentPercentPass_Grid(node);
         }
     }
     void Context::WidthPass(TreeNode* node)
@@ -2269,7 +2295,7 @@ namespace UI
         }
         else
         {
-            assert("have not added grid");
+            WidthPass_Grid(node->children.GetHead(), box);
         }
     }
 
@@ -2434,6 +2460,21 @@ namespace UI
             }
         } //End vertical
     }
+    void Context::WidthPass_Grid(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box) //Recurse Helpe
+    {
+        assert(child);
+
+        int cell_width = parent_box.GetGridCellWidth();
+        for(auto temp = child; temp!=nullptr; temp = temp->next)
+        {
+            Box& box = temp->value.box;
+            if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
+                box.width_unit = Unit::Type::PARENT_PERCENT;
+            ComputeParentWidthPercent(box, cell_width);
+            box.width = Clamp(box.width, box.min_width, box.max_width);
+            WidthPass(&temp->value);
+        }
+    }
 
 
 
@@ -2448,7 +2489,7 @@ namespace UI
         }
         else
         {
-            assert("have not added grid");
+            HeightPass_Grid(node->children.GetHead(), box);
         }
     }
     void Context::HeightPass_Flow(ArenaLL<TreeNode>::Node* child, const Box& parent_box)
@@ -2569,6 +2610,20 @@ namespace UI
             }
         }
     }
+    void Context::HeightPass_Grid(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent_box) //Recurse Helpe
+    {
+        assert(child);
+        int cell_height = parent_box.GetGridCellHeight();
+        for(auto temp = child; temp!=nullptr; temp = temp->next)
+        {
+            Box& box = temp->value.box;
+            if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
+                box.height_unit = Unit::Type::PARENT_PERCENT;
+            ComputeParentHeightPercent(box, cell_height);
+            box.height = Clamp(box.height, box.min_height, box.max_height);
+            HeightPass(&temp->value);
+        }
+    }
 
 
     void Context::HeightContentPercentPass_Flow(TreeNode* node)
@@ -2661,6 +2716,18 @@ namespace UI
         if(parent_box.max_height_unit == Unit::Type::CONTENT_PERCENT)
             parent_box.max_height = parent_box.max_height * content_height / 100;
     }
+    void Context::HeightContentPercentPass_Grid(TreeNode* node)
+    {
+        assert(node);
+        Box& parent_box = node->box;
+        int content_width = 0;
+        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+        {
+            WidthContentPercentPass(&temp->value);
+            Box& box = temp->value.box;
+        }
+    }
+
 
     void Context::HeightContentPercentPass(TreeNode* node)
     {
@@ -2674,7 +2741,7 @@ namespace UI
         }
         else
         {
-            assert(0 && "Have not added grid yet");
+            HeightContentPercentPass_Grid(node);
         }
     }
 
@@ -2696,14 +2763,14 @@ namespace UI
 
         if(box.GetLayout() == Layout::FLOW)
         {
-            PositionPass_FlowNoWrap(node->children.GetHead(), box);
+            PositionPass_Flow(node->children.GetHead(), box);
         }
         else
         {
-            assert(0 && "Have not added grid yet");
+            PositionPass_Grid(node->children.GetHead(), box);
         }
     }
-    void Context::PositionPass_FlowNoWrap(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent)
+    void Context::PositionPass_Flow(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent)
     {
         assert(child);
         int content_height = 0;
@@ -2815,7 +2882,19 @@ namespace UI
             }
         }
     }
-
+    void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent)
+    {
+        assert(child);
+        int cell_width = parent.GetGridCellWidth();
+        int cell_height = parent.GetGridCellHeight();
+        for(auto temp = child; temp!=nullptr; temp = temp->next)
+        {
+            Box& box = temp->value.box;
+            box.x = parent.x + parent.padding.left + (cell_width + parent.gap_column) * box.grid_x + (cell_width - box.GetBoxModelWidth())/2;
+            box.y = parent.y + parent.padding.top + (cell_height + parent.gap_row) * box.grid_y + (cell_height - box.GetBoxModelHeight())/2;
+            PositionPass(&temp->value, parent);
+        }
+    }
 
     void Context::DrawPass(TreeNode* node, const Box& parent_box, Rect parent_aabb)
     {
