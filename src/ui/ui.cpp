@@ -2132,6 +2132,23 @@ namespace UI
 
 
         //Layout pipeline
+        //WidthContentPercentPass(root_node);
+        //WidthPass(root_node);
+        //HeightContentPercentPass(root_node);
+        //HeightPass(root_node);
+        //PositionPass(root_node, Box());
+        //DrawPass(root_node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
+        //while(!deferred_elements.IsEmpty())
+        //{
+        //    TreeNode* node = deferred_elements.GetHead()->value;
+        //    node->box.detach = Detach::NONE;
+        //    DrawPass(node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
+        //    deferred_elements.PopHead();
+        //}
+
+        
+        //Timer
+        ///*
         StopWatch s;
         double time = 0;
         s.Start();
@@ -2171,6 +2188,7 @@ namespace UI
         }
         time = s.Stop();
         std::cout<<"DrawPass:       "<<time<<"\n\n";
+        //*/
     }
     void Context::WidthContentPercentPass_Flow(TreeNode* node)
     {
@@ -2241,30 +2259,39 @@ namespace UI
     {
         assert(node);
         Box& parent_box = node->box;
-        int content_width = 0;
+        int cell_width = 0;
+
+        //Finding the largest cell width
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
             WidthContentPercentPass(&temp->value);
             Box& box = temp->value.box;
-            //if(box.IsDetached())
-            //    return;
-            //if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
-            //box.width_unit != Unit::Type::PARENT_PERCENT &&
-            //box.max_width_unit != Unit::Type::PARENT_PERCENT &&
-            //box.min_width_unit != Unit::Type::PARENT_PERCENT)
-            //{
-            //    box.width = Clamp(box.width, box.min_width, box.max_width);
-            //    int width = box.GetBoxModelWidth();
-            //    if(content_width < width)
-            //        content_width = width;
-            //}
-            //else
-            //{
-            //    int width = box.GetBoxExpansionWidth() + box.min_width;
-            //    if(content_width < width)
-            //        content_width = width;
-            //}
+            if(box.IsDetached())
+                return;
+            if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
+            box.width_unit != Unit::Type::PARENT_PERCENT &&
+            box.max_width_unit != Unit::Type::PARENT_PERCENT &&
+            box.min_width_unit != Unit::Type::PARENT_PERCENT)
+            {
+                box.width = Clamp(box.width, box.min_width, box.max_width);
+                int width = box.GetBoxModelWidth() / box.grid_span_x;
+                if(cell_width < width)
+                    cell_width = width;
+            }
+            else
+            {
+                int width = box.GetBoxExpansionWidth() + box.min_width;
+                if(cell_width < width)
+                    cell_width = width;
+            }
         }
+        int total_width = cell_width * parent_box.grid_column_count + parent_box.gap_column * (parent_box.grid_column_count - 1);
+        if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
+            parent_box.width = total_width;
+        if(parent_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
+            parent_box.min_width = total_width;
+        if(parent_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
+            parent_box.max_width = total_width;
     }
     void Context::WidthContentPercentPass(TreeNode* node)
     {
@@ -2470,7 +2497,8 @@ namespace UI
             Box& box = temp->value.box;
             if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
                 box.width_unit = Unit::Type::PARENT_PERCENT;
-            ComputeParentWidthPercent(box, cell_width);
+            
+            ComputeParentWidthPercent(box, cell_width * box.grid_span_x + parent_box.gap_column * (box.grid_span_x - 1));
             box.width = Clamp(box.width, box.min_width, box.max_width);
             WidthPass(&temp->value);
         }
@@ -2619,7 +2647,7 @@ namespace UI
             Box& box = temp->value.box;
             if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
                 box.height_unit = Unit::Type::PARENT_PERCENT;
-            ComputeParentHeightPercent(box, cell_height);
+            ComputeParentHeightPercent(box, cell_height * box.grid_span_y + parent_box.gap_row * (box.grid_span_y - 1));
             box.height = Clamp(box.height, box.min_height, box.max_height);
             HeightPass(&temp->value);
         }
@@ -2885,11 +2913,11 @@ namespace UI
     void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode>::Node* child, const Box& parent)
     {
         assert(child);
-        int cell_width = parent.GetGridCellWidth();
-        int cell_height = parent.GetGridCellHeight();
         for(auto temp = child; temp!=nullptr; temp = temp->next)
         {
             Box& box = temp->value.box;
+            int cell_width = parent.GetGridCellWidth() * box.grid_span_x + parent.gap_column * (box.grid_span_x - 1);
+            int cell_height = parent.GetGridCellHeight() * box.grid_span_y + parent.gap_row * (box.grid_span_y - 1);
             box.x = parent.x + parent.padding.left + (cell_width + parent.gap_column) * box.grid_x + (cell_width - box.GetBoxModelWidth())/2;
             box.y = parent.y + parent.padding.top + (cell_height + parent.gap_row) * box.grid_y + (cell_height - box.GetBoxModelHeight())/2;
             PositionPass(&temp->value, parent);

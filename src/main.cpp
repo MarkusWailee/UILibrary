@@ -55,11 +55,11 @@ int main(void)
             .layout = UI::Layout::GRID,
             .grid = 
             {
-                .row_count = 3,
-                .column_count = 3,
+                .row_count = 2,
+                .column_count = 2,
             },
-            .width = {100, UI::Unit::AVAILABLE_PERCENT},
-            .height = {100, UI::Unit::AVAILABLE_PERCENT},
+            .width = {100, UI::Unit::CONTENT_PERCENT},
+            .height = {100, UI::Unit::PARENT_PERCENT},
             .padding = {10, 10, 10, 10},
             .background_color = {30, 30, 35, 255},
             .gap_row = 4,
@@ -68,48 +68,23 @@ int main(void)
         };
         UI::BoxStyle box1 = 
         {
-            .width = {100, UI::Unit::PARENT_PERCENT},
-            .height = {100, UI::Unit::PARENT_PERCENT},
-            .background_color = {50, 40, 40, 255},
+            .width = {100, UI::Unit::PIXEL},
+            .height = {100, UI::Unit::PIXEL},
+            .background_color = {50, 80, 40, 255},
             .corner_radius = 10
         };
 
         ui_inspector1.GetContext()->SetInspector(UI::IsKeyPressed(UI::KEY_F2), &ui_inspector2);
         context.SetInspector(UI::IsKeyPressed(UI::KEY_F1), &ui_inspector1);
-        UI::Root(&context, root, [&]
-        {
-            UI::Box()
-            .Style(left_panel)
-            .Run([&]
-            {
-                for(int x = 0; x < 3; x++)
-                    for(int y = 0; y < 3; y ++)
-                    {
-                        UI::Box(UI::Fmt("Box %d %d", x, y)).Style(box1).PreRun([&]
-                        {
-                            UI::Style().grid.x = x;
-                            UI::Style().grid.y = y;
-                            UI::Style().background_color.r = 50 + x * 10;
-                            UI::Style().background_color.g = 50 + x * 10;
-                            UI::Style().background_color.b = 50 + x * 10;
-                        })
-                        .OnHover([&]
-                        {
-                            UI::Style().background_color = {100, 100, 100, 255};
-                        }).Run();
-                    }
 
-            });
-        });
-
-        //SpotifyExample(&context);
+        SpotifyExample(&context);
 
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
 
         UI::Draw();
-        //DrawText(TextFormat("Fps = %f", avg_fps), 10, 10, 20, WHITE);
+        DrawText(TextFormat("Fps = %f", avg_fps), 10, 10, 20, WHITE);
         EndDrawing();
     }
     CloseWindow();        // Close window and OpenGL context
