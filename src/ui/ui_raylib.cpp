@@ -201,6 +201,13 @@ namespace UI
             DrawRectangle(x + near_offset, y + height - border_size, width - far_offset, border_size, {brdr.r, brdr.g, brdr.b, brdr.a}); //bottom
         }
     }
+    void DrawTexturedRectangle_impl(int x, int y, int width, int height, const TextureRect& texture)
+    {
+        Rectangle src = { (float)texture.x, (float)texture.y, (float)texture.width, (float)texture.height};
+        Rectangle dest = {(float)x, (float)y, (float)width, (float)height};
+        //DrawTextureRec(*(::Texture2D*)texture.texture, src, {(float)x, (float)y}, {255, 255, 255, 255});
+        DrawTexturePro(*(::Texture2D*)texture.texture, src, dest, {0, 0}, 0, {255, 255, 255, 255});
+    }
 
     //This is not an optimal implementation for performance, but this works for testing
     //Use raylibs batching system to drastically speed up text rendering

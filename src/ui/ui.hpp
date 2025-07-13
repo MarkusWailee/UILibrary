@@ -233,11 +233,14 @@ namespace UI
     struct Grid
     {
         // parent
-        uint8_t row_count = 1, column_count = 1;
+        uint8_t row_count = 1;
+        uint8_t column_count = 1;
 
         //child
-        uint8_t x = 0, y = 0;
-        uint8_t span_x = 1, span_y = 1;
+        uint8_t x = 0;
+        uint8_t y = 0;
+        uint8_t span_x = 1;
+        uint8_t span_y = 1;
     };
     struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
 
@@ -290,6 +293,15 @@ namespace UI
         BOTTOM_END
     };
     // ========== Box Styling ========== 
+    struct TextureRect
+    {
+        void* texture =     nullptr;
+        uint16_t x =        0;
+        uint16_t y =        0;
+        uint16_t width =    0;
+        uint16_t height =   0;
+        inline bool HasTexture() const { return texture; }
+    };
     struct BoxStyle
     {
         //container
@@ -313,6 +325,8 @@ namespace UI
 
         Color background_color = UI::Color{0, 0, 0, 0};
         Color border_color = UI::Color{0, 0, 0, 0};
+
+        TextureRect texture;
 
         int gap_row = 0;
         int gap_column = 0;
@@ -428,6 +442,7 @@ namespace UI
     //Backend function to implement
     void Init_impl(const char* font_path);
     void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color border_color, Color background_color);
+    void DrawTexturedRectangle_impl(int x, int y, int width, int height, const TextureRect& texture);
     void DrawText_impl(TextPrimitive draw_command);
     int MeasureChar_impl(char c, int font_size, int spacing);
     void BeginScissorMode_impl(float x, float y, float width, float height);
@@ -440,7 +455,7 @@ namespace UI
     bool IsKeyDown(Key key);
     bool IsKeyRepeat(Key key);
     char GetPressedChar();
-    //Mouse
+    ////Mouse
     bool IsMousePressed(MouseButton button);
     bool IsMouseReleased(MouseButton button);
     bool IsMouseDown(MouseButton button);
@@ -470,11 +485,12 @@ namespace UI
                 DebugInfo debug_info;
             #endif
             // =============================================
-            uint64_t label_hash =       0; 
             const char* text = nullptr;
+            TextureRect texture;
+            uint64_t label_hash =       0; 
 
-            Color background_color = UI::Color{0, 0, 0, 0}; //used for debugging
-            Color border_color = UI::Color{0, 0, 0, 0};
+            Color background_color =    UI::Color{0, 0, 0, 0}; //used for debugging
+            Color border_color =        UI::Color{0, 0, 0, 0};
             //By the end of UI::Draw(), all final measurements are placed back into box
             int scroll_x =              0;
             int scroll_y =              0;
@@ -498,7 +514,7 @@ namespace UI
             Unit::Type min_height_unit =         Unit::Type::PIXEL;
             Unit::Type max_height_unit =         Unit::Type::PIXEL;
 
-            uint8_t grid_row_count = 0;
+            uint8_t grid_row_count =    0;
             uint8_t grid_column_count = 0;
             uint8_t grid_x =                    0;
             uint8_t grid_y =                    0;
@@ -706,6 +722,7 @@ namespace UI
         void PushNode(const DebugBox& box);
         void PopNode();
         void RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
+        void SetMemoryUsageStat(float s);
 
         bool IsTreeEmpty();
 
@@ -728,6 +745,7 @@ namespace UI
         TreeNodeDebug* root_node = nullptr;
         TreeNodeDebug* selected_node = nullptr;
         Internal::FixedStack<TreeNodeDebug*, 64> stack;
+        float context_memory_usage = 0;
         // =========================
 
         // ===== UI state =====

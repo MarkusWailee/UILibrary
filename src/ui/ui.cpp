@@ -401,6 +401,8 @@ namespace UI
         root_height = Max(0, root_height);
 
         BoxInternal box;
+        box.texture = style.texture;
+
         box.background_color =          style.background_color;
         box.border_color =              style.border_color;
         //type 3
@@ -1032,6 +1034,10 @@ namespace UI
     {
         return root_node == nullptr;
     }
+    void DebugInspector::SetMemoryUsageStat(float s)
+    {
+        context_memory_usage = s;
+    }
     void DebugInspector::RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
     {
         assert(root_node && "root_node should have been initialized"); //this is for more own sanity
@@ -1196,9 +1202,10 @@ namespace UI
 
         BoxStyle left_panel_title =
         {
+            .flow = {.axis = Flow::VERTICAL},
             .width = {100, Unit::PARENT_PERCENT},
             .height = {100, Unit::CONTENT_PERCENT},
-            .padding = {10, 10, 10, 10}
+            .padding = {10, 10, 10, 10},
         };
 
         BoxStyle left_panel_scroll_box =
@@ -1254,6 +1261,15 @@ namespace UI
             .detach = Detach::ABSOLUTE
         };
 
+        BoxStyle memory_bar =
+        {
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = 10,
+            .background_color = theme.button_color_hover,
+            .corner_radius = theme.icon_corner_radius
+        };
+
+
         // ================ Inspector UI TREE ======================
         UI::Box("base", UI_DEBUG("Inspector")).Style(base).Run([&]
         {
@@ -1273,7 +1289,22 @@ namespace UI
 
                     UI::Box()
                     .Style(left_panel_title)
-                    .Run([&]{ UI::InsertText(Fmt("[S:20][C:%s]Navigate", theme.text_color)); });
+                    .Run([&]
+                    { 
+                        UI::InsertText(Fmt("[S:20][C:%s]Navigate", theme.text_color)); 
+                        UI::InsertText(Fmt("[S:16][C:%s]Memory", theme.text_color)); 
+                        UI::Box().Style(memory_bar)
+                        .Run([&]
+                        {
+                            UI::Box()
+                            .PreRun([&]
+                            {
+                                UI::Style() = memory_bar;
+                                UI::Style().width.value = 100 * context_memory_usage;
+                                UI::Style().background_color = {100, 255, 100, 255};
+                            }).Run();
+                        });
+                    });
 
                     UI::Box("left-panel-scroll-box")
                     .Style(left_panel_scroll_box)
@@ -2113,6 +2144,7 @@ namespace UI
         #if UI_ENABLE_DEBUG
         if(is_inspecting && debug_inspector)
         {
+            debug_inspector->SetMemoryUsageStat((float)arena.GetOffset()/arena.Capacity());
             debug_inspector->RunDebugInspector(0, 0, GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY()); 
             return;
         }
@@ -2132,49 +2164,54 @@ namespace UI
 
 
         //Layout pipeline
-        //WidthContentPercentPass(root_node);
-        //WidthPass(root_node);
-        //HeightContentPercentPass(root_node);
-        //HeightPass(root_node);
-        //PositionPass(root_node, Box());
-        //DrawPass(root_node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
-        //while(!deferred_elements.IsEmpty())
-        //{
-        //    TreeNode* node = deferred_elements.GetHead()->value;
-        //    node->box.detach = Detach::NONE;
-        //    DrawPass(node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
-        //    deferred_elements.PopHead();
-        //}
+        WidthContentPercentPass(root_node);
+        WidthPass(root_node);
+        HeightContentPercentPass(root_node);
+        HeightPass(root_node);
+        PositionPass(root_node, Box());
+        DrawPass(root_node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
+        while(!deferred_elements.IsEmpty())
+        {
+            TreeNode* node = deferred_elements.GetHead()->value;
+            node->box.detach = Detach::NONE;
+            DrawPass(node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
+            deferred_elements.PopHead();
+        }
 
         
         //Timer
-        ///*
+        /*
         StopWatch s;
         double time = 0;
+        double total_time = 0;
         s.Start();
         WidthContentPercentPass(root_node);
         time = s.Stop();
         std::cout<<"WidthContent:   "<<time<<'\n';
-
+        total_time += time;
         s.Start();
         WidthPass(root_node);
         time = s.Stop();
         std::cout<<"WidthPass:      "<<time<<'\n';
 
+        total_time += time;
         s.Start();
         HeightContentPercentPass(root_node);
         time = s.Stop();
         std::cout<<"HeightContent:  "<<time<<'\n';
 
+        total_time += time;
         s.Start();
         HeightPass(root_node);
         time = s.Stop();
         std::cout<<"HeightPass:     "<<time<<'\n';
 
+        total_time += time;
         s.Start();
         PositionPass(root_node, Box());
         time = s.Stop();
         std::cout<<"PositionPass:   "<<time<<'\n';
+        total_time += time;
 
         s.Start();
         DrawPass(root_node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
@@ -2187,8 +2224,11 @@ namespace UI
             deferred_elements.PopHead();
         }
         time = s.Stop();
-        std::cout<<"DrawPass:       "<<time<<"\n\n";
-        //*/
+        total_time += time;
+        std::cout<<"DrawPass:       "<<time<<"\n";
+        std::cout<<"Total time:       "<<total_time<<"\n\n";
+
+        */
     }
     void Context::WidthContentPercentPass_Flow(TreeNode* node)
     {
@@ -2944,10 +2984,19 @@ namespace UI
         if(box.IsDetached())
             return;
 
-        DrawRectangle_impl(box.x, box.y, render_width, render_height, box.corner_radius, box.border_width, box.border_color, box.background_color);
 
         if(box.text)
+        {
             DrawTextNode(box.text, box.width, box.height, box.x, box.y);
+        }
+        else if(box.texture.HasTexture())
+        {
+            DrawTexturedRectangle_impl(box.x, box.y, render_width, render_height, box.texture);  
+        }
+        else
+        {
+            DrawRectangle_impl(box.x, box.y, render_width, render_height, box.corner_radius, box.border_width, box.border_color, box.background_color);
+        }
         
         if(box.label_hash)
         {
