@@ -1292,7 +1292,7 @@ namespace UI
                     .Run([&]
                     { 
                         UI::InsertText(Fmt("[S:20][C:%s]Navigate", theme.text_color)); 
-                        UI::InsertText(Fmt("[S:16][C:%s]Memory", theme.text_color)); 
+                        UI::InsertText(Fmt("[S:16][C:%s]Memory %d%%", theme.text_color, (int)(100 * context_memory_usage))); 
                         UI::Box().Style(memory_bar)
                         .Run([&]
                         {
