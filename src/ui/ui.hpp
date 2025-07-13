@@ -30,7 +30,6 @@ namespace UI
 {
     class Context;
     class Builder;
-    class DebugInspector;
     struct Error;
     struct BoxStyle;
     struct Grid;
@@ -408,7 +407,6 @@ namespace UI
     // ========== Builder Notation ==========
     template<typename Func>
     void Root(Context* context, const BoxStyle& style, Func&& func, DebugInfo debug_info = UI_DEBUG("Root"));
-    Builder& Text(const char* text, const char* id = nullptr, bool should_copy = true, DebugInfo debug_info = UI_DEBUG("Text"));
     Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
     BoxInfo Info();
     BoxStyle& Style();
@@ -478,6 +476,17 @@ namespace UI
     //Internal namespace is just used for seperation in public api
     namespace Internal
     {
+        //struct ComputedBox
+        //{
+        //    BoxInternal* style_properties = nullptr;
+
+        //    uint64_t id = 0;
+        //    uint16_t width = 0;
+        //    uint16_t height = 0;
+        //    int16_t x = 0;
+        //    int16_t y = 0;
+        //};
+
         struct BoxInternal
         {
             // ========= Only used when debugging is enabled
@@ -594,7 +603,6 @@ namespace UI
             void Draw();
             uint32_t GetElementCount() const;
 
-            void SetInspector(bool activate_pressed, DebugInspector* inspector_context); 
             //For Advanced Purposes
 
             //Might not even use this
@@ -634,143 +642,19 @@ namespace UI
         void DrawPass(TreeNode* node, const Box& parent_box, Rect parent_aabb);
 
     private:
-
-        DebugInspector* debug_inspector = nullptr;
-        bool is_inspecting = false;
-        bool copy_tree = false;
-
-        uint64_t directly_hovered_element_key = 0;
         Error internal_error;
-        Internal::MemoryArena arena;
-        Internal::ArenaDoubleBufferMap<BoxInfo> double_buffer_map;
-        Internal::ArenaLL<TreeNode*> deferred_elements;
+        uint32_t element_count = 0;
+
         TreeNode* root_node = nullptr;
+        Internal::MemoryArena arena;
         Internal::FixedStack<TreeNode*, 64> stack; //elements should never nest over 100 layers deep
 
-        uint32_t element_count = 0;
+        Internal::ArenaDoubleBufferMap<BoxInfo> double_buffer_map;
+        Internal::ArenaLL<TreeNode*> deferred_elements;
+        uint64_t directly_hovered_element_key = 0;
+
     };
 
-    struct DebugBox
-    {
-        BoxStyle    style;
-        DebugInfo   debug_info;
-        const char* label = nullptr;
-        const char* text = nullptr;
-        Rect dim;
-        bool        is_rendered = false;
-        bool        is_open = false;
-    };
-    class DebugInspector
-    {
-    private:
-        friend class Context;
-        struct TreeNodeDebug
-        {
-            Internal::ArenaLL<TreeNodeDebug> children;
-            DebugBox box;
-        };
-    public:
-        struct Theme
-        {
-            Color base_color;
-            Color left_panel_color;
-            Color right_panel_color;
-            Color button_color;
-            Color button_color_hover;
-            Color info_box_color;
-            Color invalid_button;
-            Color title_bar_color;
-            HexColor text_color;
-            HexColor text_color_hover;
-            HexColor string_color;
-            HexColor id_text_color;
-            HexColor info_text_color;
-            Spacing base_padding;
-            uint8_t base_corner_radius;
-            uint8_t icon_corner_radius;
-            uint8_t button_corner_radius;
-        };
-        constexpr static Theme light_theme = 
-        {
-            {253, 253, 253, 50}, //base_color
-            {253, 253, 253, 255}, //left_panel_color
-            {38, 38, 38, 255},  //right_panel_color;
-            {253, 253, 253, 255},   //button_color;
-            {38, 38, 38, 255},  //button_color_hover;
-            {59, 59, 59, 255}, //info_box_color
-            {255, 230, 230, 255}, //invalid_button
-            {200, 200, 200, 255}, //title_bar_color;
-            RGBAToHex({38, 38, 38, 255}),//text_color;
-            RGBAToHex({253, 253, 253, 255}),//text_color_hover;
-            RGBAToHex({70, 188, 70, 255}), //string_color;
-            RGBAToHex({220, 173, 48, 255}), //id_text_color;
-            RGBAToHex({200, 200, 200, 255}), //info_text_color
-            {10, 10, 10, 10}, //base_padding
-            16, //base_corner_radius;
-            3,  //icon_corner_radius;
-            8,  //button_corner_radius;
-        };
-
-        DebugInspector(uint64_t memory);
-        Theme theme = light_theme;
-        Context* GetContext();
-    private:
-
-        const char* CopyStringToArena(const char* str);
-        void Reset();
-        //Only used for copying ui tree
-        void PushNode(const DebugBox& box);
-        void PopNode();
-        void RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y);
-        void SetMemoryUsageStat(float s);
-
-        bool IsTreeEmpty();
-
-        void ConstructMockUI(TreeNodeDebug* node);
-        void ConstructInspector(int mouse_x, int mouse_y);
-        void ConstructEditor();
-        void ConstructTree(TreeNodeDebug* node, int depth);
-        bool SearchNodeAndOpenTree(TreeNodeDebug* node);
-
-        //Widgets
-        void CustomComboList(const char * id, int& selected, const char** options, uint64_t valid);
-        void CustomDigitInput(const char* id, int& value);
-        void UnitEditBox(const char* name, Unit& unit, uint64_t valid);
-
-
-
-        Internal::MemoryArena arena; //only public to copy labels and strings. I dont feel like making a getter function
-
-        // ===== Internal Tree =====
-        TreeNodeDebug* root_node = nullptr;
-        TreeNodeDebug* selected_node = nullptr;
-        Internal::FixedStack<TreeNodeDebug*, 64> stack;
-        float context_memory_usage = 0;
-        // =========================
-
-        // ===== UI state =====
-        Context ui_context;
-        Rect hovered_element;
-        Rect window_dim = {10, 10, 400, 300};
-        bool window_pos_drag = false;
-        bool window_size_drag = false;
-        bool panel_drag = false;
-        int panel_width = 200;
-        int left_panel_scroll = 0;
-        int right_panel_scroll = 0;
-        // ===== BoxStyle states =====
-
-
-        // ====================
-
-        // ===== User Input =====
-        int mouse_scroll = 0;
-        int mouse_drag_x = 0;
-        int mouse_drag_y = 0;
-        bool mouse_pressed = false;
-        bool mouse_released = false;
-        // ======================
-    };
 
     //Builder Notation
     class Builder 
@@ -780,7 +664,6 @@ namespace UI
 
 
         //Also Implemented as global functions
-        Builder& Text(const char* text, const char* id = nullptr, bool should_copy = true, DebugInfo debug_info = UI_DEBUG("Text"));
         Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
         BoxInfo Info() const;
         BoxStyle& Style();
@@ -799,7 +682,6 @@ namespace UI
 
         //Executes begin/end
         void Run();
-        void InsertText(const char* text, bool should_copy = true, DebugInfo debug_info = UI_DEBUG("Text"));
 
         //Executes begin/end with lambda
         template<typename Func>
@@ -926,10 +808,5 @@ namespace UI
                 context->EndBox();
             }
         }
-    }
-    inline void Builder::InsertText(const char* text, bool should_copy, DebugInfo debug_info)
-    {
-        if(context)
-            context->InsertText(text, nullptr, should_copy, debug_info);
     }
 }

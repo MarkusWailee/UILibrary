@@ -26,70 +26,6 @@ namespace UI
     uint32_t HexToU32(const char* text, bool* error = nullptr);
     Color HexToRGBA(const char* text, bool* error = nullptr);
 
-    //Should copy data
-
-    //Stack allocated string for convenience
-
-    template<uint32_t CAPACITY>
-    class FixedString
-    {
-        uint32_t size = 0;
-        char data[CAPACITY + 1]{};
-    public:
-        const char* Data() const;
-        uint32_t Size() const; 
-        bool IsEmpty() const;
-        bool IsFull() const;
-        bool Push(char c);
-        bool Pop();
-        void Clear();
-        char& operator[](uint32_t index);
-    };
-    //Custom markdown language
-    #define FLUSH_CAP 512
-    class Markdown
-    {
-        struct Attributes
-        {
-            //All the variables the markdown can change
-            int font_size = 32;
-            int line_spacing = 0;
-            int font_spacing = 0;
-            Color font_color = {255, 255, 255, 255};
-        };
-    public:
-        void SetInput(const char* source, int max_width, int max_height);
-        bool ComputeNextTextRun();
-        bool Done();
-        int GetMeasuredWidth() const;
-        int GetMeasuredHeight() const;
-        TextPrimitive GetTextPrimitive(int x, int y);
-    private:
-        void HandleWrap();
-        void PushAndMeasureChar(char c);
-
-        //Go to this function to add more markdown features
-        bool ComputeEscapeCode();
-
-        void ClearBuffers();
-
-        const char* source = nullptr;
-        TextPrimitive p;
-        Attributes state;
-        int cursor_x = 0;
-        int cursor_y = 0;
-        int max_width = INT_MAX;
-        int max_height = INT_MAX;
-        int measured_width = 0;
-        bool escape = false;
-        bool disable_markdown = false;
-        FixedString<128> code;
-        FixedString<FLUSH_CAP> text;
-    };
-
-
-    //Draws text based on custom markup
-    void DrawTextNode(const char* text, int max_width, int max_height, int x, int y);
 
     //Computing PARENT_PERCENT
     int ParentPercentToPx(int value , Unit::Type unit_type, int parent_width);
@@ -187,10 +123,6 @@ namespace UI
 
 
     // ========== Builder Notation ===========
-    Builder& Text(const char* text, const char* id, bool should_copy, DebugInfo debug_info)
-    {
-        return builder.Text(text, id, should_copy, debug_info);
-    }
     Builder& Box(const char* id, DebugInfo debug_info)
     {
         return builder.Box(id, debug_info);
@@ -623,271 +555,7 @@ namespace UI
             *error = err;
         return err? Color(): result;
     }
-    //FixedString
-    template<uint32_t CAPACITY>
-    const char* FixedString<CAPACITY>::Data() const
-    {
-        return data;
-    }
-    template<uint32_t CAPACITY>
-    uint32_t FixedString<CAPACITY>::Size() const
-    {
-        return size;
-    }
-    template<uint32_t CAPACITY>
-    bool FixedString<CAPACITY>::IsEmpty() const
-    {
-        return size == 0;
-    }
-    template<uint32_t CAPACITY>
-    bool FixedString<CAPACITY>::IsFull() const
-    {
-        return size >= CAPACITY;
-    }
-    template<uint32_t CAPACITY>
-    bool FixedString<CAPACITY>::Push(char c)
-    {
-        if(size >= CAPACITY)
-            return false;
-        data[size++] = c;
-        data[size] = '\0';
-        return true;
-    }
-    template<uint32_t CAPACITY>
-    bool FixedString<CAPACITY>::Pop()
-    {
-        if(size > 0)
-        {
-            size--;
-            data[size] = '\0';
-            return true;
-        }
-        return false;
-    }
-    template<uint32_t CAPACITY>
-    void FixedString<CAPACITY>::Clear()
-    {
-        data[0] = '\0';
-        size = 0;
-    }
-    template<uint32_t CAPACITY>
-    char& FixedString<CAPACITY>::operator[](uint32_t index)
-    {
-        assert(index < size && "FixedString operator[] out of scope");
-        return data[index];
-    }
-    void Markdown::SetInput(const char* source, int max_width, int max_height)
-    {
-        assert(source);
-        this->source = source; 
-        this->max_width = max_width;
-    }
-    bool Markdown::Done()
-    {
-        if(source == nullptr)
-            return true;
-        return *source == '\0';
-    }
-    bool Markdown::ComputeEscapeCode()
-    {
-        if(code.IsEmpty())
-            return false;
 
-        switch(code[0])
-        {
-            case 'C':
-            {
-                if(code[1] != ':')
-                    return false;
-                bool err = false;
-                state.font_color = HexToRGBA(&code[2], &err);
-                return !err;
-            }
-            case 'S':
-            {
-                if(code[1] != ':')
-                    return false;
-                bool err = false;
-                state.font_size = StrToU32(&code[2], &err);
-                return !err;
-            }
-            case 'O':
-            {
-                if(code[1] != 'F')
-                    return false;
-                if(code[2]!= 'F')
-                    return false;
-                disable_markdown = true; 
-                return true;
-            }
-            default:
-            {
-                return false;
-                break;
-            }
-        }
-    }
-    void Markdown::HandleWrap()
-    {
-        if(text.Size() <= 1)
-            return;
-        int index = text.Size() - 1;
-        int offset = 0;
-        for(;index >= 0; index--)
-        {
-            if(text[index] == ' ')
-            {
-                text[index] = '\n';
-                cursor_x = 0;
-                cursor_y += state.font_size + state.line_spacing;
-                break;
-            }
-            offset += MeasureChar_impl(text[index], state.font_size, state.font_spacing);
-        }
-        cursor_x += offset;
-    }
-    void Markdown::PushAndMeasureChar(char c)
-    {
-        text.Push(c);
-        if(c == '\n')
-        {
-            cursor_x = 0;
-            cursor_y += state.font_size + state.line_spacing;
-        }
-        else
-        {
-            cursor_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
-        }
-        if(cursor_x >= max_width)
-        {
-            HandleWrap();
-        }
-        if(cursor_x >= measured_width)
-            measured_width = cursor_x;
-    }
-    bool Markdown::ComputeNextTextRun()
-    {
-        if(!source || *source == '\0')
-            return false;
-
-        ClearBuffers();
-        p.text = text.Data();
-        p.cursor_x = cursor_x;
-        p.cursor_y = cursor_y;
-        p.font_size = state.font_size;
-        p.line_spacing = state.line_spacing;
-        p.font_spacing = state.font_spacing;
-        p.font_color = state.font_color;
-        bool should_ignore = false;
-        for(;;source++)
-        {
-            char c = *source; 
-            if(c == '\0')
-            {
-                break;
-            }
-            else if(should_ignore || disable_markdown)
-            {
-                //Inserting text
-                if(text.IsFull()) 
-                    break;
-                PushAndMeasureChar(c);
-                should_ignore = false;
-            }
-            else if(c == '\\' && !escape)
-            {
-                should_ignore = true;
-            }
-            else if(c == '[')
-            {
-                escape = true;
-            }
-            else if(c == ']' && escape)
-            {
-                if(!ComputeEscapeCode())
-                {
-                    assert(0 && "unknown escape code");
-                }
-                escape = false;
-                source++;
-                break;
-            }
-            else if(escape)
-            {
-                if(c == ' ')
-                    continue;
-                code.Push(c);
-            }
-            else
-            {
-                //Inserting text
-                if(text.IsFull())
-                    break;
-                PushAndMeasureChar(c);
-            }
-        }
-        //Fixing edge case
-        bool esc = false;
-        int c_x = cursor_x;
-        for(int i = 0;; i++)
-        {
-            char c = source[i];
-            if(c == '\0' || c == ' ')
-            {
-                break;
-            }
-            else if(should_ignore || disable_markdown)
-            {
-                c_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
-                should_ignore = false;
-            }
-            else if(c == '\\' && !esc)
-                should_ignore = true;
-            else if(c == '[')
-                esc = true;
-            else if(c == ']' && esc)
-                esc = false;
-            else if(!esc)
-                c_x += MeasureChar_impl(c, state.font_size, state.font_spacing);
-        }
-        if(c_x >= max_width)
-            HandleWrap();
-        return true;
-    }
-    TextPrimitive Markdown::GetTextPrimitive(int x, int y)
-    {
-        p.x = x;
-        p.y = y;
-        return p;
-    }
-    int Markdown::GetMeasuredWidth() const
-    {
-        return measured_width;
-    }
-    int Markdown::GetMeasuredHeight() const
-    {
-        return cursor_y + state.font_size;
-    }
-    void Markdown::ClearBuffers()
-    {
-        text.Clear();
-        code.Clear();
-    }
-
-    void DrawTextNode(const char* text, int max_width, int max_height, int x, int y)
-    {
-        if(!text)
-            return;
-        Markdown md;
-
-        md.SetInput(text, max_width, max_height);
-
-        while(md.ComputeNextTextRun())
-        {
-            TextPrimitive p = md.GetTextPrimitive(x, y);
-            DrawText_impl(p);
-        }
-    }
 
 
 
@@ -985,792 +653,6 @@ namespace UI
                 break;
         }
     }
-
-
-    DebugInspector::DebugInspector(uint64_t memory): ui_context(memory / 2), arena(memory / 2)
-    {
-
-    }
-    Context* DebugInspector::GetContext()
-    {
-        return &ui_context;
-    }
-    const char* DebugInspector::CopyStringToArena(const char* str)
-    {
-        return ArenaCopyString(str, &arena);
-    }
-    void DebugInspector::Reset()
-    {
-        root_node = nullptr;
-        selected_node = nullptr;
-        arena.Reset();
-        ui_context.ResetAllStates();
-    }
-    void DebugInspector::PushNode(const DebugBox& box)
-    {
-        if(root_node == nullptr)
-        {
-            assert(stack.IsEmpty() && "DebugInspector: unbalanced Begin/End");
-            root_node = arena.New<TreeNodeDebug>();
-            assert(root_node && "DebugVew arena out of memory");
-            stack.Push(root_node);
-            root_node->box = box;
-            return;
-        }
-        TreeNodeDebug* parent = stack.Peek();
-        assert(parent);
-        TreeNodeDebug child;
-        child.box = box;
-        TreeNodeDebug* child_ptr = parent->children.Add(child, &arena);
-        assert(child_ptr && "DebugInspector arena out of memory");
-        stack.Push(child_ptr);
-    }
-    void DebugInspector::PopNode()
-    {
-        assert(!stack.IsEmpty() && "Uneven amount of begin/end");
-        stack.Pop();
-    }
-    bool DebugInspector::IsTreeEmpty()
-    {
-        return root_node == nullptr;
-    }
-    void DebugInspector::SetMemoryUsageStat(float s)
-    {
-        context_memory_usage = s;
-    }
-    void DebugInspector::RunDebugInspector(int x, int y, int screen_width, int screen_height, int mouse_x, int mouse_y)
-    {
-        assert(root_node && "root_node should have been initialized"); //this is for more own sanity
-        //root_node->box.style.width = {(float)screen_width};
-        //root_node->box.style.height = {(float)screen_height};
-        BoxStyle root = 
-        {
-            .width = GetScreenWidth(),
-            .height = GetScreenHeight()
-        };
-        UI::BeginRoot(&ui_context, root);
-
-        ConstructMockUI(root_node);
-
-        // ===== Highlight hovered/selected Node =====
-        if(hovered_element.width > 0)
-        {
-            BoxStyle hovered_element_outline = 
-            { 
-                .x = {hovered_element.x}, 
-                .y = {hovered_element.y}, 
-                .width = {hovered_element.width}, 
-                .height = {hovered_element.height}, 
-                .background_color = {100, 100, 100, 100},
-                .border_color = {255, 255, 255, 255},  
-                .border_width = 1, 
-                .detach = Detach::ABSOLUTE
-            };
-            UI::Box(nullptr, UI_DEBUG("HoverOutline")).Style(hovered_element_outline).Run();
-        }
-        hovered_element = Rect();
-
-        if(selected_node)
-        {
-            const DebugBox& box = selected_node->box;
-            BoxStyle selected_node_outline = 
-            {
-                .x = box.dim.x,
-                .y = box.dim.y,
-                .width = box.dim.width,
-                .height = box.dim.height,
-                .background_color = {255, 0, 0, 10},
-                .border_color = {255, 0, 0, 255},  
-                .border_width = 1, 
-                .detach = Detach::ABSOLUTE,
-            };
-            UI::Box(nullptr, UI_DEBUG("SelectOutline")).Style(selected_node_outline).Run();
-        }
-        // ===================================
-
-        ConstructInspector(mouse_x, mouse_y);
-
-        UI::EndRoot();
-    }
-    void DebugInspector::ConstructMockUI(TreeNodeDebug* node)
-    {
-        if(node == nullptr)
-            return;
-
-        const char* element_id = Fmt("mock_element%ld",(uintptr_t)node);
-        BoxInfo info = ui_context.Info(element_id);
-        if(info.valid)
-        {
-            DebugBox& box = node->box;
-            box.is_rendered = info.is_rendered;
-            box.dim = {info.DrawX(), info.DrawY(), info.DrawWidth(), info.DrawHeight()};
-            if(info.is_direct_hover)
-            {
-                hovered_element.width = box.dim.width;
-                hovered_element.height = box.dim.height;
-                hovered_element.x = box.dim.x;
-                hovered_element.y = box.dim.y;
-                //Selecting node from mock ui
-                if(IsMousePressed(MOUSE_LEFT))
-                {
-                    selected_node = node;
-                    SearchNodeAndOpenTree(root_node);
-                }
-            }
-        }
-        if(node->box.text)
-        {
-            ui_context.InsertText(node->box.text, element_id);
-            return;
-        }
-
-        ui_context.BeginBox(node->box.style, element_id, UI_DEBUG("CopiedElement"));
-        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
-            ConstructMockUI(&temp->value);
-        ui_context.EndBox();
-    }
-    void DebugInspector::ConstructInspector(int mouse_x, int mouse_y)
-    {
-        // === Draggin Logic ===
-        if(IsMousePressed(MOUSE_LEFT))
-        {
-            mouse_drag_x = mouse_x;
-            mouse_drag_y = mouse_y;
-        }
-        int mouse_delta_x = mouse_x - mouse_drag_x;
-        int mouse_delta_y = mouse_y - mouse_drag_y;
-
-        Rect base_dim = window_dim;
-        if(window_pos_drag)
-        {
-            base_dim.x += mouse_delta_x;
-            base_dim.y += mouse_delta_y;
-        }
-        if(window_size_drag)
-        {
-            base_dim.width += mouse_delta_x;
-            base_dim.height += mouse_delta_y;
-        }
-        int new_panel_width = panel_width;
-        if(panel_drag)
-        {
-            new_panel_width += mouse_delta_x;
-        }
-        base_dim.width = Max(250, base_dim.width);
-        base_dim.height = Max(125, base_dim.height);
-        new_panel_width = Clamp(new_panel_width, 20, base_dim.width - 50);
-        // ====================
-
-        BoxStyle base = 
-        {
-            .flow = { .axis = Flow::VERTICAL},
-            .x = {base_dim.x},
-            .y = {base_dim.y},
-            .width = {base_dim.width},
-            .height = {base_dim.height},
-            .background_color = theme.base_color,
-            .corner_radius = theme.base_corner_radius,
-            .detach = Detach::ABSOLUTE,
-        };
-
-        BoxStyle title_bar = 
-        {
-            .width = {100, Unit::PARENT_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .padding = {10, 10, 5, 5},
-            .background_color = theme.title_bar_color,
-            .corner_radius = (unsigned char)(theme.base_corner_radius >> 1)
-
-        };
-        BoxStyle h_container = 
-        {
-            .flow = { .vertical_alignment = Flow::CENTERED},
-            .width = {100, Unit::AVAILABLE_PERCENT},
-            .height = {100, Unit::AVAILABLE_PERCENT},
-            .padding = theme.base_padding
-        };
-
-        BoxStyle left_panel =
-        {
-            .flow = {.axis = Flow::VERTICAL},
-            .width = {new_panel_width},
-            .height = {100, Unit::AVAILABLE_PERCENT},
-            .background_color = theme.left_panel_color,
-            .corner_radius = theme.button_corner_radius,
-            .scissor = true
-        };
-
-        BoxStyle left_panel_title =
-        {
-            .flow = {.axis = Flow::VERTICAL},
-            .width = {100, Unit::PARENT_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .padding = {10, 10, 10, 10},
-        };
-
-        BoxStyle left_panel_scroll_box =
-        {
-            .flow = {.axis = Flow::VERTICAL},
-            .width = {100, Unit::PARENT_PERCENT},
-            .height = {100, Unit::AVAILABLE_PERCENT},
-            .padding = {0, 0, 10, 10},
-            .scroll_y = left_panel_scroll,
-            .scissor = true
-        };
-
-        BoxStyle panel_resize_button;
-        panel_resize_button.flow.vertical_alignment = Flow::CENTERED;
-        panel_resize_button.flow.horizontal_alignment = Flow::CENTERED;
-        panel_resize_button.margin = {2,2};
-        panel_resize_button.width = {8};
-        panel_resize_button.height = {60, Unit::AVAILABLE_PERCENT};
-        panel_resize_button.background_color = theme.title_bar_color;
-        panel_resize_button.corner_radius = theme.icon_corner_radius;
-        BoxStyle right_panel
-        {
-            .flow = {.axis = Flow::VERTICAL},
-            .width = {100, Unit::AVAILABLE_PERCENT},
-            .height = {100, Unit::AVAILABLE_PERCENT},
-            .background_color = theme.right_panel_color,
-            .corner_radius = theme.button_corner_radius,
-            .scissor = true
-        };
-        BoxStyle right_panel_title =
-        {
-            .width = {100, Unit::PARENT_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .padding = {10, 10, 10, 10}
-        };
-        BoxStyle right_panel_scroll_box =
-        {
-            .flow = {.axis = Flow::VERTICAL},
-            .width = {100, Unit::PARENT_PERCENT},
-            .height = {100, Unit::AVAILABLE_PERCENT},
-            .padding = {0, 0, 10, 10},
-            .scroll_y = right_panel_scroll,
-            .scissor = true
-        };
-        BoxStyle base_resize_button
-        {
-            .x = {base_dim.x + base_dim.width - 18},
-            .y = {base_dim.y + base_dim.height - 18},
-            .width{18},
-            .height = {18},
-            .background_color = theme.title_bar_color,
-            .corner_radius = theme.icon_corner_radius,
-            .detach = Detach::ABSOLUTE
-        };
-
-        BoxStyle memory_bar =
-        {
-            .width = {100, Unit::PARENT_PERCENT},
-            .height = 10,
-            .background_color = theme.button_color_hover,
-            .corner_radius = theme.icon_corner_radius
-        };
-
-
-        // ================ Inspector UI TREE ======================
-        UI::Box("base", UI_DEBUG("Inspector")).Style(base).Run([&]
-        {
-            UI::Box("base-title-bar")
-            .Style(title_bar)
-            .OnDirectHover([&] { if(IsMousePressed(MOUSE_LEFT)) window_pos_drag = true;})
-            .Run([&]{ UI::InsertText(Fmt("[S:20][C:%s]Inspector", theme.text_color));});
-            UI::Box()
-            .Style(h_container)
-            .Run([&]
-            {
-                UI::Box()
-                .Style(left_panel)
-                .Run([&]
-                {
-                    //Left panel content
-
-                    UI::Box()
-                    .Style(left_panel_title)
-                    .Run([&]
-                    { 
-                        UI::InsertText(Fmt("[S:20][C:%s]Navigate", theme.text_color)); 
-                        UI::InsertText(Fmt("[S:16][C:%s]Memory %d%%", theme.text_color, (int)(100 * context_memory_usage))); 
-                        UI::Box().Style(memory_bar)
-                        .Run([&]
-                        {
-                            UI::Box()
-                            .PreRun([&]
-                            {
-                                UI::Style() = memory_bar;
-                                UI::Style().width.value = 100 * context_memory_usage;
-                                UI::Style().background_color = {100, 255, 100, 255};
-                            }).Run();
-                        });
-                    });
-
-                    UI::Box("left-panel-scroll-box")
-                    .Style(left_panel_scroll_box)
-                    .OnHover([&]
-                    {
-                        left_panel_scroll -= GetMouseScroll() * 20;
-                    })
-                    .Run([&] 
-                    {
-                        left_panel_scroll = Clamp(left_panel_scroll, 0, UI::Info().MaxScrollY());
-                        ConstructTree(root_node, 0); 
-                    });
-                });
-
-                UI::Box("left-panel-resize-button")
-                .Style(panel_resize_button)
-                .OnDirectHover([&]
-                { 
-                    if(IsMousePressed(MOUSE_LEFT)) panel_drag = true;
-                    UI::Style().background_color = theme.button_color_hover;
-                })
-                .Run([&]
-                { 
-                    HexColor col = UI::Info().IsDirectHover()? theme.text_color_hover: theme.text_color;
-                    UI::InsertText(Fmt("[S:20][C:%s]||", col));
-                });
-
-                UI::Box()
-                .Style(right_panel)
-                .Run([&]
-                {
-                    UI::Box()
-                    .Style(right_panel_title)
-                    .Run([&]{UI::InsertText(Fmt("[S:20][C:%s]Details", theme.text_color_hover));});
-                    UI::Box("right-panel-scroll-box")
-                    .Style(right_panel_scroll_box)
-                    .Run([&]
-                    {
-                        ConstructEditor();
-                    });
-                    //Right panel content
-                });
-            });
-        });
-        UI::Box("base-resize-button")
-        .Style(base_resize_button)
-        .OnDirectHover([&]
-        {   
-            UI::Style().background_color = theme.button_color_hover;
-            if(IsMousePressed(MOUSE_LEFT)) window_size_drag = true;
-        }).Run();
-
-
-        // ======================== END Inspector UI TREE ==================================
-
-        if(IsMouseReleased(MOUSE_LEFT))
-        {
-            window_dim = base_dim;
-            window_pos_drag = false;
-            panel_width = new_panel_width;
-            window_size_drag = false;
-            panel_drag = false;
-        }
-    }
-
-    void DebugInspector::ConstructEditor()
-    {
-        if(!selected_node)
-            return;
-        DebugBox& box = selected_node->box;
-        BoxStyle& style = box.style;
-        Builder ui; 
-        ui.SetContext(&ui_context);
-
-        auto GetUnitType = [](Unit::Type type) -> const char*
-        {
-            switch(type)
-            {
-                case Unit::Type::PIXEL: return "PIXEL";
-                case Unit::Type::PARENT_PERCENT: return "PARENT_PERCENT";
-                case Unit::Type::ROOT_PERCENT: return "ROOT_PERCENT";
-                case Unit::Type::CONTENT_PERCENT: return "CONTENT_PERCENT" ;
-                case Unit::Type::AVAILABLE_PERCENT: return "AVAILABLE_PERCENT";
-                case Unit::Type::WIDTH_PERCENT: return "WIDTH_PERCENT"; 
-                default: return "NONE";
-            }
-        };
-
-        BoxStyle editor_base = 
-        {
-            .flow = { .axis = Flow::VERTICAL },
-            .width = {100, Unit::PARENT_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .padding = {10, 10, 10, 10}
-        };
-        BoxStyle v_container = 
-        {
-            .flow = {.axis = Flow::VERTICAL},
-            .width = {100, Unit::AVAILABLE_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT}
-        };
-        BoxStyle info_box = 
-        {
-            .flow = {.axis = Flow::VERTICAL},
-            .width = {100, Unit::AVAILABLE_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .min_width = {100, Unit::CONTENT_PERCENT},
-            .min_height = {theme.button_corner_radius * 2},
-            .padding = {5,5,5,5},
-            .background_color = theme.info_box_color,
-            .corner_radius = theme.button_corner_radius
-        };
-        BoxStyle info_box_title_bar = 
-        {
-            .width = {100, Unit::CONTENT_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .padding = {5,5,5,5}
-        };
-
-
-
-        ui.Box()
-        .Style(editor_base)
-        .Run([&]
-        {
-            ui.Box()
-            .Style(info_box_title_bar)
-            .Run([&] { ui.Text(Fmt("[S:20][C:%s]Debug", theme.text_color_hover)).Run(); });
-            ui.Box()
-            .Style(info_box)
-            .Run([&]
-            {
-                //ui.Text(Fmt("[S:18][C:%s]Name: [C:%s][OFF]none", theme.text_color_hover, theme.info_text_color)).Run();
-                HexColor unknown_value = {"EE0000FF"};
-                if(selected_node->box.debug_info.name)
-                    ui.Text(Fmt("[S:18][C:%s]Name: [C:%s][OFF]%s", theme.text_color_hover, theme.info_text_color, selected_node->box.debug_info.name)).Run();
-                else
-                    ui.Text(Fmt("[S:18][C:%s]Name: [C:%s][OFF]none", theme.text_color_hover, unknown_value)).Run();
-                if(selected_node->box.debug_info.file)
-                    ui.Text(Fmt("[S:18][C:%s]File: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.info_text_color, selected_node->box.debug_info.file)).Run();
-                else
-                    ui.Text(Fmt("[S:18][C:%s]File: [C:%s][OFF]none", theme.text_color_hover, unknown_value)).Run();
-                ui.Text(Fmt("[S:18][C:%s]Line: [C:%s]%d", theme.text_color_hover, theme.info_text_color, selected_node->box.debug_info.line)).Run();
-                if(selected_node->box.label)
-                    ui.Text(Fmt("[S:18][C:%s]Id: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.id_text_color, selected_node->box.label)).Run();
-                else
-                    ui.Text(Fmt("[S:18][C:%s]Id: [C:%s][OFF]none", theme.text_color_hover, unknown_value)).Run();
-                if(selected_node->box.text)
-                    ui.Text(Fmt("[S:18][C:%s]Text: [C:%s][OFF]\"%s\"", theme.text_color_hover, theme.string_color, selected_node->box.text)).Run();
-            });
-
-            // ==== Layout Properties ====
-            ui.Box().Style(info_box_title_bar).Run([&] { ui.Text(Fmt("[S:20][C:%s]Layout Properties", theme.text_color_hover)).Run(); });
-            ui.Box()
-            .Style(info_box)
-            .Run([&]
-            {
-            });
-        });
-
-
-
-    }
-
-    void DebugInspector::ConstructTree(TreeNodeDebug* node, int depth)
-    {
-        if(node == nullptr)
-            return;
-
-        BoxStyle button =
-        {
-            .flow = {.vertical_alignment = Flow::CENTERED}, 
-            .width = {9999},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .background_color = theme.button_color
-        };
-        BoxStyle filler = {.width = {9}, .height = {100, Unit::PARENT_PERCENT}}; 
-
-        BoxStyle line = 
-        { 
-            .width = {1}, 
-            .height = {100, Unit::PARENT_PERCENT}, 
-            .background_color = theme.button_color_hover 
-        };
-
-        BoxStyle content_box = 
-        {
-            .width = {100, Unit::CONTENT_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .gap_column = {4},
-        };
-
-        BoxStyle open_button =
-        {
-            .flow = {.vertical_alignment = Flow::CENTERED, .horizontal_alignment = Flow::CENTERED},
-            .width = {18},
-            .height = {18},
-            .border_color = theme.button_color_hover,
-            .corner_radius = 2,
-            .border_width = 1,
-        };
-        BoxStyle color_icon = open_button;
-
-        if(!node->box.is_rendered)
-            button.background_color = {255, 211, 211, 255};
-        
-        HexColor text_color = theme.text_color;
-        
-        auto highlight_button = [&]
-        {
-            text_color = theme.text_color_hover;
-            open_button.background_color = theme.button_color_hover;
-            open_button.border_color = theme.button_color;
-            line.background_color = theme.button_color;
-            button.background_color = theme.button_color_hover;
-        };
-        if(node == selected_node)
-           highlight_button();
-
-
-        Builder ui;
-        ui.SetContext(&ui_context);
-
-
-        ui.Box(Fmt("tree-element-button%ld", (uintptr_t)node), UI_DEBUG("TreeButton"))
-        .OnDirectHover([&]
-        {
-            highlight_button();
-            if(IsMousePressed(MOUSE_LEFT)) selected_node = node;
-            hovered_element = node->box.dim;
-        })
-        .Style(button)
-        .Run([&]
-        {
-            // filler + line + filler
-            for(int i = 0; i<depth; i++) { ui.Box().Style(filler).Run(); ui.Box().Style(line).Run(); ui.Box().Style(filler).Run(); }
-
-            if(!node->children.IsEmpty())
-            {
-                //===== Open Button logic =====
-                HexColor icon_color = text_color;
-                char icon = '+';
-                if(node->box.is_open)
-                {
-                    icon = '-';
-                    open_button.background_color = {100, 255, 100, 255};
-                }
-                // ============================
-                ui.Box(Fmt("tree-element-open-button%ld", (uintptr_t)node))
-                .OnDirectHover([&]
-                {
-                    if(!node->box.is_open)
-                        open_button.background_color = theme.button_color_hover;
-                    open_button.border_color = theme.button_color_hover;
-                    icon_color = theme.text_color_hover;
-                    if(IsMousePressed(MOUSE_LEFT))
-                        node->box.is_open = !node->box.is_open;
-                })
-                .Style(open_button)
-                .Run([&]
-                {
-                    ui.Text(Fmt("[S:20][C:%s]%c", icon_color, icon)).Run();
-                });
-            }
-            ui.Box().Style(content_box)
-            .Run([&]
-            {
-                const DebugBox& box = node->box;
-                if(box.debug_info.name)
-                    ui.Text(Fmt("[S:20][C:%s]%s ", text_color, box.debug_info.name)).Run();
-                else
-                    ui.Text(Fmt("[S:20][C:%s]Unnamed ", text_color)).Run();
-                if(box.text)
-                {
-                    ui.Text(Fmt("[S:20][C:%s][OFF]\"%s\"", theme.string_color, box.text)).Run();
-                }
-                else if(box.style.background_color.a > 0)
-                {
-                    color_icon.background_color = box.style.background_color;
-                    ui.Box().Style(color_icon).Run();
-                }
-                if(box.label)
-                {
-                    ui.Text(Fmt("[S:20][C:%s]id: [C:%s][OFF]\"%s\"", text_color, theme.id_text_color, box.label)).Run();
-                }
-            });
-        });
-
-        if(node->box.is_open)
-        {
-            for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
-            {
-                DebugBox& box = temp->value.box;
-                ConstructTree(&temp->value, depth + 1);
-            }
-        }
-    }
-
-
-    bool DebugInspector::SearchNodeAndOpenTree(TreeNodeDebug* node)
-    {
-        if(node == nullptr)
-            return false;
-        bool found = false; 
-        if(node == selected_node) 
-            found =  true;
-        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
-        {
-            bool result = SearchNodeAndOpenTree(&temp->value);
-            if(result)
-                found = true;
-        }
-
-        if(found)
-        {
-            node->box.is_open = true;
-            return true;
-        }
-        else
-        {
-            node->box.is_open = false;
-            return false;
-        }
-    }
-    void DebugInspector::CustomComboList(const char * id, int& selected, const char** options, uint64_t valid)
-    {
-        uint64_t key = Hash(id);
-
-        Builder ui;
-        ui.SetContext(&ui_context);
-        HexColor text_color = theme.text_color_hover;
-        BoxStyle button = 
-        {
-            .flow = {.horizontal_alignment = Flow::END},
-            .width = {100, Unit::AVAILABLE_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .min_width = {100, Unit::CONTENT_PERCENT},
-            .padding = {4,4,1,1},
-            .background_color = theme.button_color_hover,
-            .corner_radius = theme.icon_corner_radius
-        };
-        BoxStyle button2 = button; 
-        button2.width = {80}; 
-        BoxStyle pop_up = 
-        {
-            .flow = {.axis = Flow::VERTICAL},
-            .width = {100, Unit::CONTENT_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .padding = {2,2,2,2},
-            .background_color = theme.base_color,
-            .gap_row = 2,
-            .corner_radius = theme.icon_corner_radius,
-            .detach = Detach::RIGHT
-        };
-        bool hover = ui_context.Info(Fmt("ComnboList-popup-id-%s", id)).IsHover();
-        ui.Box(Fmt("ComboList-button-id-%s", id), UI_DEBUG("[C:6666FF]ComboListBox"))
-        .Style(button2)
-        .OnDirectHover([&]
-        {
-            hover = true;
-            text_color = theme.text_color;
-            ui.Style().background_color = theme.button_color;
-        })
-        .Run([&]
-        {
-            ui.Text(Fmt("[S:20][C:%s]%s", text_color, options[selected])).Run();
-            if(hover)
-            {
-                ui.Box(Fmt("ComnboList-popup-id-%s", id))
-                .Style(pop_up)
-                .Run([&]
-                {
-                    button.background_color = theme.button_color_hover;
-                    for(int i = 0; options[i] != nullptr; i++)
-                    {
-                        text_color = theme.text_color_hover;
-                        ui.Box(Fmt("ComboList-button-%s-id-%s", options[i], id))
-                        .Style(button)
-                        .OnDirectHover([&] 
-                        {
-                            text_color = theme.text_color;
-                            if(IsMousePressed(MOUSE_LEFT))
-                            {
-                                selected = i;
-                            }
-                            ui.Style().background_color = theme.button_color;
-                        })
-                        .Run([&] { ui.InsertText(Fmt("[S:18][C:%s]%s", text_color, options[i])); });
-                    }
-                });
-            }
-        });
-    };
-    void DebugInspector::CustomDigitInput(const char* id, int& value)
-    {
-        Builder ui;
-        ui.SetContext(&ui_context);
-        BoxStyle button = 
-        {
-            .flow = {.horizontal_alignment = Flow::END},
-            .width = {60},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .min_width = {100, Unit::CONTENT_PERCENT},
-            .padding = {1,1,1,1},
-            .background_color = theme.button_color_hover,
-            .corner_radius = theme.icon_corner_radius
-        };
-        HexColor text_color = theme.text_color_hover;
-        ui.Box(Fmt("CustomDigitInput %s", id))
-        .Style(button)
-        .OnDirectHover([&]
-        {
-            text_color = theme.text_color;
-            value += GetMouseScroll() * 2;
-            ui.Style().background_color = theme.button_color;
-        })
-        .Run([&]
-        {
-            ui.InsertText(Fmt("[S:20][C:%s]%d", text_color, value));
-        });
-    }
-    void DebugInspector::UnitEditBox(const char* name, Unit& unit, uint64_t valid)
-    {
-        Builder ui;
-        ui.SetContext(GetContext());
-        BoxStyle h_container =
-        {
-            .width = {100, Unit::AVAILABLE_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .min_width = {100, Unit::CONTENT_PERCENT}
-        };
-        BoxStyle input_container = 
-        {
-            .width = {100, Unit::CONTENT_PERCENT},
-            .height = {100, Unit::CONTENT_PERCENT},
-            .min_width = {100, Unit::CONTENT_PERCENT}
-        };
-        const char* unit_options[]
-        {
-            "PIXEL",
-            "PARENT_PERCENT",
-            "ROOT_PERCENT",
-            "CONTENT_PERCENT",   
-            "AVAILABLE_PERCENT",
-            "WIDTH_PERCENT",
-        };
-        ui.Box()
-        .Style(h_container)
-        .Run([&]
-        {
-            ui.InsertText(Fmt("[S:20][C:%s]%s", theme.text_color_hover, name));
-            ui.Box()
-            .Style(input_container)
-            .Run([&]
-            {
-                int digit = unit.value;
-                int select = unit.unit;
-                CustomDigitInput(name, digit);
-                CustomComboList(name, select, unit_options, valid);
-                unit.value = digit;
-                unit.unit = (Unit::Type)select;
-            });
-        });
-    }
-
-
 }
 
 
@@ -1812,8 +694,6 @@ namespace UI
     BoxInfo Context::Info(uint64_t key)
     {
         #if UI_ENABLE_DEBUG
-        if(debug_inspector && is_inspecting)
-            return BoxInfo();
         #endif
 
         BoxInfo* info = double_buffer_map.FrontValue(key);
@@ -1850,22 +730,6 @@ namespace UI
         root_node = nullptr;
         element_count = 0;
     }
-    void Context::SetInspector(bool activate_pressed, DebugInspector* inspector)
-    {
-        debug_inspector = inspector; 
-        if(debug_inspector)
-        {
-            if(activate_pressed)
-            {
-                debug_inspector->Reset();
-                if(is_inspecting)
-                    is_inspecting = false;
-                else
-                    copy_tree = true;
-            }
-        }
-
-    }
     void Context::BeginRoot(BoxStyle style, DebugInfo debug_info)
     {
         style.width = {style.width.value - style.padding.right - style.padding.left - style.margin.right - style.margin.left, Unit::PIXEL};
@@ -1875,19 +739,6 @@ namespace UI
         style.max_height.unit = Unit::PIXEL;
         style.max_width.unit = Unit::PIXEL;
         #if UI_ENABLE_DEBUG
-        if(debug_inspector)
-        {
-            if(copy_tree)
-            {
-                DebugBox box;
-                box.debug_info = debug_info;
-                box.style = style;
-                debug_inspector->PushNode(box);
-                return;
-            }
-            if(is_inspecting)
-                return;
-        }
         #endif
 
 
@@ -1922,18 +773,6 @@ namespace UI
     void Context::EndRoot()
     {
         #if UI_ENABLE_DEBUG
-        if(debug_inspector)
-        {
-            if(copy_tree)
-            {
-                copy_tree = false;
-                is_inspecting = true;
-                debug_inspector->PopNode();
-                return;
-            }
-            if(is_inspecting)
-                return;
-        }
         #endif
 
         if(HasInternalError())
@@ -1957,24 +796,6 @@ namespace UI
     void Context::BeginBox(const UI::BoxStyle& style, const char* label, DebugInfo debug_info)
     {
         #if UI_ENABLE_DEBUG
-        if(debug_inspector)
-        {
-            if(copy_tree) 
-            {
-                DebugBox box;
-                box.debug_info = debug_info;
-                box.style = style;
-                if(label)
-                {
-                    box.label = debug_inspector->CopyStringToArena(label);
-                    assert(box.label && "Inspector out of memory");
-                }
-                debug_inspector->PushNode(box);
-                return;
-            }
-            if(is_inspecting)
-                return;
-        }
         #endif
 
 
@@ -2021,16 +842,6 @@ namespace UI
     void Context::EndBox()
     {
         #if UI_ENABLE_DEBUG
-        if(debug_inspector)
-        {
-            if(copy_tree)
-            {
-                debug_inspector->PopNode();
-                return;
-            }
-            if(is_inspecting)
-                return;
-        }
         #endif
 
 
@@ -2059,29 +870,6 @@ namespace UI
     void Context::InsertText(const char* text, const char* label, bool should_copy, DebugInfo debug_info)
     {
         #if UI_ENABLE_DEBUG
-        if(debug_inspector)
-        {
-            if(copy_tree)
-            {
-                DebugBox box;
-                box.debug_info = debug_info;
-                if(text)
-                {
-                    box.text = debug_inspector->CopyStringToArena(text);
-                    assert(box.text && "Inspector out of memory");
-                }
-                if(label)
-                {
-                    box.label = debug_inspector->CopyStringToArena(label);
-                    assert(box.label && "Inspector out of memory");
-                }
-                debug_inspector->PushNode(box);
-                debug_inspector->PopNode();
-                return;
-            }
-            if(is_inspecting)
-                return;
-        }
         #endif
 
 
@@ -2096,45 +884,6 @@ namespace UI
         assert(parent_node);
         const Box& parent_box = parent_node->box;
         TreeNode node;
-        Box box;
-
-        if(label)
-        {
-            //BoxInfo will be filled in next frame 
-            box.label_hash = Hash(label);
-            bool no_err = double_buffer_map.Insert(box.label_hash, BoxInfo());
-            assert(no_err && "HashMap out of memory, go to BeginRoot and change it");
-        }
-
-        if(should_copy && text)
-        {
-            text = ArenaCopyString(text, &arena);
-            assert(text && "Arena out of memory");
-        }
-        box.text = text;
-
-        Markdown md;
-        md.SetInput(text, 9999, 9999);
-        while(md.ComputeNextTextRun()){}
-
-        if(parent_box.width_unit == Unit::Type::CONTENT_PERCENT)
-        {
-            box.width = md.GetMeasuredWidth() + 1;
-        }
-        else if (parent_box.min_width_unit == Unit::Type::CONTENT_PERCENT)
-        {
-            box.width = md.GetMeasuredWidth() + 1;
-        }
-        else
-        {
-            box.width_unit = Unit::Type::AVAILABLE_PERCENT;
-            box.width = 100;
-            box.max_width = md.GetMeasuredWidth() + 1;
-        }
-
-        node.box = box;
-        TreeNode* addr = parent_node->children.Add(node, &arena);
-        assert(addr && "Arena out of memory");
     }
 
 
@@ -2142,12 +891,6 @@ namespace UI
     void Context::Draw()
     {
         #if UI_ENABLE_DEBUG
-        if(is_inspecting && debug_inspector)
-        {
-            debug_inspector->SetMemoryUsageStat((float)arena.GetOffset()/arena.Capacity());
-            debug_inspector->RunDebugInspector(0, 0, GetScreenWidth(), GetScreenHeight(), GetMouseX(), GetMouseY()); 
-            return;
-        }
         #endif
 
 
@@ -2177,58 +920,6 @@ namespace UI
             DrawPass(node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
             deferred_elements.PopHead();
         }
-
-        
-        //Timer
-        /*
-        StopWatch s;
-        double time = 0;
-        double total_time = 0;
-        s.Start();
-        WidthContentPercentPass(root_node);
-        time = s.Stop();
-        std::cout<<"WidthContent:   "<<time<<'\n';
-        total_time += time;
-        s.Start();
-        WidthPass(root_node);
-        time = s.Stop();
-        std::cout<<"WidthPass:      "<<time<<'\n';
-
-        total_time += time;
-        s.Start();
-        HeightContentPercentPass(root_node);
-        time = s.Stop();
-        std::cout<<"HeightContent:  "<<time<<'\n';
-
-        total_time += time;
-        s.Start();
-        HeightPass(root_node);
-        time = s.Stop();
-        std::cout<<"HeightPass:     "<<time<<'\n';
-
-        total_time += time;
-        s.Start();
-        PositionPass(root_node, Box());
-        time = s.Stop();
-        std::cout<<"PositionPass:   "<<time<<'\n';
-        total_time += time;
-
-        s.Start();
-        DrawPass(root_node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
-
-        while(!deferred_elements.IsEmpty())
-        {
-            TreeNode* node = deferred_elements.GetHead()->value;
-            node->box.detach = Detach::NONE;
-            DrawPass(node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
-            deferred_elements.PopHead();
-        }
-        time = s.Stop();
-        total_time += time;
-        std::cout<<"DrawPass:       "<<time<<"\n";
-        std::cout<<"Total time:       "<<total_time<<"\n\n";
-
-        */
     }
     void Context::WidthContentPercentPass_Flow(TreeNode* node)
     {
@@ -2711,6 +1402,7 @@ namespace UI
                 if(box.IsDetached()) //Ignore layout for detached boxes
                     continue;
 
+                /* Measure text height here
                 if(box.text)
                 {
                     //Width should be computed by this point
@@ -2720,6 +1412,7 @@ namespace UI
                     while(md.ComputeNextTextRun()){}
                     box.height = md.GetMeasuredHeight();
                 }
+                */
 
                 //Ignore these values
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT && 
@@ -2751,6 +1444,7 @@ namespace UI
                 if(box.IsDetached()) //Ignore layout for detached boxes
                     continue;
 
+                /* Measure text height here
                 if(box.text)
                 {
                     //Width should be computed by this point
@@ -2760,6 +1454,7 @@ namespace UI
                     while(md.ComputeNextTextRun()){}
                     box.height = md.GetMeasuredHeight();
                 }
+                */
                 //Ignore these values
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT && 
                     box.height_unit != Unit::Type::PARENT_PERCENT && 
@@ -2985,11 +1680,14 @@ namespace UI
             return;
 
 
+        /* Draw Text here
         if(box.text)
         {
             DrawTextNode(box.text, box.width, box.height, box.x, box.y);
         }
-        else if(box.texture.HasTexture())
+        */
+
+        if(box.texture.HasTexture())
         {
             DrawTexturedRectangle_impl(box.x, box.y, render_width, render_height, box.texture);  
         }
@@ -3033,19 +1731,6 @@ namespace UI
 
 
     //Builder Implementation
-    Builder& Builder::Text(const char* text, const char* id, bool should_copy, DebugInfo debug_info)
-    {
-        ClearStates();
-        if(HasContext())
-        {
-            this->debug_info = debug_info;
-            this->text = text;
-            this->id = id;
-            this->should_copy = should_copy;
-            info = context->Info(id);
-        }
-        return *this;
-    }
     Builder& Builder::Box(const char* id, DebugInfo debug_info)
     {
         ClearStates();
@@ -3057,5 +1742,4 @@ namespace UI
         }
         return *this;
     }
-
 }
