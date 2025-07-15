@@ -2,7 +2,6 @@
 #include "ui/ui.hpp"
 #include <math/vec.h>
 #include "UI_Demo.hpp"
-#include "ui/ui_widgets.hpp"
 
 
 #include <vector>
@@ -14,21 +13,25 @@ int main(void)
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
+    SetTargetFPS(60);
 
     UI::Init_impl("assets/fonts/Roboto-Regular.ttf");
     UI::Context context(128 * UI::KB);
 
+    char16_t c[] = u"hellow world";
+    std::cout<<UI::StrU16Length(c);
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
 
-        SpotifyExample(&context);
+        //SpotifyExample(&context);
+        LayoutTest(&context);
 
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-
+        
         UI::Draw();
-        //DrawText(TextFormat("Fps = %f", avg_fps), 10, 10, 20, WHITE);
+        //DrawText(TextFormat("Fps = %d", GetFPS()), 10, 10, 20, WHITE);
         EndDrawing();
     }
 

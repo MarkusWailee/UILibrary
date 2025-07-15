@@ -27,10 +27,16 @@ private:
 namespace UI::Internal
 {
     template<typename T, unsigned int CAPACITY>
-    class Array;
+    class FixedArray;
 
     template<typename T, unsigned int CAPACITY>
     class FixedStack;
+
+    template<typename T, uint32_t CAPACITY>
+    class FixedQueue;
+
+    template<typename T>
+    class ArrayView;
 
     template<typename T>
     class Map;
@@ -51,7 +57,7 @@ namespace UI::Internal
 namespace UI::Internal
 {
     template<typename T, unsigned int CAPACITY>
-    class Array
+    class FixedArray
     {
         T data[CAPACITY];
         public:
@@ -96,6 +102,31 @@ namespace UI::Internal
         uint32_t Size() const;
         uint32_t Capacity() const;
     };
+
+    template<typename T>
+    class ArrayView
+    {
+    public:
+        bool IsEmpty() const;
+        uint64_t Size() const; 
+        T& operator[](uint64_t index);
+        const T& operator[](uint64_t index) const;
+        T* data = nullptr;
+        uint64_t size = 0;
+    };
+
+    template<typename T>
+    class ArrayViewConst
+    {
+    public:
+        bool IsEmpty() const;
+        uint64_t Size() const; 
+        T operator[](uint64_t index) const;
+        const T* data = nullptr;
+        uint64_t size = 0;
+    };
+    
+
 
     template<typename T>
     class Map
@@ -174,6 +205,7 @@ namespace UI::Internal
         void Clear();
         bool PopHead();
         Node* GetHead();
+        Node* GetTail();
     };
 
 
@@ -230,18 +262,18 @@ namespace UI::Internal
 {
     //Array
     template<typename T, unsigned int CAPACITY>
-    inline unsigned int Array<T, CAPACITY>::Capacity() const
+    inline unsigned int FixedArray<T, CAPACITY>::Capacity() const
     {
         return CAPACITY;
     }
     template<typename T, unsigned int CAPACITY>
-    inline T& Array<T, CAPACITY>::operator[](unsigned int index) 
+    inline T& FixedArray<T, CAPACITY>::operator[](unsigned int index) 
     {
         assert(index < CAPACITY);
         return data[index];
     }
     template<typename T, unsigned int CAPACITY>
-    inline T* Array<T, CAPACITY>::Data()
+    inline T* FixedArray<T, CAPACITY>::Data()
     {
         return data;
     }
@@ -360,6 +392,46 @@ namespace UI::Internal
         return CAPACITY;
     }
 
+    template<typename T>
+    inline uint64_t ArrayView<T>::Size() const
+    {
+        return size;
+    }
+    template<typename T>
+    inline bool ArrayView<T>::IsEmpty() const
+    {
+        return size == 0 || data == nullptr;
+    }
+    template<typename T>
+    inline T& ArrayView<T>::operator[](uint64_t index)
+    {
+        assert(index < size && "ArrayView out of scope");
+        return data[index];
+    }
+    template<typename T>
+    inline const T& ArrayView<T>::operator[](uint64_t index) const
+    {
+        assert(index < size && "ArrayView out of scope");
+        return data[index];
+    }
+
+    template<typename T>
+    inline uint64_t ArrayViewConst<T>::Size() const
+    {
+        return size;
+    }
+    template<typename T>
+    inline bool ArrayViewConst<T>::IsEmpty() const
+    {
+        return size == 0 || data == nullptr;
+    }
+    template<typename T>
+    inline T ArrayViewConst<T>::operator[](uint64_t index) const
+    {
+        assert(index < size && "ArrayView out of scope");
+        return data[index];
+    }
+    
     template<typename T>
     inline Map<T>::~Map()
     {
@@ -619,6 +691,11 @@ namespace UI::Internal
     inline typename ArenaLL<T>::Node* ArenaLL<T>::GetHead()
     {
         return head; 
+    }
+    template<typename T>
+    inline typename ArenaLL<T>::Node* ArenaLL<T>::GetTail()
+    {
+        return tail; 
     }
     template<typename T>
     inline bool ArenaLL<T>::PopHead()

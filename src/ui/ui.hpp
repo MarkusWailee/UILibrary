@@ -21,6 +21,7 @@
 //Only used for Fmt
 #include <stdarg.h>
 #include <stdio.h>
+#include <uchar.h>
 
 #include <iostream>
 #include "Memory.hpp"
@@ -28,6 +29,7 @@
 
 namespace UI
 {
+    using StringU16 = Internal::ArrayViewConst<char16_t>;
     class Context;
     class Builder;
     struct Error;
@@ -43,6 +45,8 @@ namespace UI
 }
 namespace UI::Internal
 {
+    //Non owning string
+
     struct BoxInternal;
     struct TreeNode;
 }
@@ -175,6 +179,8 @@ namespace UI
     constexpr uint64_t MB = KB * KB;
     //String Helper
     const char *Fmt(const char *text, ...);
+    int StrAsciLength(const char* text);
+    int StrU16Length(const char16_t* text);
 
     //Math helpers
     constexpr float DPI = 96.0f;
@@ -341,11 +347,17 @@ namespace UI
         bool scissor = false;
         Detach detach = Detach::NONE;
     };
-
-    struct Vertex
+    struct TextStyle
     {
-        float x, y, r, g, b, a; 
+        TextStyle& FontSize(int size);
+        TextStyle& FgColor(const Color& color);
+        int GetFontSize() const;
+        Color GetColor() const;
+    private:
+        Color color;
+        uint16_t font_size = 0;
     };
+
 
     struct BoxInfo
     {
@@ -376,15 +388,6 @@ namespace UI
         uint64_t GetKey() const { return key; }
     };
 
-    struct Vec2
-    {
-        float x = 0;
-        float y = 0;
-    };
-    struct Triangle
-    {
-        Vec2 position;
-    };
     struct DebugInfo
     {
         const char* name = nullptr;
@@ -400,14 +403,13 @@ namespace UI
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
     void EndBox();
-    void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
+    void InsertText(const char16_t* text, const char* id = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
     void Draw();
     // ====================================
-
     // ========== Builder Notation ==========
     template<typename Func>
     void Root(Context* context, const BoxStyle& style, Func&& func, DebugInfo debug_info = UI_DEBUG("Root"));
-    Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+    Builder& Box(const BoxStyle& style = BoxStyle(), const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
     BoxInfo Info();
     BoxStyle& Style();
     bool IsHover();
@@ -476,16 +478,19 @@ namespace UI
     //Internal namespace is just used for seperation in public api
     namespace Internal
     {
-        //struct ComputedBox
-        //{
-        //    BoxInternal* style_properties = nullptr;
-
-        //    uint64_t id = 0;
-        //    uint16_t width = 0;
-        //    uint16_t height = 0;
-        //    int16_t x = 0;
-        //    int16_t y = 0;
-        //};
+        struct TextLine
+        {
+            int x = 0;
+            int y = 0;
+            const char16_t* text = nullptr;
+            uint16_t size = 0;
+            TextStyle style; 
+        };
+        struct TextSpan
+        {
+            StringU16 text;
+            TextStyle style;
+        };
 
         struct BoxInternal
         {
@@ -494,7 +499,8 @@ namespace UI
                 DebugInfo debug_info;
             #endif
             // =============================================
-            const char* text = nullptr;
+
+            ArrayView<TextSpan> text;
             TextureRect texture;
             uint64_t label_hash =       0; 
 
@@ -549,6 +555,7 @@ namespace UI
             Flow::Axis GetFlowAxis() const;
             bool IsScissor() const;
             bool IsDetached() const;
+            bool IsTextElement() const;
             int GetBoxExpansionWidth() const;
             int GetBoxExpansionHeight() const;
             int GetBoxModelWidth() const;
@@ -598,7 +605,8 @@ namespace UI
             void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
             void EndRoot();
             void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
-            void InsertText(const char* text, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+            void InsertText(const char16_t* text, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+            void InsertText(StringU16 string, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
             void EndBox();
             void Draw();
             uint32_t GetElementCount() const;
@@ -647,6 +655,7 @@ namespace UI
 
         TreeNode* root_node = nullptr;
         Internal::MemoryArena arena;
+        Internal::MemoryArena arena2;
         Internal::FixedStack<TreeNode*, 64> stack; //elements should never nest over 100 layers deep
 
         Internal::ArenaDoubleBufferMap<BoxInfo> double_buffer_map;
@@ -664,7 +673,7 @@ namespace UI
 
 
         //Also Implemented as global functions
-        Builder& Box(const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+        Builder& Box(const BoxStyle& style = BoxStyle(), const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
         BoxInfo Info() const;
         BoxStyle& Style();
         bool IsHover() const;
@@ -672,6 +681,7 @@ namespace UI
 
         //Parmeters
         Builder& Style(const BoxStyle& style);
+        Builder& Id(const char* id);
         template<typename Func>
         Builder& OnHover(Func&& func);
         template<typename Func>
@@ -693,7 +703,7 @@ namespace UI
 
         //States
         const char* id = nullptr;
-        const char* text = nullptr;
+        const char16_t* text = nullptr;
         BoxInfo info;
         BoxStyle style;
         DebugInfo debug_info;
@@ -706,6 +716,26 @@ namespace UI
 //Builder Implementation
 namespace UI
 {
+
+    inline TextStyle& TextStyle::FontSize(int size)
+    {
+        font_size = size;
+        return *this;
+    }
+    inline TextStyle& TextStyle::FgColor(const Color& color)
+    {
+        this->color = color;
+        return *this;
+    }
+    inline int TextStyle::GetFontSize() const
+    {
+        return font_size;
+    }
+    inline Color TextStyle::GetColor() const
+    {
+        return color;
+    }
+
     template<typename Func>
     inline void Root(Context* context, const BoxStyle& style, Func&& func, DebugInfo debug_info)
     {
@@ -715,6 +745,19 @@ namespace UI
     }
 
 
+    //Builder Implementation
+    inline Builder& Builder::Box(const BoxStyle& style, const char* id, DebugInfo debug_info)
+    {
+        ClearStates();
+        if(HasContext())
+        {
+            this->style = style;
+            this->debug_info = debug_info;
+            this->id = id; 
+            info = context->Info(id);
+        }
+        return *this;
+    }
     inline void Builder::SetContext(Context* context)
     {
         this->context = context;
@@ -747,6 +790,12 @@ namespace UI
     inline BoxStyle& Builder::Style()
     {
         return style;
+    }
+    inline Builder& Builder::Id(const char* id)
+    {
+        this->id = id;
+        this->info = context->Info(id);
+        return *this;
     }
     inline Builder& Builder::Style(const BoxStyle& style)
     {

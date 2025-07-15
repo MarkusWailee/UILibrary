@@ -16,12 +16,16 @@ namespace UI
     //Size should include '\0'
     void StringCopy(char* dst, const char* src, uint32_t size);
     //returns pointer pointing to arena
-    const char* ArenaCopyString(const char* text, MemoryArena* arena);
+    const char* CopyStrAsciToArena(const char* text, MemoryArena* arena);
+
+    //size should includes '\0' if null terminated string are used
+    const char16_t* CopyStrU16ToArena(const char16_t* text, uint64_t size, MemoryArena* arena);
+    void CopyStringU16ToArena(StringU16& string, MemoryArena* arena);
+
     bool StringCompare(const char* s1, const char* s2);
     char ToLower(char c);
 
     //Does not count '\0'
-    int StringLength(const char* text);
     uint32_t StrToU32(const char* text, bool* error = nullptr);
     uint32_t HexToU32(const char* text, bool* error = nullptr);
     Color HexToRGBA(const char* text, bool* error = nullptr);
@@ -101,7 +105,7 @@ namespace UI
         if(IsContextActive())
             GetContext()->BeginBox(box_style, label, debug_info);
     }
-    void InsertText(const char* text, const char* label, bool copy_text, DebugInfo debug_info)
+    void InsertText(const char16_t* text, const char* label, bool copy_text, DebugInfo debug_info)
     {
         if(IsContextActive())
             GetContext()->InsertText(text, label, copy_text, debug_info);
@@ -123,9 +127,9 @@ namespace UI
 
 
     // ========== Builder Notation ===========
-    Builder& Box(const char* id, DebugInfo debug_info)
+    Builder& Box(const BoxStyle& style, const char* id, DebugInfo debug_info)
     {
-        return builder.Box(id, debug_info);
+        return builder.Box(style, id, debug_info);
     }
     BoxInfo Info()
     {
@@ -166,6 +170,10 @@ namespace UI
     inline bool BoxInternal::IsDetached() const
     {
         return detach != Detach::NONE;
+    }
+    inline bool BoxInternal::IsTextElement() const
+    {
+        return !text.IsEmpty();
     }
     inline int BoxInternal::GetBoxExpansionWidth() const
     {
@@ -404,15 +412,23 @@ namespace UI
             dst[i] = src[i];
         dst[i] = '\0';
     }
-    const char* ArenaCopyString(const char* text, MemoryArena* arena)
+    const char* CopyStrAsciToArena(const char* text, MemoryArena* arena)
     {
         assert(text && "no text padded");
         assert(arena && "no arena passed");
-        int n = StringLength(text) + 1;
+        int n = StrAsciLength(text) + 1;
         char* temp = (char*)arena->NewArrayZero<char>(n);
         if(temp == nullptr)
             return nullptr;
         memcpy(temp, text, n);
+        return temp;
+    }
+    const char16_t* CopyStrU16ToArena(const char16_t* text, uint64_t size, MemoryArena* arena)
+    {
+        assert(text && "no text padded");
+        assert(arena && "no arena passed");
+        char16_t* temp = arena->NewArrayZero<char16_t>(size);
+        memcpy(temp, text, sizeof(char16_t) * size);
         return temp;
     }
     bool StringCompare(const char* s1, const char* s2)
@@ -450,7 +466,15 @@ namespace UI
     {
         return (c >= 'A' && c <= 'Z')? c + 32: c;
     }
-    int StringLength(const char* text)
+    int StrAsciLength(const char* text)
+    {
+        if(!text)
+            return -1;
+        int i = 0;
+        for(; text[i]; i++);
+        return i;
+    }
+    int StrU16Length(const char16_t* text)
     {
         if(!text)
             return -1;
@@ -667,7 +691,7 @@ namespace UI
 namespace UI
 {
     Context::Context(uint64_t arena_bytes) :
-        arena(arena_bytes)
+        arena(arena_bytes), arena2(arena_bytes)
     {
         uint32_t cap = arena_bytes / 2 / (sizeof(Internal::ArenaMap<BoxInfo>::Item) * 2);
         bool err = double_buffer_map.AllocateBufferCapacity(cap, &arena);
@@ -866,12 +890,16 @@ namespace UI
     }
 
 
+    void Context::InsertText(const char16_t* text, const char* label, bool copy_text, DebugInfo info)
+    {
+        StringU16 string = StringU16{text, (uint64_t)StrU16Length(text)};
+        InsertText(string, label, copy_text, info);
+    }
 
-    void Context::InsertText(const char* text, const char* label, bool should_copy, DebugInfo debug_info)
+    void Context::InsertText(StringU16 string, const char* label, bool copy_text, DebugInfo info)
     {
         #if UI_ENABLE_DEBUG
         #endif
-
 
         if(HasInternalError())
             return;
@@ -884,6 +912,15 @@ namespace UI
         assert(parent_node);
         const Box& parent_box = parent_node->box;
         TreeNode node;
+        auto parent_tail = parent_node->children.GetTail();
+        if(parent_tail && parent_tail->value.box.IsTextElement())
+        {
+            string.data = CopyStrU16ToArena(string.data, string.Size(), &arena2);             
+        }
+        else
+        {
+            
+        }
     }
 
 
@@ -892,7 +929,7 @@ namespace UI
     {
         #if UI_ENABLE_DEBUG
         #endif
-
+        
 
 
         if(HasInternalError())
@@ -1632,7 +1669,7 @@ namespace UI
                 box.x += cursor_x + parent.x - parent.scroll_x + parent.padding.left;
                 box.y += cursor_y + parent.y - parent.scroll_y + parent.padding.top;
                 PositionPass(&temp->value, parent);
-                cursor_y += box.GetBoxModelHeight() + parent.gap_column + offset;
+                cursor_y += box.GetBoxModelHeight() + parent.gap_row + offset;
             }
         }
         if(parent.label_hash)
@@ -1651,10 +1688,10 @@ namespace UI
         for(auto temp = child; temp!=nullptr; temp = temp->next)
         {
             Box& box = temp->value.box;
-            int cell_width = parent.GetGridCellWidth() * box.grid_span_x + parent.gap_column * (box.grid_span_x - 1);
-            int cell_height = parent.GetGridCellHeight() * box.grid_span_y + parent.gap_row * (box.grid_span_y - 1);
-            box.x = parent.x + parent.padding.left + (cell_width + parent.gap_column) * box.grid_x + (cell_width - box.GetBoxModelWidth())/2;
-            box.y = parent.y + parent.padding.top + (cell_height + parent.gap_row) * box.grid_y + (cell_height - box.GetBoxModelHeight())/2;
+            int cell_width = parent.GetGridCellWidth() + parent.gap_column;
+            int cell_height = parent.GetGridCellHeight() + parent.gap_row;
+            box.x = parent.x + parent.padding.left + cell_width * box.grid_x; 
+            box.y = parent.y + parent.padding.top + cell_height * box.grid_y; 
             PositionPass(&temp->value, parent);
         }
     }
@@ -1730,16 +1767,4 @@ namespace UI
     }
 
 
-    //Builder Implementation
-    Builder& Builder::Box(const char* id, DebugInfo debug_info)
-    {
-        ClearStates();
-        if(HasContext())
-        {
-            this->debug_info = debug_info;
-            this->id = id; 
-            info = context->Info(id);
-        }
-        return *this;
-    }
 }
