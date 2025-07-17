@@ -64,6 +64,13 @@ void LayoutTest(UI::Context* context)
     button2.background_color = {150, 100, 150, 255};
     button2.corner_radius = 10;
 
+    UI::BoxStyle pop_up;
+    pop_up.width = {100};
+    pop_up.height = {100};
+    pop_up.background_color = {255,255,255,255};
+    pop_up.corner_radius = 5;
+    pop_up.detach = UI::Detach::TOP_CENTER;
+
     UI::Root(context, root, [&]
     {
         UI::Box().Style(v_container).Run([&]
@@ -112,7 +119,24 @@ void LayoutTest(UI::Context* context)
                         UI::Style().grid.span_x = 4;
                         UI::Style().grid.span_y = 1;
                         UI::Style().background_color = {200, 100, 100, 255};
-                    }).Run([&]{});
+                    }).Run([&]
+                    {
+                        UI::Box(pop_up).Run([&]
+                        {
+                            UI::Box(pop_up)
+                            .PreRun([&]
+                            {
+                                UI::Style().background_color = {200, 125, 100, 255};
+                                UI::Style().height = UI::Style().width = {50};
+                                UI::Style().detach = UI::Detach::RIGHT_CENTER;
+                                UI::Style().x = -25;
+                            })
+                            .Run([&]
+                            {
+
+                            });
+                        });
+                    });
 
                     UI::Box().Style(button)
                     .PreRun([&]

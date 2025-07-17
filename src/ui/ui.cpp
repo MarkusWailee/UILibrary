@@ -5,13 +5,13 @@ namespace UI
 {
     using namespace Internal;
     void DisplayError(const Error& error);
-    Error CheckUnitErrors(const BoxNode& style);
-    Error CheckLeafNodeContradictions(const BoxNode& leaf);
-    Error CheckNodeContradictions(const BoxNode& child, const BoxNode& parent);
+    Error CheckUnitErrors(const BoxCore& style);
+    Error CheckLeafNodeContradictions(const BoxCore& leaf);
+    Error CheckNodeContradictions(const BoxCore& child, const BoxCore& parent);
 
     //Used during tree descending
     int FixedUnitToPx(Unit unit, int root_size);
-    BoxNode ComputeStyleSheet(const BoxStyle& style, const BoxNode& root);
+    BoxCore ComputeStyleSheet(const BoxStyle& style, const BoxCore& root);
 
     //Size should include '\0'
     void StringCopy(char* dst, const char* src, uint32_t size);
@@ -33,9 +33,9 @@ namespace UI
 
     //Computing PARENT_PERCENT
     int ParentPercentToPx(int value , Unit::Type unit_type, int parent_width);
-    void ComputeParentWidthPercent(BoxNode& box, int parent_width);
-    void ComputeParentHeightPercent(BoxNode& box, int parent_width);
-    void ComputeDetachPositions(BoxNode& box,  const BoxNode& parent);
+    void ComputeParentWidthPercent(BoxCore& box, int parent_width);
+    void ComputeParentHeightPercent(BoxCore& box, int parent_width);
+    void ComputeDetachPositions(BoxCore& box,  const BoxCore& parent);
 
 
     //Debugger
@@ -153,62 +153,77 @@ namespace UI
 //Box
 namespace UI
 {
-    inline void BoxNode::SetFlowAxis(Flow::Axis axis){flow_axis = axis;}
-    inline void BoxNode::SetScissor(bool flag){scissor = flag;}
-    inline Layout BoxNode::GetLayout() const
+
+    inline void BoxCore::SetFlowAxis(Flow::Axis axis){flow_axis = axis;}
+    inline void BoxCore::SetScissor(bool flag){scissor = flag;}
+    inline Layout BoxCore::GetLayout() const
     {
         return layout;
     }
-    inline Flow::Axis BoxNode::GetFlowAxis() const
+    inline Flow::Axis BoxCore::GetFlowAxis() const
     {
         return flow_axis;
     }
-    inline bool BoxNode::IsScissor() const
+    inline bool BoxCore::IsScissor() const
     {
         return scissor;
     }
-    inline bool BoxNode::IsDetached() const
+    inline bool BoxCore::IsDetached() const
     {
         return detach != Detach::NONE;
     }
-    inline bool BoxNode::IsTextElement() const
+    inline bool BoxCore::IsTextElement() const
     {
         return !text.IsEmpty();
     }
-    inline int BoxNode::GetBoxExpansionWidth() const
+    inline int BoxCore::GetBoxExpansionWidth() const
     {
         return margin.left + margin.right + padding.left + padding.right;
     }
-    inline int BoxNode::GetBoxExpansionHeight() const
+    inline int BoxCore::GetBoxExpansionHeight() const
     {
         return margin.top + margin.bottom + padding.top + padding.bottom;
     }
-    inline int BoxNode::GetBoxModelWidth() const
+    inline int BoxCore::GetBoxModelWidth() const
     {
         //internal box model
         return margin.left + padding.left + width + padding.right + margin.right;
     }
-    inline int BoxNode::GetBoxModelHeight() const
+    inline int BoxCore::GetBoxModelHeight() const
     {
         return margin.top + padding.top + height + padding.bottom + margin.bottom;
     }
-    inline int BoxNode::GetRenderingWidth() const
+    inline int BoxCore::GetRenderingWidth() const
     {
         return padding.left + width + padding.right;
     }
-    inline int BoxNode::GetRenderingHeight() const
+    inline int BoxCore::GetRenderingHeight() const
     {
         return padding.top + height + padding.bottom;
     }
-    inline int BoxNode::GetGridCellWidth() const
+    inline int BoxCore::GetGridCellWidth() const
     {
         return (width - gap_column * (grid_column_count - 1)) / Max((uint8_t)1, grid_column_count);
     }
-    inline int BoxNode::GetGridCellHeight() const
+    inline int BoxCore::GetGridCellHeight() const
     {
         return (height - gap_row * (grid_row_count - 1)) / Max((uint8_t)1, grid_row_count);
     }
 
+
+    inline void BoxResult::SetComputedResults(BoxCore& node)
+    {
+        UpdatePointer(node);
+        this->rel_x = node.x;
+        this->rel_y = node.y;
+        this->draw_width = node.GetRenderingWidth();
+        this->draw_height = node.GetRenderingHeight();
+    }
+    inline void BoxResult::UpdatePointer(BoxCore& node)
+    {
+        this->box = &node;
+    }
+    
 
     //Common helpers and error checking
     void DisplayError(const Error& error)
@@ -224,7 +239,7 @@ namespace UI
             error.type = error_type;\
             StringCopy(error.msg, Fmt(#error_type"\n"#value" = " #illegal_unit"\nFile: %s\nLine: %d\n", debug_info.file, debug_info.line), ERROR_MSG_SIZE);\
         }
-    Error CheckUnitErrors(const BoxNode& style)
+    Error CheckUnitErrors(const BoxCore& style)
     {
         //The following units cannot equal the specified Unit Types 
 
@@ -242,7 +257,7 @@ namespace UI
 
 
 
-    Error CheckLeafNodeContradictions(const BoxNode& leaf)
+    Error CheckLeafNodeContradictions(const BoxCore& leaf)
     {
         //The Following erros are contradictions
         Error error;
@@ -262,7 +277,7 @@ namespace UI
         return error;
     }
 
-    Error CheckNodeContradictions(const BoxNode& child, const BoxNode& parent)
+    Error CheckNodeContradictions(const BoxCore& child, const BoxCore& parent)
     {
         //The following errors are contradictions between parent and child
         Error error;
@@ -333,14 +348,14 @@ namespace UI
                 return (int)unit.value; //Only meant for width/height
         }
     }
-    BoxNode ComputeStyleSheet(const BoxStyle& style, const BoxNode& root)
+    BoxCore ComputeStyleSheet(const BoxStyle& style, const BoxCore& root)
     {
         int root_width = root.width - style.margin.left - style.margin.right - style.padding.left - style.padding.right;
         int root_height = root.height - style.margin.top - style.margin.bottom - style.padding.top - style.padding.bottom;
         root_width = Max(0, root_width);
         root_height = Max(0, root_height);
 
-        BoxNode box;
+        BoxCore box;
         box.texture = style.texture;
 
         box.background_color =          style.background_color;
@@ -581,7 +596,7 @@ namespace UI
     {
         return unit_type == Unit::Type::PARENT_PERCENT? value * parent_size / 100: value;
     }
-    void ComputeParentWidthPercent(BoxNode& box, int parent_width)
+    void ComputeParentWidthPercent(BoxCore& box, int parent_width)
     {
         parent_width -= box.padding.left + box.padding.right + box.margin.left + box.margin.right;
         parent_width = Max(0, parent_width);
@@ -591,7 +606,7 @@ namespace UI
     }
 
     //Height
-    void ComputeParentHeightPercent(BoxNode& box, int parent_height)
+    void ComputeParentHeightPercent(BoxCore& box, int parent_height)
     {
         parent_height -= box.padding.top + box.padding.bottom + box.margin.top + box.margin.bottom;
         parent_height = Max(0, parent_height);
@@ -600,7 +615,7 @@ namespace UI
         box.min_height =                (uint16_t)Max(0, ParentPercentToPx(box.min_height,       box.min_height_unit,        parent_height)); 
         box.max_height =                (uint16_t)Max(0, ParentPercentToPx(box.max_height,       box.max_height_unit,        parent_height)); 
     }
-    void ComputeWidthPercentForHeight(BoxNode& box)
+    void ComputeWidthPercentForHeight(BoxCore& box)
     {
         if(box.height_unit == Unit::Type::WIDTH_PERCENT)
             box.height = box.width * box.height / 100;
@@ -609,7 +624,7 @@ namespace UI
         if(box.max_height_unit == Unit::Type::WIDTH_PERCENT)
             box.max_height = box.width * box.max_height / 100;
     }
-    void ComputeDetachPositions(BoxNode& box, const BoxNode& parent)
+    void ComputeDetachPositions(BoxCore& box, const BoxCore& parent)
     {
         switch(box.detach)
         {
@@ -683,7 +698,7 @@ namespace UI
 namespace UI
 {
     Context::Context(uint64_t arena_bytes) :
-        arena(arena_bytes), string_arena(arena_bytes)
+        arena1(arena_bytes), arena2(arena_bytes), arena3(arena_bytes)
     {
     }
     uint32_t Context::GetElementCount() const
@@ -716,21 +731,25 @@ namespace UI
     }
     void Context::ResetAllStates()
     {
-        arena.Rewind(root_node);
+        arena1.Rewind(tree_core);
 
         stack.Clear();
         deferred_elements.Clear();
-        root_node = nullptr;
+        tree_core = nullptr;
         element_count = 0;
         directly_hovered_element_key = 0;
     }
 
-    void Context::ClearPreviousFrame()
+    void Context::ResetArena1()
     {
-        arena.Rewind(root_node);
+        arena1.Reset();
         stack.Clear();
-        root_node = nullptr;
-        element_count = 0;
+        tree_core = nullptr;
+    }
+    void Context::ResetArena2()
+    {
+        arena2.Reset();
+        tree_result = nullptr;
     }
     void Context::BeginRoot(BoxStyle style, DebugInfo debug_info)
     {
@@ -746,11 +765,11 @@ namespace UI
 
         if(HasInternalError())
             return;
-        ClearPreviousFrame();
+        ResetArena1();
 
 
         assert(stack.IsEmpty());
-        BoxNode root_box = ComputeStyleSheet(style, BoxNode());
+        BoxCore root_box = ComputeStyleSheet(style, BoxCore());
         // ========== Debug Mode Only ==========
         #if UI_ENABLE_DEBUG
             root_box.debug_info = debug_info;
@@ -759,10 +778,10 @@ namespace UI
         if(stack.IsEmpty())//Root Node
         {
             //Checking errors unique to root node
-            root_node = arena.New<TreeNode<BoxNode>>();
-            assert(root_node && "Arena out of space");
-            root_node->box = root_box;
-            stack.Push(root_node);
+            tree_core = arena1.New<TreeNode<BoxCore>>();
+            assert(tree_core && "Arena out of space");
+            tree_core->box = root_box;
+            stack.Push(tree_core);
         }
         else
         {
@@ -809,19 +828,19 @@ namespace UI
 
         if(!stack.IsEmpty())  // should add to parent
         {
-            TreeNode<BoxNode>* parent_node = stack.Peek();
+            TreeNode<BoxCore>* parent_node = stack.Peek();
             assert(parent_node);
-            assert(root_node);
+            assert(tree_core);
 
-            TreeNode<BoxNode> child_node;
-            child_node.box = ComputeStyleSheet(style, root_node->box);
+            TreeNode<BoxCore> child_node;
+            child_node.box = ComputeStyleSheet(style, tree_core->box);
             child_node.box.id_key = id_key;
 
             //Might bundle this with macro
             if(HandleInternalError(CheckUnitErrors(child_node.box)))
                 return;
 
-            TreeNode<BoxNode>* child_ptr = parent_node->children.Add(child_node, &arena); 
+            TreeNode<BoxCore>* child_ptr = parent_node->children.Add(child_node, &arena1); 
             assert(child_ptr && "Arena out of memory");
             stack.Push(child_ptr);
         }
@@ -845,13 +864,13 @@ namespace UI
             HandleInternalError(Error{Error::Type::MISSING_BEGIN, "Missing BeginBox()"});
             return;
         }
-        TreeNode<BoxNode>* node = stack.Peek();
+        TreeNode<BoxCore>* node = stack.Peek();
         assert(node);
-        BoxNode& parent_box = node->box;
+        BoxCore& parent_box = node->box;
         stack.Pop();
         if(!stack.IsEmpty())
         {
-            TreeNode<BoxNode>* grand_parent = stack.Peek();
+            TreeNode<BoxCore>* grand_parent = stack.Peek();
             assert(grand_parent);
             if(HandleInternalError(CheckNodeContradictions(parent_box, grand_parent->box)))
                 return;
@@ -863,6 +882,7 @@ namespace UI
     {
         StringU16 string = StringU16{text, (uint64_t)StrU16Length(text)};
         InsertText(string, id, copy_text, info);
+        
     }
 
     void Context::InsertText(StringU16 string, const char* id, bool copy_text, DebugInfo info)
@@ -877,10 +897,10 @@ namespace UI
             HandleInternalError(Error{Error::Type::TEXT_NODE_CONTRADICTION, "Text node needs a container"});
             return;
         }
-        TreeNode<BoxNode>* parent_node = stack.Peek();
+        TreeNode<BoxCore>* parent_node = stack.Peek();
         assert(parent_node);
-        const BoxNode& parent_box = parent_node->box;
-        TreeNode<BoxNode> node;
+        const BoxCore& parent_box = parent_node->box;
+        TreeNode<BoxCore> node;
         auto parent_tail = parent_node->children.GetTail();
         if(parent_tail && parent_tail->value.box.IsTextElement())
         {
@@ -903,7 +923,7 @@ namespace UI
 
         if(HasInternalError())
             return;
-        assert(root_node && "No RootNode Provided");
+        assert(tree_core && "No RootNode Provided");
         
         if(!stack.IsEmpty())
         {
@@ -913,33 +933,34 @@ namespace UI
 
 
         //Layout pipeline
-        WidthContentPercentPass(root_node);
-        WidthPass(root_node);
-        HeightContentPercentPass(root_node);
-        HeightPass(root_node);
-        PositionPass(root_node, BoxNode());
+        WidthContentPercentPass(tree_core);
+        WidthPass(tree_core);
+        HeightContentPercentPass(tree_core);
+        HeightPass(tree_core);
+        PositionPass(tree_core, BoxCore());
 
+        //GenerateComputedTree();
 
-        DrawPass(root_node, BoxNode(), {0, 0, GetScreenWidth(), GetScreenHeight()});
+        DrawPass(tree_core, BoxCore(), {0, 0, GetScreenWidth(), GetScreenHeight()});
         while(!deferred_elements.IsEmpty())
         {
-            TreeNode<BoxNode>* node = deferred_elements.GetHead()->value;
+            TreeNode<BoxCore>* node = deferred_elements.GetHead()->value;
             node->box.detach = Detach::NONE;
-            DrawPass(node, BoxNode(), {0, 0, GetScreenWidth(), GetScreenHeight()});
+            DrawPass(node, BoxCore(), {0, 0, GetScreenWidth(), GetScreenHeight()});
             deferred_elements.PopHead();
         }
     }
-    void Context::WidthContentPercentPass_Flow(TreeNode<BoxNode>* node)
+    void Context::WidthContentPercentPass_Flow(TreeNode<BoxCore>* node)
     {
         assert(node);
-        BoxNode& parent_box = node->box;
+        BoxCore& parent_box = node->box;
         int content_width = 0;
         if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
             for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
             {
                 WidthContentPercentPass(&temp->value);
-                BoxNode& box = temp->value.box;
+                BoxCore& box = temp->value.box;
                 if(box.IsDetached())
                     continue;
                 if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
@@ -964,7 +985,7 @@ namespace UI
             for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
             {
                 WidthContentPercentPass(&temp->value);
-                BoxNode& box = temp->value.box;
+                BoxCore& box = temp->value.box;
                 if(box.IsDetached())
                     continue;
                 if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
@@ -994,17 +1015,17 @@ namespace UI
         if(parent_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
             parent_box.max_width = content_width * parent_box.max_width / 100;
     }
-    void Context::WidthContentPercentPass_Grid(TreeNode<BoxNode>* node)
+    void Context::WidthContentPercentPass_Grid(TreeNode<BoxCore>* node)
     {
         assert(node);
-        BoxNode& parent_box = node->box;
+        BoxCore& parent_box = node->box;
         int cell_width = 0;
 
         //Finding the largest cell width
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
             WidthContentPercentPass(&temp->value);
-            BoxNode& box = temp->value.box;
+            BoxCore& box = temp->value.box;
             if(box.IsDetached())
                 return;
             if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
@@ -1032,11 +1053,11 @@ namespace UI
         if(parent_box.max_width_unit == Unit::Type::CONTENT_PERCENT)
             parent_box.max_width = total_width;
     }
-    void Context::WidthContentPercentPass(TreeNode<BoxNode>* node)
+    void Context::WidthContentPercentPass(TreeNode<BoxCore>* node)
     {
         if(!node)
             return;
-        const BoxNode& box = node->box;
+        const BoxCore& box = node->box;
         if(box.GetLayout() == Layout::FLOW)
         {
             WidthContentPercentPass_Flow(node);
@@ -1046,11 +1067,11 @@ namespace UI
             WidthContentPercentPass_Grid(node);
         }
     }
-    void Context::WidthPass(TreeNode<BoxNode>* node)
+    void Context::WidthPass(TreeNode<BoxCore>* node)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
-        BoxNode& box = node->box;
+        BoxCore& box = node->box;
 
         //Might aswell compute this here since width is all calculated
         ComputeWidthPercentForHeight(box);
@@ -1065,13 +1086,13 @@ namespace UI
         }
     }
 
-    void Context::WidthPass_Flow(ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent_box)
+    void Context::WidthPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box)
     {
         assert(child);
-        ArenaLL<TreeNode<BoxNode>>::Node* temp;
+        ArenaLL<TreeNode<BoxCore>>::Node* temp;
 
         struct GrowBox {
-            BoxNode* box = nullptr;
+            BoxCore* box = nullptr;
             float result = 0;
         };
         ArenaLL<GrowBox> growing_elements;
@@ -1082,7 +1103,7 @@ namespace UI
             float total_percent = 0;
             for(temp = child; temp != nullptr; temp = temp->next)
             {
-                BoxNode& box = temp->value.box;
+                BoxCore& box = temp->value.box;
                 ComputeParentWidthPercent(box, parent_box.width);
 
                 if(box.width_unit != Unit::Type::AVAILABLE_PERCENT)
@@ -1095,7 +1116,7 @@ namespace UI
                 }
                 else
                 {
-                    bool err = (bool)growing_elements.Add(GrowBox{&box, 0}, &arena);
+                    bool err = (bool)growing_elements.Add(GrowBox{&box, 0}, &arena1);
                     assert(err && "Arena out of memory");
                     available_width -= box.GetBoxExpansionWidth() + parent_box.gap_column;
                     total_percent += box.width;
@@ -1203,7 +1224,7 @@ namespace UI
             #endif
             for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 node->value.box->width = Max(node->value.box->min_width, (uint16_t)node->value.result);
-            arena.Rewind(growing_elements.GetHead());
+            arena1.Rewind(growing_elements.GetHead());
             growing_elements.Clear();
 
             //Sets all final sizes
@@ -1217,7 +1238,7 @@ namespace UI
         {
             for(temp = child; temp != nullptr; temp = temp->next)
             {
-                BoxNode& box = temp->value.box;
+                BoxCore& box = temp->value.box;
                 if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.width_unit = Unit::Type::PARENT_PERCENT;
                 ComputeParentWidthPercent(box, parent_box.width);
@@ -1226,14 +1247,14 @@ namespace UI
             }
         } //End vertical
     }
-    void Context::WidthPass_Grid(Internal::ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent_box) //Recurse Helpe
+    void Context::WidthPass_Grid(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box) //Recurse Helpe
     {
         assert(child);
 
         int cell_width = parent_box.GetGridCellWidth();
         for(auto temp = child; temp!=nullptr; temp = temp->next)
         {
-            BoxNode& box = temp->value.box;
+            BoxCore& box = temp->value.box;
             if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
                 box.width_unit = Unit::Type::PARENT_PERCENT;
             
@@ -1245,11 +1266,11 @@ namespace UI
 
 
 
-    void Context::HeightPass(TreeNode<BoxNode>* node)
+    void Context::HeightPass(TreeNode<BoxCore>* node)
     {
         if(node == nullptr || node->children.IsEmpty())
             return;
-        const BoxNode& box = node->box;
+        const BoxCore& box = node->box;
         if(box.GetLayout() == Layout::FLOW)
         {
             HeightPass_Flow(node->children.GetHead(), box);
@@ -1259,13 +1280,13 @@ namespace UI
             HeightPass_Grid(node->children.GetHead(), box);
         }
     }
-    void Context::HeightPass_Flow(ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent_box)
+    void Context::HeightPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box)
     {
         assert(child);
-        ArenaLL<TreeNode<BoxNode>>::Node* temp;
+        ArenaLL<TreeNode<BoxCore>>::Node* temp;
 
         struct GrowBox {
-            BoxNode* box = nullptr;
+            BoxCore* box = nullptr;
             float result = 0;
         };
         ArenaLL<GrowBox> growing_elements;
@@ -1276,7 +1297,7 @@ namespace UI
             float total_percent = 0;
             for(temp = child; temp != nullptr; temp = temp->next)
             {
-                BoxNode& box = temp->value.box;
+                BoxCore& box = temp->value.box;
                 ComputeParentHeightPercent(box, parent_box.height);
 
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT)
@@ -1289,7 +1310,7 @@ namespace UI
                 }
                 else
                 {
-                    bool err = growing_elements.Add(GrowBox{&box, 0}, &arena);
+                    bool err = growing_elements.Add(GrowBox{&box, 0}, &arena1);
                     assert(err && "Arena out of memory");
                     available_height -= box.GetBoxExpansionHeight() + parent_box.gap_row;
                     total_percent += box.height;
@@ -1354,7 +1375,7 @@ namespace UI
             }
             for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 node->value.box->height = Max(node->value.box->min_height, (uint16_t)node->value.result);
-            arena.Rewind(growing_elements.GetHead());
+            arena1.Rewind(growing_elements.GetHead());
             growing_elements.Clear();
 
             //Sets all final sizes
@@ -1368,7 +1389,7 @@ namespace UI
         {
             for(temp = child; temp != nullptr; temp = temp->next)
             {
-                BoxNode& box = temp->value.box;
+                BoxCore& box = temp->value.box;
                 if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
                     box.height_unit = Unit::Type::PARENT_PERCENT;
                 ComputeParentHeightPercent(box, parent_box.height);
@@ -1377,13 +1398,13 @@ namespace UI
             }
         }
     }
-    void Context::HeightPass_Grid(Internal::ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent_box) //Recurse Helpe
+    void Context::HeightPass_Grid(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box) //Recurse Helpe
     {
         assert(child);
         int cell_height = parent_box.GetGridCellHeight();
         for(auto temp = child; temp!=nullptr; temp = temp->next)
         {
-            BoxNode& box = temp->value.box;
+            BoxCore& box = temp->value.box;
             if(box.height_unit == Unit::Type::AVAILABLE_PERCENT)
                 box.height_unit = Unit::Type::PARENT_PERCENT;
             ComputeParentHeightPercent(box, cell_height * box.grid_span_y + parent_box.gap_row * (box.grid_span_y - 1));
@@ -1393,19 +1414,19 @@ namespace UI
     }
 
 
-    void Context::HeightContentPercentPass_Flow(TreeNode<BoxNode>* node)
+    void Context::HeightContentPercentPass_Flow(TreeNode<BoxCore>* node)
     {
         assert(node);
-        BoxNode& parent_box = node->box;
-        ArenaLL<TreeNode<BoxNode>>::Node* child = node->children.GetHead();
+        BoxCore& parent_box = node->box;
+        ArenaLL<TreeNode<BoxCore>>::Node* child = node->children.GetHead();
         int content_height = 0;
         if(parent_box.GetFlowAxis() == Flow::Axis::HORIZONTAL)
         {
             int largest_height = 0;
-            for(ArenaLL<TreeNode<BoxNode>>::Node* temp = child; temp != nullptr; temp = temp->next)
+            for(ArenaLL<TreeNode<BoxCore>>::Node* temp = child; temp != nullptr; temp = temp->next)
             {
                 HeightContentPercentPass(&temp->value);
-                BoxNode& box = temp->value.box;
+                BoxCore& box = temp->value.box;
                 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                     continue;
@@ -1444,10 +1465,10 @@ namespace UI
         }
         else //Vertical
         {
-            for(ArenaLL<TreeNode<BoxNode>>::Node* temp = child; temp != nullptr; temp = temp->next)
+            for(ArenaLL<TreeNode<BoxCore>>::Node* temp = child; temp != nullptr; temp = temp->next)
             {
                 HeightContentPercentPass(&temp->value);
-                BoxNode& box = temp->value.box;
+                BoxCore& box = temp->value.box;
 
                 if(box.IsDetached()) //Ignore layout for detached boxes
                     continue;
@@ -1487,25 +1508,25 @@ namespace UI
         if(parent_box.max_height_unit == Unit::Type::CONTENT_PERCENT)
             parent_box.max_height = parent_box.max_height * content_height / 100;
     }
-    void Context::HeightContentPercentPass_Grid(TreeNode<BoxNode>* node)
+    void Context::HeightContentPercentPass_Grid(TreeNode<BoxCore>* node)
     {
         assert(node);
-        BoxNode& parent_box = node->box;
+        BoxCore& parent_box = node->box;
         int content_width = 0;
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
             WidthContentPercentPass(&temp->value);
-            BoxNode& box = temp->value.box;
+            BoxCore& box = temp->value.box;
         }
     }
 
 
-    void Context::HeightContentPercentPass(TreeNode<BoxNode>* node)
+    void Context::HeightContentPercentPass(TreeNode<BoxCore>* node)
     {
         if(!node)    
             return;
         assert(node);
-        const BoxNode& box = node->box;
+        const BoxCore& box = node->box;
         if(box.GetLayout() == Layout::FLOW)
         {
             HeightContentPercentPass_Flow(node);
@@ -1518,16 +1539,14 @@ namespace UI
 
 
 
-    void Context::PositionPass(TreeNode<BoxNode>* node, const BoxNode& parent_box)
+    void Context::PositionPass(TreeNode<BoxCore>* node, const BoxCore& parent_box)
     {
         if(node == nullptr)
             return;
-        BoxNode& box = node->box;
+        BoxCore& box = node->box;
         box.x += box.margin.left;
         box.y += box.margin.top;
 
-        if(box.IsDetached())
-            deferred_elements.Add(node, &arena);
 
         if(node->children.IsEmpty())
             return;
@@ -1541,7 +1560,7 @@ namespace UI
             PositionPass_Grid(node->children.GetHead(), box);
         }
     }
-    void Context::PositionPass_Flow(Internal::ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent)
+    void Context::PositionPass_Flow(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent)
     {
         assert(child);
         int content_height = 0;
@@ -1551,7 +1570,7 @@ namespace UI
             int count = 0;
             for(auto temp = child; temp != nullptr; temp = temp->next)
             {
-                const BoxNode& box = temp->value.box;
+                const BoxCore& box = temp->value.box;
                 if(box.IsDetached()) continue;
                 count++;
                 content_width += box.GetBoxModelWidth();
@@ -1570,7 +1589,7 @@ namespace UI
             }
             for(auto temp = child; temp != nullptr; temp = temp->next)
             {
-                BoxNode& box = temp->value.box;
+                BoxCore& box = temp->value.box;
                 if(box.IsDetached())
                 {
                     ComputeDetachPositions(box, parent);
@@ -1599,7 +1618,7 @@ namespace UI
             int count = 0;
             for(auto temp = child; temp != nullptr; temp = temp->next)
             {
-                const BoxNode& box = temp->value.box;
+                const BoxCore& box = temp->value.box;
                 if(box.IsDetached()) continue;
                 count++;
                 content_height += box.GetBoxModelHeight();
@@ -1618,7 +1637,7 @@ namespace UI
             }
             for(auto temp = child; temp != nullptr; temp = temp->next)
             {
-                BoxNode& box = temp->value.box;
+                BoxCore& box = temp->value.box;
                 if(box.IsDetached())
                 {
                     ComputeDetachPositions(box, parent);
@@ -1643,12 +1662,12 @@ namespace UI
             }
         }
     }
-    void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent)
+    void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent)
     {
         assert(child);
         for(auto temp = child; temp!=nullptr; temp = temp->next)
         {
-            BoxNode& box = temp->value.box;
+            BoxCore& box = temp->value.box;
             int cell_width = parent.GetGridCellWidth() + parent.gap_column;
             int cell_height = parent.GetGridCellHeight() + parent.gap_row;
             box.x = parent.x + parent.padding.left + cell_width * box.grid_x; 
@@ -1657,11 +1676,38 @@ namespace UI
         }
     }
 
-    void Context::DrawPass(TreeNode<BoxNode>* node, const BoxNode& parent_box, Rect parent_aabb)
+    void Context::GenerateComputedTree()
+    {
+        if(!tree_core)
+            return;
+
+        ResetArena2();
+        tree_result = arena2.New<TreeNode<BoxResult>>(); 
+        assert(tree_result && "Arena2 out of memory");
+        tree_result->box.SetComputedResults(tree_core->box);
+
+        GenerateComputedTree_h(tree_core, tree_result);
+    }
+    void Context::GenerateComputedTree_h(TreeNode<BoxCore>* tree_core, TreeNode<BoxResult>* tree_result)
+    {
+        assert(tree_core && tree_result);
+        for(auto temp = tree_core->children.GetHead(); temp != nullptr; temp = temp->next)
+        {
+            TreeNode<BoxResult> node;
+            node.box.SetComputedResults(temp->value.box);
+
+            TreeNode<BoxResult>* result_node = tree_result->children.Add(node, &arena2);
+            assert(result_node && "Arena2 out of memory");
+
+            GenerateComputedTree_h(&temp->value, result_node);
+        }
+    }
+
+    void Context::DrawPass(TreeNode<BoxCore>* node, const BoxCore& parent_box, Rect parent_aabb)
     {
         if(node == nullptr)
             return;
-        const BoxNode& box = node->box;
+        const BoxCore& box = node->box;
 
         int render_width = box.GetRenderingWidth();
         int render_height = box.GetRenderingHeight();
@@ -1675,7 +1721,10 @@ namespace UI
         }
 
         if(box.IsDetached())
+        {
+            deferred_elements.Add(node, &arena1);
             return;
+        }
 
 
         /* Draw Text here

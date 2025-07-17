@@ -210,6 +210,7 @@ namespace UI::Internal
 
 
 
+    // A Linked list that uses MemoryArena
     template<typename T>
     class ArenaLL
     {

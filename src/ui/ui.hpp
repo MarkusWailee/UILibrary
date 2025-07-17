@@ -46,7 +46,7 @@ namespace UI
 namespace UI::Internal
 {
     //Non owning string
-    struct BoxNode;
+    struct BoxCore;
     template<typename T>
     struct TreeNode;
 }
@@ -468,7 +468,7 @@ namespace UI
             TextStyle style;
         };
 
-        struct BoxNode
+        struct BoxCore
         {
             // ========= Only used when debugging is enabled
             #if UI_ENABLE_DEBUG
@@ -541,6 +541,18 @@ namespace UI
             int GetGridCellWidth() const;
             int GetGridCellHeight() const;
         };
+
+        struct BoxResult
+        {
+            BoxCore* box = nullptr;
+            int16_t rel_x = 0;
+            int16_t rel_y = 0;
+            uint16_t draw_width = 0;
+            uint16_t draw_height = 0;
+            void UpdatePointer(BoxCore& node);
+            void SetComputedResults(BoxCore& node);
+        };
+
         template<typename T>
         struct TreeNode
         {
@@ -548,11 +560,18 @@ namespace UI
             ArenaLL<TreeNode> children;
         };
         template<>
-        struct TreeNode<BoxNode>
+        struct TreeNode<BoxCore>
         {
-            BoxNode box;
+            BoxCore box;
             ArenaLL<TreeNode> children;
         };
+        template<>
+        struct TreeNode<BoxResult>
+        {
+            BoxResult box;
+            ArenaLL<TreeNode> children;
+        };
+
 
     }
 
@@ -578,36 +597,37 @@ namespace UI
 
 
 
-        class Context
-        {
-            using BoxNode = Internal::BoxNode;
-            template<typename T>
-            using TreeNode = Internal::TreeNode<T>;
-            template<typename T>
-            using ArenaLL = Internal::ArenaLL<T>;
+    class Context
+    {
+        using BoxCore = Internal::BoxCore;
+        using BoxResult = Internal::BoxResult;
+        template<typename T>
+        using TreeNode = Internal::TreeNode<T>;
+        template<typename T>
+        using ArenaLL = Internal::ArenaLL<T>;
 
 
 
-        public:
-            Context(uint64_t arena_bytes);
-            BoxInfo Info(const char* id);
-            BoxInfo Info(uint64_t key);
-            void SetMousePos(int x, int y);
-            void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
-            void EndRoot();
-            void BeginBox(const UI::BoxStyle& box_style, const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
-            void InsertText(const char16_t* text, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
-            void InsertText(StringU16 string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
-            void EndBox();
-            void Draw();
-            uint32_t GetElementCount() const;
+    public:
+        Context(uint64_t arena_bytes);
+        BoxInfo Info(const char* id);
+        BoxInfo Info(uint64_t key);
+        void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
+        void EndRoot();
+        void BeginBox(const UI::BoxStyle& box_style, const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+        void InsertText(const char16_t* text, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+        void InsertText(StringU16 string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+        void EndBox();
+        void Draw();
+        uint32_t GetElementCount() const;
 
-            //For Advanced Purposes
+        //For Advanced Purposes
 
-            //Might not even use this
-            void ResetAllStates();
-        private:
-            void ClearPreviousFrame();
+        //Might not even use this
+        void ResetAllStates();
+    private:
+        void ResetArena1();
+        void ResetArena2();
             //These functions are for internals only
         bool HasInternalError();
         //Returns false and does nothing if no error
@@ -617,36 +637,43 @@ namespace UI
         // ========== Layout ===============
 
         //Width
-        void WidthContentPercentPass_Flow(TreeNode<BoxNode>* node);
-        void WidthContentPercentPass_Grid(TreeNode<BoxNode>* node);
-        void WidthContentPercentPass(TreeNode<BoxNode>* node);
-        void WidthPass(TreeNode<BoxNode>* node);
-        void WidthPass_Flow(ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent_box); //Recurse Helper
-        void WidthPass_Grid(ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent_box); //Recurse Helper
+        void WidthContentPercentPass_Flow(TreeNode<BoxCore>* node);
+        void WidthContentPercentPass_Grid(TreeNode<BoxCore>* node);
+        void WidthContentPercentPass(TreeNode<BoxCore>* node);
+        void WidthPass(TreeNode<BoxCore>* node);
+        void WidthPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box); //Recurse Helper
+        void WidthPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box); //Recurse Helper
         //Height
-        void HeightContentPercentPass_Flow(TreeNode<BoxNode>* node);
-        void HeightContentPercentPass_Grid(TreeNode<BoxNode>* node);
-        void HeightContentPercentPass(TreeNode<BoxNode>* node);
-        void HeightPass(TreeNode<BoxNode>* node);
-        void HeightPass_Flow(ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent_box); //Recurse Helper
-        void HeightPass_Grid(ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent_box); //Recurse Helpe
+        void HeightContentPercentPass_Flow(TreeNode<BoxCore>* node);
+        void HeightContentPercentPass_Grid(TreeNode<BoxCore>* node);
+        void HeightContentPercentPass(TreeNode<BoxCore>* node);
+        void HeightPass(TreeNode<BoxCore>* node);
+        void HeightPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box); //Recurse Helper
+        void HeightPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box); //Recurse Helpe
 
-        //Computes position and draws.
-        void PositionPass_Flow(ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent_box);
-        void PositionPass_Grid(ArenaLL<TreeNode<BoxNode>>::Node* child, const BoxNode& parent_box);
-        void PositionPass(TreeNode<BoxNode>* node, const BoxNode& parent_box);
+        //Computes relative positions from parent
+        void PositionPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box);
+        void PositionPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box);
+        void PositionPass(TreeNode<BoxCore>* node, const BoxCore& parent_box);
+
+        void GenerateComputedTree();
+        void GenerateComputedTree_h(TreeNode<BoxCore>* tree_core, TreeNode<BoxResult>* tree_result);
         // ================================
-        void DrawPass(TreeNode<BoxNode>* node, const BoxNode& parent_box, Rect parent_aabb);
+        void DrawPass(TreeNode<BoxCore>* node, const BoxCore& parent_box, Rect parent_aabb);
 
     private:
         Error internal_error;
         uint32_t element_count = 0;
 
-        TreeNode<BoxNode>* root_node = nullptr;
-        Internal::MemoryArena arena;
-        Internal::MemoryArena string_arena;
-        Internal::FixedStack<TreeNode<BoxNode>*, 64> stack; //elements should never nest over 100 layers deep
-        Internal::ArenaLL<TreeNode<BoxNode>*> deferred_elements;
+        TreeNode<BoxCore>* tree_core = nullptr;
+        TreeNode<BoxResult>* tree_result = nullptr;
+
+        Internal::MemoryArena arena1;
+        Internal::MemoryArena arena2;
+        Internal::MemoryArena arena3;
+
+        Internal::FixedStack<TreeNode<BoxCore>*, 64> stack; //elements should never nest over 100 layers deep
+        Internal::ArenaLL<TreeNode<BoxCore>*> deferred_elements;
         uint64_t directly_hovered_element_key = 0;
 
     };
@@ -700,9 +727,13 @@ namespace UI
 }
 
 
-//Builder Implementation
+//Implementation
 namespace UI
 {
+    namespace Internal
+    {
+    }
+
     inline uint64_t StrHash(const char* str)
     {
         if(!str)

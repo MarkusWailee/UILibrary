@@ -5,6 +5,7 @@
 
 
 #include <vector>
+
 int main(void)
 {
     float screenWidth = 960;
@@ -18,8 +19,7 @@ int main(void)
     UI::Init_impl("assets/fonts/Roboto-Regular.ttf");
     UI::Context context(128 * UI::KB);
 
-    std::cout<< UI::StrHash("b")<<'\n';
-    std::cout<< UI::StrHash("a")<<'\n';
+    
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
 
@@ -31,7 +31,7 @@ int main(void)
 
         
         UI::Draw();
-        //DrawText(TextFormat("Fps = %d", GetFPS()), 10, 10, 20, WHITE);
+        DrawText(TextFormat("Fps = %d", GetFPS()), 10, 10, 20, WHITE);
         EndDrawing();
     }
 
