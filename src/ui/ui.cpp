@@ -214,8 +214,8 @@ namespace UI
     inline void BoxResult::SetComputedResults(BoxCore& node)
     {
         UpdatePointer(node);
-        this->rel_x = node.x;
-        this->rel_y = node.y;
+        this->rel_x = node.rel_x;
+        this->rel_y = node.rel_y;
         this->draw_width = node.GetRenderingWidth();
         this->draw_height = node.GetRenderingHeight();
     }
@@ -1547,6 +1547,9 @@ namespace UI
         BoxCore& box = node->box;
         box.x += box.margin.left;
         box.y += box.margin.top;
+        
+        box.rel_x = box.x - parent_box.x;
+        box.rel_y = box.y - parent_box.y;
 
 
         if(node->children.IsEmpty())
@@ -1759,8 +1762,8 @@ namespace UI
             return;
         const BoxResult& box = node->box;
         const BoxCore& core = *node->box.core;
-        int render_x = box.rel_x;
-        int render_y = box.rel_y;
+        int render_x = box.rel_x + x;
+        int render_y = box.rel_y + y;
         DrawRectangle_impl(render_x, render_y, box.draw_width, box.draw_height, core.corner_radius, core.border_width, core.border_color, core.background_color);
 
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
