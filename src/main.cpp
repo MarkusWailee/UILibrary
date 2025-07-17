@@ -18,8 +18,6 @@ int main(void)
     UI::Init_impl("assets/fonts/Roboto-Regular.ttf");
     UI::Context context(128 * UI::KB);
 
-    char16_t c[] = u"hellow world";
-    std::cout<<UI::StrU16Length(c);
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
 

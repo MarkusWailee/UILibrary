@@ -85,7 +85,6 @@ void LayoutTest(UI::Context* context)
                     for(int i = 0; i<10; i ++)
                         UI::Box().Style(button).Run([&]
                         {
-                            //UI::Text(u"Test Text").Size(12).Bold(true).FgColor(255, 255, 255, 255).Run();
                             //UI::Text(font_style, u"Hello World");
                             //UI::Text(font_style, u"Hello World");
                         });

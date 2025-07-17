@@ -1,8 +1,9 @@
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <cstring>
 #include <cassert>
+#include <type_traits>
 
 #include <chrono>
 class StopWatch
@@ -26,6 +27,9 @@ private:
 
 namespace UI::Internal
 {
+    
+
+
     template<typename T, unsigned int CAPACITY>
     class FixedArray;
 
@@ -53,9 +57,30 @@ namespace UI::Internal
     class ArenaDoubleBufferMap;
 }
 
-//Stack allocated data structures
 namespace UI::Internal
 {
+    // ========== Useful Hash Functions ==========
+    constexpr uint64_t HashCombine(uint64_t seed, uint64_t value);
+    template<typename T>
+    constexpr typename std::enable_if<std::is_enum<T>::value, uint64_t>::type 
+    CastToU64(T value);
+    template<typename T>
+    constexpr typename std::enable_if<std::is_integral<T>::value, uint64_t>::type
+    CastToU64(T value);
+    template<typename T>
+    typename std::enable_if<!std::is_integral<T>::value && !std::is_enum<T>::value, uint64_t>::type
+    CastToU64(T value);
+
+    template<typename T>
+    uint64_t Hash(T value);
+
+    uint64_t HashBytes(const void* src, uint64_t byte_count);
+    // ===========================================
+
+
+
+
+    //Stack allocated data structures
     template<typename T, unsigned int CAPACITY>
     class FixedArray
     {
@@ -260,6 +285,67 @@ namespace UI::Internal
 
 namespace UI::Internal
 {
+    // ============= Useful Hash functions ======================
+    template<typename T>
+    inline constexpr typename std::enable_if<std::is_enum<T>::value, uint64_t>::type
+    CastToU64(T value)
+    {
+        return (uint64_t)value;
+    }
+    template<typename T>
+    inline constexpr typename std::enable_if<std::is_integral<T>::value, uint64_t>::type
+    CastToU64(T value)
+    {
+        return (uint64_t)value;
+    }
+    template<typename T>
+    inline typename std::enable_if<!std::is_integral<T>::value && !std::is_enum<T>::value, uint64_t>::type
+    CastToU64(T value)
+    {
+        static_assert(sizeof(T) <= sizeof(uint64_t) && "Type cannot be larger than uint64_t");
+        uint64_t result = 0;
+        std::memcpy(&result, &value, sizeof(T));
+        return result;
+    }
+
+    template<typename T>
+    inline uint64_t Hash(T value)
+    {
+        assert(0 && "No hash function provided");
+        return 0;
+    }
+    inline constexpr uint64_t HashCombine(uint64_t seed, uint64_t value) 
+    {
+        return seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2));
+    }
+    inline uint64_t HashBytes(const void* src, uint64_t byte_count)
+    {
+        constexpr uint64_t FNV1_PRIME = 1099511628211ULL;
+        uint64_t size1 = byte_count & ~7;
+        uint64_t size2 = byte_count - size1;
+
+        const uint8_t* ptr = (const uint8_t*)src;
+        const uint8_t* ptr2 = ptr + size1;
+
+        uint64_t hash = 14695981039346656037ULL;
+        for(uint64_t i = 0; i < size1; i += 8)
+        {
+            uint64_t x = 0;
+            std::memcpy(&x, ptr + i, 8);
+            hash ^= x;
+            hash *= FNV1_PRIME;
+        }
+        for(uint64_t i = 0; i < size2; i++)
+        {
+            hash ^= ptr2[i];
+            hash *= FNV1_PRIME;
+        }
+        return hash;
+    }
+    // ========================================================
+
+
+
     //Array
     template<typename T, unsigned int CAPACITY>
     inline unsigned int FixedArray<T, CAPACITY>::Capacity() const

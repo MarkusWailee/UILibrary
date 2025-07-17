@@ -391,19 +391,6 @@ namespace UI
     }
 
 
-    inline uint64_t Hash(const char* str)
-    {
-        if(str == nullptr)
-            return 0;
-        uint64_t hash = 14695981039346656037ULL;
-        while (*str) 
-        {
-            hash ^= static_cast<uint64_t>(*str++);
-            hash *= 1099511628211ULL;
-        }
-        //avoiding returning 0
-        return !hash? 1: hash;
-    }
     void StringCopy(char* dst, const char* src, uint32_t size)
     {
         if(!size || !src || !dst) return;
@@ -691,11 +678,8 @@ namespace UI
 namespace UI
 {
     Context::Context(uint64_t arena_bytes) :
-        arena(arena_bytes), arena2(arena_bytes)
+        arena(arena_bytes), string_arena(arena_bytes)
     {
-        uint32_t cap = arena_bytes / 2 / (sizeof(Internal::ArenaMap<BoxInfo>::Item) * 2);
-        bool err = double_buffer_map.AllocateBufferCapacity(cap, &arena);
-        assert(err && "Arena out of memory");
     }
     uint32_t Context::GetElementCount() const
     {
@@ -719,25 +703,15 @@ namespace UI
     {
         #if UI_ENABLE_DEBUG
         #endif
-
-        BoxInfo* info = double_buffer_map.FrontValue(key);
-        if(info)
-        {
-            info->valid = true;
-            if(directly_hovered_element_key == key)
-                info->is_direct_hover = true;
-            return *info;
-        }
         return BoxInfo();
     }
     BoxInfo Context::Info(const char* label)
     {
-        return Info(Hash(label));
+        return Info(StrHash(label));
     }
     void Context::ResetAllStates()
     {
         arena.Rewind(root_node);
-        double_buffer_map.Reset();
 
         stack.Clear();
         deferred_elements.Clear();
@@ -748,7 +722,6 @@ namespace UI
 
     void Context::ClearPreviousFrame()
     {
-        double_buffer_map.SwapBuffer();
         arena.Rewind(root_node);
         stack.Clear();
         root_node = nullptr;
@@ -770,7 +743,6 @@ namespace UI
             return;
         ClearPreviousFrame();
 
-        assert(!double_buffer_map.ShouldResize() && "Double Buffer Map out of memory");
 
         assert(stack.IsEmpty());
         Box root_box = ComputeStyleSheet(style, Box());
@@ -828,15 +800,7 @@ namespace UI
         element_count++;
 
         //Input Handling
-        uint64_t label_hash = Hash(label);
-        if(label)
-        {
-            //BoxInfo will be filled in next frame 
-            BoxInfo box_info;
-            box_info.key = label_hash;
-            bool err = double_buffer_map.Insert(label_hash, box_info);
-            assert(err && "HashMap out of memory, go to BeginRoot and change it");
-        }
+        uint64_t label_hash = StrHash(label);
 
         if(!stack.IsEmpty())  // should add to parent
         {
@@ -915,7 +879,7 @@ namespace UI
         auto parent_tail = parent_node->children.GetTail();
         if(parent_tail && parent_tail->value.box.IsTextElement())
         {
-            string.data = CopyStrU16ToArena(string.data, string.Size(), &arena2);             
+            //string.data = CopyStrU16ToArena(string.data, string.Size(), &arena2);             
         }
         else
         {
@@ -949,6 +913,8 @@ namespace UI
         HeightContentPercentPass(root_node);
         HeightPass(root_node);
         PositionPass(root_node, Box());
+
+
         DrawPass(root_node, Box(), {0, 0, GetScreenWidth(), GetScreenHeight()});
         while(!deferred_elements.IsEmpty())
         {
@@ -1621,7 +1587,6 @@ namespace UI
                 box.y += cursor_y + parent.y - parent.scroll_y + parent.padding.top;
                 PositionPass(&temp->value, parent);
                 cursor_x += box.GetBoxModelWidth() + parent.gap_column + offset;
-
             }
         }
         else
@@ -1670,15 +1635,6 @@ namespace UI
                 box.y += cursor_y + parent.y - parent.scroll_y + parent.padding.top;
                 PositionPass(&temp->value, parent);
                 cursor_y += box.GetBoxModelHeight() + parent.gap_row + offset;
-            }
-        }
-        if(parent.label_hash)
-        {
-            BoxInfo* info = double_buffer_map.BackValue(parent.label_hash);
-            if(info)
-            {
-                info->content_width = content_width;
-                info->content_height = content_height;
             }
         }
     }
@@ -1733,29 +1689,6 @@ namespace UI
             DrawRectangle_impl(box.x, box.y, render_width, render_height, box.corner_radius, box.border_width, box.border_color, box.background_color);
         }
         
-        if(box.label_hash)
-        {
-            BoxInfo* info = double_buffer_map.BackValue(box.label_hash);
-            if(info)
-            {
-                info->width = box.width;
-                info->height = box.height;
-                info->x = box.x - box.margin.left;
-                info->y = box.y - box.margin.top;
-                info->padding = box.padding;
-                info->margin = box.margin;
-                info->is_rendered = true;
-                if(Rect::Contains(Rect::Intersection(parent_aabb, Rect{box.x, box.y, render_width, render_height}), GetMouseX(), GetMouseY()))
-                {
-                    info->is_hover = true;
-                    directly_hovered_element_key = box.label_hash;
-                }
-                else if(directly_hovered_element_key == box.label_hash)
-                {
-                    directly_hovered_element_key = 0;
-                }
-            }
-        }
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
             if(box.IsScissor())

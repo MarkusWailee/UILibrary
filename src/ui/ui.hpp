@@ -30,6 +30,7 @@
 namespace UI
 {
     using StringU16 = Internal::ArrayViewConst<char16_t>;
+    using StringAsci = Internal::ArrayViewConst<char>;
     class Context;
     class Builder;
     struct Error;
@@ -205,7 +206,11 @@ namespace UI
         int width = 0;
         int height = 0;
     };
-    uint64_t Hash(const char* str);
+
+
+    // ========== Hashing functions ==========
+    uint64_t StrHash(const char* str);
+    // ========================================
 
     //All measurements are based on this Unit
     struct Unit
@@ -564,7 +569,6 @@ namespace UI
             int GetRenderingHeight() const;
             int GetGridCellWidth() const;
             int GetGridCellHeight() const;
-
         };
         struct TreeNode
         {
@@ -655,10 +659,9 @@ namespace UI
 
         TreeNode* root_node = nullptr;
         Internal::MemoryArena arena;
-        Internal::MemoryArena arena2;
+        Internal::MemoryArena string_arena;
         Internal::FixedStack<TreeNode*, 64> stack; //elements should never nest over 100 layers deep
 
-        Internal::ArenaDoubleBufferMap<BoxInfo> double_buffer_map;
         Internal::ArenaLL<TreeNode*> deferred_elements;
         uint64_t directly_hovered_element_key = 0;
 
@@ -716,6 +719,10 @@ namespace UI
 //Builder Implementation
 namespace UI
 {
+    inline uint64_t StrHash(const char* str)
+    {
+        return 0;
+    }
 
     inline TextStyle& TextStyle::FontSize(int size)
     {
