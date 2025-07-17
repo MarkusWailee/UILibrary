@@ -221,7 +221,7 @@ namespace UI
     }
     inline void BoxResult::UpdatePointer(BoxCore& node)
     {
-        this->box = &node;
+        this->core = &node;
     }
     
 
@@ -939,16 +939,17 @@ namespace UI
         HeightPass(tree_core);
         PositionPass(tree_core, BoxCore());
 
-        //GenerateComputedTree();
+        GenerateComputedTree();
+        DrawPass2(tree_result, 0, 0, {0, 0, GetScreenWidth(), GetScreenHeight()});
 
-        DrawPass(tree_core, BoxCore(), {0, 0, GetScreenWidth(), GetScreenHeight()});
-        while(!deferred_elements.IsEmpty())
-        {
-            TreeNode<BoxCore>* node = deferred_elements.GetHead()->value;
-            node->box.detach = Detach::NONE;
-            DrawPass(node, BoxCore(), {0, 0, GetScreenWidth(), GetScreenHeight()});
-            deferred_elements.PopHead();
-        }
+        //DrawPass(tree_core, BoxCore(), {0, 0, GetScreenWidth(), GetScreenHeight()});
+        //while(!deferred_elements.IsEmpty())
+        //{
+        //    TreeNode<BoxCore>* node = deferred_elements.GetHead()->value;
+        //    node->box.detach = Detach::NONE;
+        //    DrawPass(node, BoxCore(), {0, 0, GetScreenWidth(), GetScreenHeight()});
+        //    deferred_elements.PopHead();
+        //}
     }
     void Context::WidthContentPercentPass_Flow(TreeNode<BoxCore>* node)
     {
@@ -1751,6 +1752,21 @@ namespace UI
         }
         if(parent_box.IsScissor())
             EndScissorMode_impl();
+    }
+    void Context::DrawPass2(TreeNode<BoxResult>* node, int x, int y, Rect scissor_aabb)
+    {
+        if(!node || !node->box.core)
+            return;
+        const BoxResult& box = node->box;
+        const BoxCore& core = *node->box.core;
+        int render_x = box.rel_x;
+        int render_y = box.rel_y;
+        DrawRectangle_impl(render_x, render_y, box.draw_width, box.draw_height, core.corner_radius, core.border_width, core.border_color, core.background_color);
+
+        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+        {
+            DrawPass2(&temp->value, render_x, render_y, scissor_aabb);
+        }
     }
 
 

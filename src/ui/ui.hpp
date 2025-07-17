@@ -496,6 +496,10 @@ namespace UI
             int16_t x =                 0;
             int16_t y =                 0;
 
+            //relative from parent
+            int16_t rel_x = 0;
+            int16_t rel_y = 0;
+
             Unit::Type width_unit =              Unit::Type::PIXEL;
             Unit::Type height_unit =             Unit::Type::PIXEL;
             Unit::Type gap_row_unit =            Unit::Type::PIXEL; //might not need
@@ -544,7 +548,7 @@ namespace UI
 
         struct BoxResult
         {
-            BoxCore* box = nullptr;
+            BoxCore* core = nullptr;
             int16_t rel_x = 0;
             int16_t rel_y = 0;
             uint16_t draw_width = 0;
@@ -660,6 +664,7 @@ namespace UI
         void GenerateComputedTree_h(TreeNode<BoxCore>* tree_core, TreeNode<BoxResult>* tree_result);
         // ================================
         void DrawPass(TreeNode<BoxCore>* node, const BoxCore& parent_box, Rect parent_aabb);
+        void DrawPass2(TreeNode<BoxResult>* node, int x, int y, Rect scissor_aabb);
 
     private:
         Error internal_error;
