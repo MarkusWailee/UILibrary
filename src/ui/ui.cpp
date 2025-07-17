@@ -1548,8 +1548,8 @@ namespace UI
         box.x += box.margin.left;
         box.y += box.margin.top;
         
-        box.rel_x = box.x - parent_box.x;
-        box.rel_y = box.y - parent_box.y;
+        box.rel_x += parent_box.padding.left + box.margin.left;
+        box.rel_y += parent_box.padding.top + box.margin.right;
 
 
         if(node->children.IsEmpty())
@@ -1613,6 +1613,10 @@ namespace UI
                 }
                 box.x += cursor_x + parent.x - parent.scroll_x + parent.padding.left;
                 box.y += cursor_y + parent.y - parent.scroll_y + parent.padding.top;
+
+                box.rel_x = cursor_x;
+                box.rel_y = cursor_y;
+
                 PositionPass(&temp->value, parent);
                 cursor_x += box.GetBoxModelWidth() + parent.gap_column + offset;
             }
@@ -1661,6 +1665,10 @@ namespace UI
                 }
                 box.x += cursor_x + parent.x - parent.scroll_x + parent.padding.left;
                 box.y += cursor_y + parent.y - parent.scroll_y + parent.padding.top;
+
+                box.rel_x = cursor_x;
+                box.rel_y = cursor_y;
+
                 PositionPass(&temp->value, parent);
                 cursor_y += box.GetBoxModelHeight() + parent.gap_row + offset;
             }
@@ -1669,13 +1677,17 @@ namespace UI
     void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent)
     {
         assert(child);
+        int cell_width = parent.GetGridCellWidth() + parent.gap_column;
+        int cell_height = parent.GetGridCellHeight() + parent.gap_row;
         for(auto temp = child; temp!=nullptr; temp = temp->next)
         {
             BoxCore& box = temp->value.box;
-            int cell_width = parent.GetGridCellWidth() + parent.gap_column;
-            int cell_height = parent.GetGridCellHeight() + parent.gap_row;
             box.x = parent.x + parent.padding.left + cell_width * box.grid_x; 
             box.y = parent.y + parent.padding.top + cell_height * box.grid_y; 
+
+            box.rel_x = cell_width * box.grid_x;
+            box.rel_y = cell_height * box.grid_y;
+
             PositionPass(&temp->value, parent);
         }
     }
