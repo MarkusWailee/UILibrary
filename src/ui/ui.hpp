@@ -38,7 +38,6 @@ namespace UI
     struct Grid;
     struct Flow;
     struct Color;
-    struct HexColor;
     struct Unit;
     struct Spacing;
     struct BoxInfo;
@@ -47,7 +46,6 @@ namespace UI
 namespace UI::Internal
 {
     //Non owning string
-
     struct BoxInternal;
     struct TreeNode;
 }
@@ -254,34 +252,6 @@ namespace UI
     };
     struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
 
-    struct HexColor 
-    { 
-        char text[9] = "FFFFFFFF";
-    };
-
-    constexpr HexColor RGBAToHex(Color color)
-    {
-        auto U4ToHexDigit = [](uint8_t n) constexpr -> char
-        {
-            if(n <= 9)
-                return n + '0';
-            else if(n >= 10 && n <= 15)
-                return (n - 10) + 'a';
-            return '0';
-        };
-        HexColor result;
-        result.text[0] = U4ToHexDigit((color.r >> 4) & 0xF);
-        result.text[1] = U4ToHexDigit(color.r & 0xF);
-        result.text[2] = U4ToHexDigit((color.g >> 4) & 0xF);
-        result.text[3] = U4ToHexDigit(color.g & 0xF);
-        result.text[4] = U4ToHexDigit((color.b >> 4) & 0xF);
-        result.text[5] = U4ToHexDigit(color.b & 0xF);
-        result.text[6] = U4ToHexDigit((color.a >> 4) & 0xF);
-        result.text[7] = U4ToHexDigit(color.a & 0xF);
-        result.text[8] = '\0';
-        return result;
-    }
-
     struct Spacing { unsigned char left = 0, right = 0, top = 0, bottom = 0; };
 
     enum class Detach : unsigned char
@@ -401,12 +371,12 @@ namespace UI
     };
 
     // ========== Main Functions ==========
-    BoxInfo Info(const char* label);
+    BoxInfo Info(const char* id);
     Context* GetContext();
     bool IsContextActive();
     void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info = UI_DEBUG("Root"));
     void EndRoot();
-    void BeginBox(const BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+    void BeginBox(const BoxStyle& box_style, const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
     void EndBox();
     void InsertText(const char16_t* text, const char* id = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
     void Draw();
@@ -507,7 +477,7 @@ namespace UI
 
             ArrayView<TextSpan> text;
             TextureRect texture;
-            uint64_t label_hash =       0; 
+            uint64_t id_key =       0; 
 
             Color background_color =    UI::Color{0, 0, 0, 0}; //used for debugging
             Color border_color =        UI::Color{0, 0, 0, 0};
@@ -575,6 +545,7 @@ namespace UI
             BoxInternal box;
             ArenaLL<TreeNode> children;
         };
+
     }
 
     //Error handling
@@ -603,14 +574,14 @@ namespace UI
         {
         public:
             Context(uint64_t arena_bytes);
-            BoxInfo Info(const char* label);
+            BoxInfo Info(const char* id);
             BoxInfo Info(uint64_t key);
             void SetMousePos(int x, int y);
             void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
             void EndRoot();
-            void BeginBox(const UI::BoxStyle& box_style, const char* label = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
-            void InsertText(const char16_t* text, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
-            void InsertText(StringU16 string, const char* label = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+            void BeginBox(const UI::BoxStyle& box_style, const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+            void InsertText(const char16_t* text, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+            void InsertText(StringU16 string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
             void EndBox();
             void Draw();
             uint32_t GetElementCount() const;
@@ -721,7 +692,9 @@ namespace UI
 {
     inline uint64_t StrHash(const char* str)
     {
-        return 0;
+        if(!str)
+            return 0;
+        return Internal::HashBytes(str, (uint64_t)StrAsciLength(str));
     }
 
     inline TextStyle& TextStyle::FontSize(int size)

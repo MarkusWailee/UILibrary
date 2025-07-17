@@ -74,10 +74,10 @@ namespace UI
         assert(!context_stack.IsEmpty() && context_stack.Peek() && "No context has been pushed");
         return context_stack.Peek();
     }
-    BoxInfo Info(const char* label)
+    BoxInfo Info(const char* id)
     {
         if(IsContextActive())
-            return GetContext()->Info(label);
+            return GetContext()->Info(id);
         return BoxInfo();
     }
     void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info)
@@ -100,15 +100,15 @@ namespace UI
         if(IsContextActive()) 
             builder.SetContext(GetContext());
     }
-    void BeginBox(const UI::BoxStyle& box_style, const char* label, DebugInfo debug_info)
+    void BeginBox(const UI::BoxStyle& box_style, const char* id, DebugInfo debug_info)
     {
         if(IsContextActive())
-            GetContext()->BeginBox(box_style, label, debug_info);
+            GetContext()->BeginBox(box_style, id, debug_info);
     }
-    void InsertText(const char16_t* text, const char* label, bool copy_text, DebugInfo debug_info)
+    void InsertText(const char16_t* text, const char* id, bool copy_text, DebugInfo debug_info)
     {
         if(IsContextActive())
-            GetContext()->InsertText(text, label, copy_text, debug_info);
+            GetContext()->InsertText(text, id, copy_text, debug_info);
     }
     void EndBox()
     {
@@ -455,11 +455,16 @@ namespace UI
     }
     int StrAsciLength(const char* text)
     {
+        /*
         if(!text)
             return -1;
         int i = 0;
         for(; text[i]; i++);
         return i;
+        */
+       if(!text)
+            return -1;
+        return std::strlen(text);
     }
     int StrU16Length(const char16_t* text)
     {
@@ -705,9 +710,9 @@ namespace UI
         #endif
         return BoxInfo();
     }
-    BoxInfo Context::Info(const char* label)
+    BoxInfo Context::Info(const char* id)
     {
-        return Info(StrHash(label));
+        return Info(StrHash(id));
     }
     void Context::ResetAllStates()
     {
@@ -789,7 +794,7 @@ namespace UI
         }
     }
 
-    void Context::BeginBox(const UI::BoxStyle& style, const char* label, DebugInfo debug_info)
+    void Context::BeginBox(const UI::BoxStyle& style, const char* id, DebugInfo debug_info)
     {
         #if UI_ENABLE_DEBUG
         #endif
@@ -800,7 +805,7 @@ namespace UI
         element_count++;
 
         //Input Handling
-        uint64_t label_hash = StrHash(label);
+        uint64_t id_key = 0;
 
         if(!stack.IsEmpty())  // should add to parent
         {
@@ -810,7 +815,7 @@ namespace UI
 
             TreeNode child_node;
             child_node.box = ComputeStyleSheet(style, root_node->box);
-            child_node.box.label_hash = label_hash;
+            child_node.box.id_key = id_key;
 
             //Might bundle this with macro
             if(HandleInternalError(CheckUnitErrors(child_node.box)))
@@ -854,13 +859,13 @@ namespace UI
     }
 
 
-    void Context::InsertText(const char16_t* text, const char* label, bool copy_text, DebugInfo info)
+    void Context::InsertText(const char16_t* text, const char* id, bool copy_text, DebugInfo info)
     {
         StringU16 string = StringU16{text, (uint64_t)StrU16Length(text)};
-        InsertText(string, label, copy_text, info);
+        InsertText(string, id, copy_text, info);
     }
 
-    void Context::InsertText(StringU16 string, const char* label, bool copy_text, DebugInfo info)
+    void Context::InsertText(StringU16 string, const char* id, bool copy_text, DebugInfo info)
     {
         #if UI_ENABLE_DEBUG
         #endif
