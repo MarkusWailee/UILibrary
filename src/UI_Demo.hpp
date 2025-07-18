@@ -44,6 +44,11 @@ void LayoutTest(UI::Context* context)
     mid_panel.height = {100, UI::Unit::PARENT_PERCENT};
     mid_panel.min_width = {50};
     mid_panel.background_color = {40, 40, 40, 255};
+    mid_panel.scissor = true;
+    static int mouse_scroll = 0;
+    mid_panel.scroll_y = mouse_scroll;
+    mouse_scroll += UI::GetMouseScroll() * 20;
+
 
     UI::BoxStyle right_panel = left_panel;
     right_panel.layout = UI::Layout::GRID;
@@ -57,12 +62,19 @@ void LayoutTest(UI::Context* context)
     button.margin = {5,5,5,5};
     button.corner_radius = 10;
     button.background_color = {100, 200, 150, 255};
+    button.scissor = true;
 
     UI::BoxStyle button2;
     button2.width = {50};
     button2.height = {30};
     button2.background_color = {150, 100, 150, 255};
     button2.corner_radius = 10;
+
+    UI::BoxStyle button3 = button2;
+    button3.background_color = {255, 0, 0, 255};
+    button3.margin = {10, 10, 10, 10};
+    button3.width = {200};
+    button3.height = {200};
 
     UI::BoxStyle pop_up;
     pop_up.width = {100};
@@ -121,6 +133,10 @@ void LayoutTest(UI::Context* context)
                         UI::Style().background_color = {200, 100, 100, 255};
                     }).Run([&]
                     {
+                        UI::Box(button3).Run();
+                        UI::Box(button3).Run();
+                        UI::Box(button3).Run();
+
                         UI::Box(pop_up).Run([&]
                         {
                             UI::Box(pop_up)

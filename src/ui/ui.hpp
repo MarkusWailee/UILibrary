@@ -487,18 +487,21 @@ namespace UI
             int scroll_y =              0;
             uint16_t width =            0;
             uint16_t height =           0;
-            uint16_t gap_row =          0;
-            uint16_t gap_column =       0;
             uint16_t min_width =        0;
             uint16_t max_width =        UINT16_MAX;
             uint16_t min_height =       0;
             uint16_t max_height =       UINT16_MAX;
+            uint16_t gap_row =          0;
+            uint16_t gap_column =       0;
             int16_t x =                 0;
             int16_t y =                 0;
 
-            //relative from parent
-            int16_t rel_x = 0;
-            int16_t rel_y = 0;
+            //Info sent to BoxResult
+            int16_t result_rel_x = 0;
+            int16_t result_rel_y = 0;
+            uint16_t result_content_width = 0;
+            uint16_t result_content_height = 0;
+            //======================
 
             Unit::Type width_unit =              Unit::Type::PIXEL;
             Unit::Type height_unit =             Unit::Type::PIXEL;
@@ -553,6 +556,8 @@ namespace UI
             int16_t rel_y = 0;
             uint16_t draw_width = 0;
             uint16_t draw_height = 0;
+            uint16_t content_width = 0;
+            uint16_t content_height = 0;
             void UpdatePointer(BoxCore& node);
             void SetComputedResults(BoxCore& node);
         };
@@ -610,7 +615,12 @@ namespace UI
         template<typename T>
         using ArenaLL = Internal::ArenaLL<T>;
 
-
+        struct DeferredBox
+        {
+            TreeNode<BoxResult>* node = nullptr;
+            int x = 0;
+            int y = 0;
+        };
 
     public:
         Context(uint64_t arena_bytes);
@@ -656,15 +666,15 @@ namespace UI
         void HeightPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box); //Recurse Helpe
 
         //Computes relative positions from parent
-        void PositionPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box);
-        void PositionPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box);
-        void PositionPass(TreeNode<BoxCore>* node, const BoxCore& parent_box);
+        void PositionPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent_box);
+        void PositionPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent_box);
+        void PositionPass(TreeNode<BoxCore>* node, int x, int y, const BoxCore& parent_box);
 
         void GenerateComputedTree();
         void GenerateComputedTree_h(TreeNode<BoxCore>* tree_core, TreeNode<BoxResult>* tree_result);
         // ================================
-        void DrawPass(TreeNode<BoxCore>* node, const BoxCore& parent_box, Rect parent_aabb);
-        void DrawPass2(TreeNode<BoxResult>* node, int x, int y, Rect scissor_aabb);
+        void AddDetachedBoxToQueue(TreeNode<BoxResult>* node, const Rect& parent);
+        void DrawPass(TreeNode<BoxResult>* node, int x, int y, Rect scissor_aabb);
 
     private:
         Error internal_error;
@@ -678,7 +688,7 @@ namespace UI
         Internal::MemoryArena arena3;
 
         Internal::FixedStack<TreeNode<BoxCore>*, 64> stack; //elements should never nest over 100 layers deep
-        Internal::ArenaLL<TreeNode<BoxCore>*> deferred_elements;
+        Internal::ArenaLL<DeferredBox> deferred_elements;
         uint64_t directly_hovered_element_key = 0;
 
     };

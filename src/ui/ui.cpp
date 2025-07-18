@@ -35,10 +35,10 @@ namespace UI
     int ParentPercentToPx(int value , Unit::Type unit_type, int parent_width);
     void ComputeParentWidthPercent(BoxCore& box, int parent_width);
     void ComputeParentHeightPercent(BoxCore& box, int parent_width);
-    void ComputeDetachPositions(BoxCore& box,  const BoxCore& parent);
 
 
     //Debugger
+    inline void BeginScissorMode_impl(const Rect& rect) { BeginScissorMode_impl((float)rect.x, (float)rect.y, (float)rect.width, (float)rect.height);}
 
 }
 
@@ -214,10 +214,12 @@ namespace UI
     inline void BoxResult::SetComputedResults(BoxCore& node)
     {
         UpdatePointer(node);
-        this->rel_x = node.rel_x;
-        this->rel_y = node.rel_y;
+        this->rel_x = node.result_rel_x;
+        this->rel_y = node.result_rel_y;
         this->draw_width = node.GetRenderingWidth();
         this->draw_height = node.GetRenderingHeight();
+        this->content_width = node.result_content_width;
+        this->content_height = node.result_content_height;
     }
     inline void BoxResult::UpdatePointer(BoxCore& node)
     {
@@ -624,66 +626,6 @@ namespace UI
         if(box.max_height_unit == Unit::Type::WIDTH_PERCENT)
             box.max_height = box.width * box.max_height / 100;
     }
-    void ComputeDetachPositions(BoxCore& box, const BoxCore& parent)
-    {
-        switch(box.detach)
-        {
-            case Detach::RELATIVE:
-                box.x = parent.x + box.x;
-                box.y = parent.y + box.y;
-                break;
-           case Detach::LEFT:
-                box.x = parent.x - box.GetRenderingWidth() + box.x;
-                box.y = parent.y;
-                break;
-            case Detach::RIGHT:
-                box.x = parent.x + parent.GetRenderingWidth() + box.x;
-                box.y = parent.y;
-                break;
-            case Detach::TOP:
-                box.x = parent.x;
-                box.y = parent.y - box.GetRenderingHeight();
-                break;
-            case Detach::BOTTOM:
-                box.x = parent.x;
-                box.y = parent.y + parent.GetRenderingHeight();
-                break;
-           case Detach::LEFT_CENTER:
-                box.x = parent.x - box.GetRenderingWidth() + box.x;
-                box.y = parent.y + (parent.GetRenderingHeight() - box.GetRenderingHeight())/2;
-                break;
-            case Detach::RIGHT_CENTER:
-                box.x = parent.x + parent.GetRenderingWidth() + box.x;
-                box.y = parent.y + (parent.GetRenderingHeight() - box.GetRenderingHeight())/2;
-                break;
-            case Detach::TOP_CENTER:
-                box.x = parent.x + (parent.GetRenderingWidth() - box.GetRenderingWidth())/2;
-                box.y = parent.y - box.GetRenderingHeight();
-                break;
-            case Detach::BOTTOM_CENTER:
-                box.x = parent.x + (parent.GetRenderingWidth() - box.GetRenderingWidth())/2;
-                box.y = parent.y + parent.GetRenderingHeight();
-                break;
-           case Detach::LEFT_END:
-                box.x = parent.x - box.GetRenderingWidth() + box.x;
-                box.y = parent.y + parent.GetRenderingHeight() - box.GetRenderingHeight();
-                break;
-            case Detach::RIGHT_END:
-                box.x = parent.x + parent.GetRenderingWidth() + box.x;
-                box.y = parent.y + parent.GetRenderingHeight() - box.GetRenderingHeight();
-                break;
-            case Detach::TOP_END:
-                box.x = parent.x + parent.GetRenderingWidth() - box.GetRenderingWidth();
-                box.y = parent.y - box.GetRenderingHeight();
-                break;
-            case Detach::BOTTOM_END:
-                box.x = parent.x + parent.GetRenderingWidth() - box.GetRenderingWidth();
-                box.y = parent.y + parent.GetRenderingHeight();
-                break;
-            default:
-                break;
-        }
-    }
 }
 
 
@@ -937,19 +879,16 @@ namespace UI
         WidthPass(tree_core);
         HeightContentPercentPass(tree_core);
         HeightPass(tree_core);
-        PositionPass(tree_core, BoxCore());
-
+        PositionPass(tree_core, 0, 0, BoxCore());
         GenerateComputedTree();
-        DrawPass2(tree_result, 0, 0, {0, 0, GetScreenWidth(), GetScreenHeight()});
 
-        //DrawPass(tree_core, BoxCore(), {0, 0, GetScreenWidth(), GetScreenHeight()});
-        //while(!deferred_elements.IsEmpty())
-        //{
-        //    TreeNode<BoxCore>* node = deferred_elements.GetHead()->value;
-        //    node->box.detach = Detach::NONE;
-        //    DrawPass(node, BoxCore(), {0, 0, GetScreenWidth(), GetScreenHeight()});
-        //    deferred_elements.PopHead();
-        //}
+        DrawPass(tree_result, 0, 0, {0, 0, GetScreenWidth(), GetScreenHeight()});
+        while(!deferred_elements.IsEmpty())
+        {
+            const DeferredBox& box = deferred_elements.GetHead()->value;
+            DrawPass(box.node, box.x, box.y, {0, 0, GetScreenWidth(), GetScreenHeight()});
+            deferred_elements.PopHead();
+        }
     }
     void Context::WidthContentPercentPass_Flow(TreeNode<BoxCore>* node)
     {
@@ -1540,31 +1479,29 @@ namespace UI
 
 
 
-    void Context::PositionPass(TreeNode<BoxCore>* node, const BoxCore& parent_box)
+    void Context::PositionPass(TreeNode<BoxCore>* node, int x, int y, const BoxCore& parent_box)
     {
         if(node == nullptr)
             return;
         BoxCore& box = node->box;
-        box.x += box.margin.left;
-        box.y += box.margin.top;
-        
-        box.rel_x += parent_box.padding.left + box.margin.left;
-        box.rel_y += parent_box.padding.top + box.margin.right;
-
+        box.result_rel_x += parent_box.padding.left + box.margin.left;
+        box.result_rel_y += parent_box.padding.top + box.margin.right;
+        x += box.result_rel_x;
+        y += box.result_rel_y;
 
         if(node->children.IsEmpty())
             return;
 
         if(box.GetLayout() == Layout::FLOW)
         {
-            PositionPass_Flow(node->children.GetHead(), box);
+            PositionPass_Flow(node->children.GetHead(), x, y, box);
         }
         else
         {
-            PositionPass_Grid(node->children.GetHead(), box);
+            PositionPass_Grid(node->children.GetHead(), x, y, box);
         }
     }
-    void Context::PositionPass_Flow(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent)
+    void Context::PositionPass_Flow(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent)
     {
         assert(child);
         int content_height = 0;
@@ -1596,8 +1533,7 @@ namespace UI
                 BoxCore& box = temp->value.box;
                 if(box.IsDetached())
                 {
-                    ComputeDetachPositions(box, parent);
-                    PositionPass(&temp->value, parent);
+                    PositionPass(&temp->value, x, y, parent);
                     continue;
                 }
                 int cursor_y = 0;
@@ -1611,13 +1547,11 @@ namespace UI
                     case Flow::END:     cursor_y = available_height; break;
                     default:            cursor_y = available_height/2; break; 
                 }
-                box.x += cursor_x + parent.x - parent.scroll_x + parent.padding.left;
-                box.y += cursor_y + parent.y - parent.scroll_y + parent.padding.top;
 
-                box.rel_x = cursor_x;
-                box.rel_y = cursor_y;
+                box.result_rel_x = cursor_x;
+                box.result_rel_y = cursor_y;
 
-                PositionPass(&temp->value, parent);
+                PositionPass(&temp->value, x, y, parent);
                 cursor_x += box.GetBoxModelWidth() + parent.gap_column + offset;
             }
         }
@@ -1648,8 +1582,7 @@ namespace UI
                 BoxCore& box = temp->value.box;
                 if(box.IsDetached())
                 {
-                    ComputeDetachPositions(box, parent);
-                    PositionPass(&temp->value, parent);
+                    PositionPass(&temp->value, x, y, parent);
                     continue;
                 }
                 int cursor_x = 0;
@@ -1663,18 +1596,16 @@ namespace UI
                     case Flow::END:     cursor_x = available_width; break;
                     default:            cursor_x = available_width/2; break; 
                 }
-                box.x += cursor_x + parent.x - parent.scroll_x + parent.padding.left;
-                box.y += cursor_y + parent.y - parent.scroll_y + parent.padding.top;
 
-                box.rel_x = cursor_x;
-                box.rel_y = cursor_y;
+                box.result_rel_x = cursor_x;
+                box.result_rel_y = cursor_y;
 
-                PositionPass(&temp->value, parent);
+                PositionPass(&temp->value, x, y, parent);
                 cursor_y += box.GetBoxModelHeight() + parent.gap_row + offset;
             }
         }
     }
-    void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent)
+    void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent)
     {
         assert(child);
         int cell_width = parent.GetGridCellWidth() + parent.gap_column;
@@ -1682,14 +1613,75 @@ namespace UI
         for(auto temp = child; temp!=nullptr; temp = temp->next)
         {
             BoxCore& box = temp->value.box;
-            box.x = parent.x + parent.padding.left + cell_width * box.grid_x; 
-            box.y = parent.y + parent.padding.top + cell_height * box.grid_y; 
-
-            box.rel_x = cell_width * box.grid_x;
-            box.rel_y = cell_height * box.grid_y;
-
-            PositionPass(&temp->value, parent);
+            box.result_rel_x = cell_width * box.grid_x;
+            box.result_rel_y = cell_height * box.grid_y;
+            PositionPass(&temp->value, x, y, parent);
         }
+    }
+
+    void Context::AddDetachedBoxToQueue(TreeNode<BoxResult>* node, const Rect& parent)
+    {
+        assert(node);
+        const BoxResult& box = node->box;
+        assert(box.core);
+
+        DeferredBox result;
+        result.node = node;
+
+        switch(box.core->detach)
+        {
+           case Detach::LEFT:
+                result.x = box.draw_height;
+                break;
+            case Detach::RIGHT:
+                result.x = parent.width;
+                break;
+            case Detach::TOP:
+                result.y = -box.draw_height;
+                break;
+            case Detach::BOTTOM:
+                result.y = parent.height;
+                break;
+           case Detach::LEFT_CENTER:
+                result.x = box.draw_width;
+                result.y = (parent.height - box.draw_height)/2;
+                break;
+            case Detach::RIGHT_CENTER:
+                result.x = parent.width;
+                result.y = (parent.height - box.draw_height)/2;
+                break;
+            case Detach::TOP_CENTER:
+                result.x = (parent.width - box.draw_width)/2;
+                result.y = -box.draw_height;
+                break;
+            case Detach::BOTTOM_CENTER:
+                result.x = (parent.width - box.draw_width)/2;
+                result.y = parent.height;
+                break;
+           case Detach::LEFT_END:
+                result.x = box.draw_width;
+                result.y = parent.height - box.draw_height;
+                break;
+            case Detach::RIGHT_END:
+                result.x = parent.width;
+                result.y = parent.height - box.draw_height;
+                break;
+            case Detach::TOP_END:
+                result.x = parent.width - box.draw_width;
+                result.y = -box.draw_height;
+                break;
+            case Detach::BOTTOM_END:
+                result.x = parent.width - box.draw_width;
+                result.y = parent.height;
+                break;
+            default:
+                break;
+        }
+        result.x += parent.x;
+        result.y += parent.y;
+        
+        auto err = deferred_elements.Add(result, &arena2);
+        assert(err && "Arena2 out of memory");
     }
 
     void Context::GenerateComputedTree()
@@ -1719,69 +1711,58 @@ namespace UI
         }
     }
 
-    void Context::DrawPass(TreeNode<BoxCore>* node, const BoxCore& parent_box, Rect parent_aabb)
-    {
-        if(node == nullptr)
-            return;
-        const BoxCore& box = node->box;
-
-        int render_width = box.GetRenderingWidth();
-        int render_height = box.GetRenderingHeight();
-
-        if(parent_box.IsScissor())
-        {
-            if(!Rect::Overlap(parent_aabb, {box.x, box.y, render_width, render_height}))
-                return;
-            else
-                BeginScissorMode_impl(parent_aabb.x, parent_aabb.y, parent_aabb.width, parent_aabb.height);
-        }
-
-        if(box.IsDetached())
-        {
-            deferred_elements.Add(node, &arena1);
-            return;
-        }
-
-
-        /* Draw Text here
-        if(box.text)
-        {
-            DrawTextNode(box.text, box.width, box.height, box.x, box.y);
-        }
-        */
-
-        if(box.texture.HasTexture())
-        {
-            DrawTexturedRectangle_impl(box.x, box.y, render_width, render_height, box.texture);  
-        }
-        else
-        {
-            DrawRectangle_impl(box.x, box.y, render_width, render_height, box.corner_radius, box.border_width, box.border_color, box.background_color);
-        }
-        
-        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
-        {
-            if(box.IsScissor())
-                parent_aabb = Rect::Intersection(parent_aabb, {box.x, box.y, render_width, render_height});
-            DrawPass(&temp->value, box, parent_aabb);
-        }
-        if(parent_box.IsScissor())
-            EndScissorMode_impl();
-    }
-    void Context::DrawPass2(TreeNode<BoxResult>* node, int x, int y, Rect scissor_aabb)
+    void Context::DrawPass(TreeNode<BoxResult>* node, int parent_x, int parent_y, Rect scissor_aabb)
     {
         if(!node || !node->box.core)
             return;
+
         const BoxResult& box = node->box;
         const BoxCore& core = *node->box.core;
-        int render_x = box.rel_x + x;
-        int render_y = box.rel_y + y;
-        DrawRectangle_impl(render_x, render_y, box.draw_width, box.draw_height, core.corner_radius, core.border_width, core.border_color, core.background_color);
+
+        Rect render;
+        render.x = core.x + box.rel_x + parent_x;
+        render.y = core.y + box.rel_y + parent_y;
+        render.width = box.draw_width;
+        render.height = box.draw_height;
+
+
+        //Render current box
+        if(core.IsTextElement())
+        {
+
+        }
+        else if(core.texture.HasTexture())
+        {
+            DrawTexturedRectangle_impl(render.x, render.y, render.width, render.height, core.texture);  
+        }
+        else
+        {
+            DrawRectangle_impl(render.x, render.y, render.width, render.height, core.corner_radius, core.border_width, core.border_color, core.background_color);
+        }
+
+
+        //Render children boxes
+        int x = render.x - core.scroll_x;
+        int y = render.y - core.scroll_y;
+
+        if(core.IsScissor())
+            scissor_aabb = Rect::Intersection(scissor_aabb, render);
 
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
-            DrawPass2(&temp->value, render_x, render_y, scissor_aabb);
+            assert(temp->value.box.core);
+            if(temp->value.box.core->IsDetached())
+            {
+                AddDetachedBoxToQueue(&temp->value, render);
+                continue;
+            }
+
+            if(core.IsScissor())
+                BeginScissorMode_impl(scissor_aabb);
+            DrawPass(&temp->value, x, y, scissor_aabb);
         }
+        if(core.IsScissor())
+            EndScissorMode_impl();
     }
 
 
