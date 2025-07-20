@@ -37,7 +37,6 @@ namespace UI
     void ComputeParentHeightPercent(BoxCore& box, int parent_width);
 
 
-    //Debugger
     inline void BeginScissorMode_impl(const Rect& rect) { BeginScissorMode_impl((float)rect.x, (float)rect.y, (float)rect.width, (float)rect.height);}
 
 }
@@ -1719,11 +1718,11 @@ namespace UI
         const BoxResult& box = node->box;
         const BoxCore& core = *node->box.core;
 
-        Rect render;
-        render.x = core.x + box.rel_x + parent_x;
-        render.y = core.y + box.rel_y + parent_y;
-        render.width = box.draw_width;
-        render.height = box.draw_height;
+        Rect draw;
+        draw.x = core.x + box.rel_x + parent_x;
+        draw.y = core.y + box.rel_y + parent_y;
+        draw.width = box.draw_width;
+        draw.height = box.draw_height;
 
 
         //Render current box
@@ -1733,27 +1732,27 @@ namespace UI
         }
         else if(core.texture.HasTexture())
         {
-            DrawTexturedRectangle_impl(render.x, render.y, render.width, render.height, core.texture);  
+            DrawTexturedRectangle_impl(draw.x, draw.y, draw.width, draw.height, core.texture);  
         }
         else
         {
-            DrawRectangle_impl(render.x, render.y, render.width, render.height, core.corner_radius, core.border_width, core.border_color, core.background_color);
+            DrawRectangle_impl(draw.x, draw.y, draw.width, draw.height, core.corner_radius, core.border_width, core.border_color, core.background_color);
         }
 
 
         //Render children boxes
-        int x = render.x - core.scroll_x;
-        int y = render.y - core.scroll_y;
+        int x = draw.x - core.scroll_x;
+        int y = draw.y - core.scroll_y;
 
         if(core.IsScissor())
-            scissor_aabb = Rect::Intersection(scissor_aabb, render);
+            scissor_aabb = Rect::Intersection(scissor_aabb, draw);
 
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
             assert(temp->value.box.core);
             if(temp->value.box.core->IsDetached())
             {
-                AddDetachedBoxToQueue(&temp->value, render);
+                AddDetachedBoxToQueue(&temp->value, draw);
                 continue;
             }
 
