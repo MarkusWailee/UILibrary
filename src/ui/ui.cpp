@@ -64,7 +64,7 @@ namespace UI
     {
         assert(context && "Context nullptr");
         assert(!context_stack.IsFull() && "Why are you using so many contexts");
-        assert(!context_queue.IsFull() && "Why are you using so many contexts");
+        assert(!context_queue.IsFull() && "Missing Draw or too many contexts");
         context_stack.Push(context);
         context_queue.Push(context);
     }

@@ -16,10 +16,12 @@ int main(void)
     SetExitKey(0);
     SetTargetFPS(60);
 
-    UI::Init_impl("assets/fonts/Roboto-Regular.ttf");
+    UI::Init_impl("assets/fonts/RobotoMonoNerdFont-Regular.ttf");
     UI::Context context(128 * UI::KB);
 
     
+    UI::TextStyle style;
+    style.FgColor({255, 255, 255, 255}).FontSize(32);
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
 

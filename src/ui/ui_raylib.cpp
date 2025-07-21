@@ -211,6 +211,35 @@ namespace UI
 
     //This is not an optimal implementation for performance, but this works for testing
     //Use raylibs batching system to drastically speed up text rendering
+    void DrawText_impl(TextStyle style, int x, int y, const char16_t* text, int size)
+    {
+        if(!text || !size)
+            return;
+
+        int cursor_x = 0;
+        int cursor_y = 0;
+        for(int i = 0; i< size; i++)
+        {
+            char16_t c = text[i];
+            int width = MeasureChar_impl(c, style.GetFontSize(), style.GetFontSpacing());
+            if(c == '\n')
+            {
+                cursor_x = 0;
+                cursor_y += style.GetFontSize() + style.GetLineSpacing();
+                continue;
+            }
+            else if(c == ' ' || c == '\t')
+            {
+                cursor_x += width + style.GetFontSpacing();
+                continue;
+            }
+            int render_x = x + cursor_x;
+            int render_y = y + cursor_y;
+            Color color = style.GetColor();
+            DrawTextCodepoint(font, c, {(float)render_x, (float)render_y}, (float)style.GetFontSize(), {color.r, color.g, color.b, color.a});
+            cursor_x += width + style.GetFontSpacing();
+        }
+    }
     void DrawText_impl(TextPrimitive p)
     {
         if(!p.text)
@@ -219,7 +248,7 @@ namespace UI
         for(const char *ch = p.text; *ch; ch++)
         {
             char c = *ch;
-            int width = MeasureChar_impl(c, p.font_size, p.font_spacing);
+            int width = MeasureChar_impl((char32_t)c, p.font_size, p.font_spacing);
             if(c == '\n')
             {
                 p.cursor_x = 0;
@@ -237,26 +266,19 @@ namespace UI
             p.cursor_x += width + p.font_spacing;
         }
     }
-    int MeasureChar_impl(char c, int font_size, int spacing)
+    int MeasureChar_impl(char32_t c, int font_size, int spacing)
     {
-        if(IsFontValid(font) && c >= 32)
+        if(IsFontValid(font))
         {
-            return (int)font_info[(int)c].advanceX * font_size / font.baseSize + spacing;
-        }
-        return 0;
-    }
-    int MeasureText_impl(const char* text, int font_size, int spacing)
-    {
-        int width = 0;
-        if(text)
-        {
-            while(*text != '\0')
+            if(c >= 32 && c < 128)
+                return (int)font_info[(int)c].advanceX * font_size / font.baseSize + spacing;
+            else if(c >= 128)
             {
-                width += MeasureChar_impl(*text, font_size, spacing);
-                text++;
+                GlyphInfo info = GetGlyphInfo(font, (int)c);
+                return info.advanceX * font_size / font.baseSize + spacing;
             }
         }
-        return width;
+        return 0;
     }
 }
 void UI::BeginScissorMode_impl(float x, float y, float width, float height)

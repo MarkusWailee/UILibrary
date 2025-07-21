@@ -30,6 +30,7 @@
 namespace UI
 {
     using StringU16 = Internal::ArrayViewConst<char16_t>;
+    using StringU32 = Internal::ArrayViewConst<char32_t>;
     using StringAsci = Internal::ArrayViewConst<char>;
     class Context;
     class Builder;
@@ -328,10 +329,15 @@ namespace UI
         TextStyle& FontSize(int size);
         TextStyle& FgColor(const Color& color);
         int GetFontSize() const;
+        int GetFontSpacing() const;
+        int GetLineSpacing() const;
         Color GetColor() const;
     private:
-        Color color;
-        uint16_t font_size = 0;
+        Color fg_color;
+        Color bg_color;
+        uint8_t font_size = 0;
+        uint8_t font_spacing = 0;
+        uint8_t line_spacing = 0;
     };
 
 
@@ -420,7 +426,8 @@ namespace UI
     void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color border_color, Color background_color);
     void DrawTexturedRectangle_impl(int x, int y, int width, int height, const TextureRect& texture);
     void DrawText_impl(TextPrimitive draw_command);
-    int MeasureChar_impl(char c, int font_size, int spacing);
+    void DrawText_impl(TextStyle style, int x, int y, const char16_t* text, int size);
+    int MeasureChar_impl(char32_t c, int font_size, int spacing);
     void BeginScissorMode_impl(float x, float y, float width, float height);
     void EndScissorMode_impl();
 
@@ -763,7 +770,7 @@ namespace UI
     }
     inline TextStyle& TextStyle::FgColor(const Color& color)
     {
-        this->color = color;
+        this->fg_color = color;
         return *this;
     }
     inline int TextStyle::GetFontSize() const
@@ -772,7 +779,15 @@ namespace UI
     }
     inline Color TextStyle::GetColor() const
     {
-        return color;
+        return fg_color;
+    }
+    inline int TextStyle::GetFontSpacing() const
+    {
+        return font_spacing;
+    }
+    inline int TextStyle::GetLineSpacing() const
+    {
+        return line_spacing;
     }
 
     template<typename Func>
