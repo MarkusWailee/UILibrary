@@ -16,11 +16,8 @@ namespace UI
     //Size should include '\0'
     void StringCopy(char* dst, const char* src, uint32_t size);
     //returns pointer pointing to arena
-    const char* CopyStrAsciToArena(const char* text, MemoryArena* arena);
 
     //size should includes '\0' if null terminated string are used
-    const char16_t* CopyStrU16ToArena(const char16_t* text, uint64_t size, MemoryArena* arena);
-    void CopyStringU16ToArena(StringU16& string, MemoryArena* arena);
 
     bool StringCompare(const char* s1, const char* s2);
     char ToLower(char c);
@@ -106,8 +103,6 @@ namespace UI
     }
     void InsertText(const char16_t* text, const char* id, bool copy_text, DebugInfo debug_info)
     {
-        if(IsContextActive())
-            GetContext()->InsertText(text, id, copy_text, debug_info);
     }
     void EndBox()
     {
@@ -414,25 +409,6 @@ namespace UI
         for(i = 0; i<size-1 && src[i] != '\0'; i++)
             dst[i] = src[i];
         dst[i] = '\0';
-    }
-    const char* CopyStrAsciToArena(const char* text, MemoryArena* arena)
-    {
-        assert(text && "no text padded");
-        assert(arena && "no arena passed");
-        int n = StrAsciLength(text) + 1;
-        char* temp = (char*)arena->NewArrayZero<char>(n);
-        if(temp == nullptr)
-            return nullptr;
-        memcpy(temp, text, n);
-        return temp;
-    }
-    const char16_t* CopyStrU16ToArena(const char16_t* text, uint64_t size, MemoryArena* arena)
-    {
-        assert(text && "no text padded");
-        assert(arena && "no arena passed");
-        char16_t* temp = arena->NewArrayZero<char16_t>(size);
-        memcpy(temp, text, sizeof(char16_t) * size);
-        return temp;
     }
     bool StringCompare(const char* s1, const char* s2)
     {
@@ -819,14 +795,7 @@ namespace UI
     }
 
 
-    void Context::InsertText(const char16_t* text, const char* id, bool copy_text, DebugInfo info)
-    {
-        StringU16 string = StringU16{text, (uint64_t)StrU16Length(text)};
-        InsertText(string, id, copy_text, info);
-        
-    }
-
-    void Context::InsertText(StringU16 string, const char* id, bool copy_text, DebugInfo info)
+    void Context::InsertText(StringU8 string, const char* id, bool copy_text, DebugInfo info)
     {
         #if UI_ENABLE_DEBUG
         #endif

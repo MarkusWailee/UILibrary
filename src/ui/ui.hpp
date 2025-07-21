@@ -29,7 +29,7 @@
 
 namespace UI
 {
-    using StringU16 = Internal::ArrayViewConst<char16_t>;
+    using StringU8 = Internal::ArrayViewConst<char32_t>;
     using StringU32 = Internal::ArrayViewConst<char32_t>;
     using StringAsci = Internal::ArrayViewConst<char>;
     class Context;
@@ -471,7 +471,7 @@ namespace UI
         };
         struct TextSpan
         {
-            StringU16 text;
+            StringU32 text;
             TextStyle style;
         };
 
@@ -636,8 +636,7 @@ namespace UI
         void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
         void EndRoot();
         void BeginBox(const UI::BoxStyle& box_style, const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
-        void InsertText(const char16_t* text, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
-        void InsertText(StringU16 string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+        void InsertText(StringU8 string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
         void EndBox();
         void Draw();
         uint32_t GetElementCount() const;
@@ -739,7 +738,6 @@ namespace UI
 
         //States
         const char* id = nullptr;
-        const char16_t* text = nullptr;
         BoxInfo info;
         BoxStyle style;
         DebugInfo debug_info;
@@ -823,7 +821,6 @@ namespace UI
     inline void Builder::ClearStates()
     {
         id = nullptr;
-        text = nullptr;
         info = BoxInfo();
         style = BoxStyle();
         debug_info = DebugInfo();
@@ -884,15 +881,8 @@ namespace UI
     {
         if(HasContext())
         {
-            if(text)
-            {
-                context->InsertText(text, id, should_copy, debug_info);
-            }
-            else
-            {
-                context->BeginBox(style, id, debug_info);
-                context->EndBox();
-            }
+            context->BeginBox(style, id, debug_info);
+            context->EndBox();
         }
     }
     template<typename Func>
@@ -900,16 +890,9 @@ namespace UI
     {
         if(HasContext())
         {
-            if(text)
-            {
-                context->InsertText(text, id, should_copy, debug_info);
-            }
-            else
-            {
-                context->BeginBox(style, id, debug_info);
-                func();
-                context->EndBox();
-            }
+            context->BeginBox(style, id, debug_info);
+            func();
+            context->EndBox();
         }
     }
 }

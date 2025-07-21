@@ -80,6 +80,7 @@ namespace UI::Internal
 
 
 
+
     //Stack allocated data structures
     template<typename T, unsigned int CAPACITY>
     class FixedArray
@@ -197,6 +198,9 @@ namespace UI::Internal
         T* NewArrayZero(uint64_t count);
 
         template<typename T>
+        T* NewArrayCopy(const T* src, uint64_t count);
+
+        template<typename T>
         T* New();
         template<typename T>
         T* New(const T& value);
@@ -210,7 +214,6 @@ namespace UI::Internal
 
 
 
-    // A Linked list that uses MemoryArena
     template<typename T>
     class ArenaLL
     {
@@ -712,6 +715,16 @@ namespace UI::Internal
         if(!temp) return nullptr;
         //initialize
         memset(temp, 0, count * sizeof(T));
+        return temp;
+    }
+    template<typename T>
+    inline T* MemoryArena::NewArrayCopy(const T* src, uint64_t count)
+    {
+        assert(count && "0 count");
+        T* temp = (T*)Allocate(count * sizeof(T), alignof(T)); 
+        if(!temp) return nullptr;
+        //initialize
+        memcpy(temp, src, count * sizeof(T));
         return temp;
     }
     template<typename T>
