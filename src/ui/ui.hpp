@@ -29,7 +29,7 @@
 
 namespace UI
 {
-    using StringU8 = Internal::ArrayViewConst<char32_t>;
+    using StringU8 = Internal::ArrayViewConst<char>;
     using StringU32 = Internal::ArrayViewConst<char32_t>;
     using StringAsci = Internal::ArrayViewConst<char>;
     class Context;
@@ -179,6 +179,11 @@ namespace UI
     constexpr uint64_t KB = 1024;
     constexpr uint64_t MB = KB * KB;
     //String Helper
+    template<int size>
+    constexpr StringU8 MakeStringU8(const char (&str)[size]) { return StringU8{str, size - 1}; }
+    template<int size>
+    constexpr StringU32 MakeStringU32(const char32_t (&str)[size]) { return StringU32{str, size - 1}; }
+
     const char *Fmt(const char *text, ...);
     int StrAsciLength(const char* text);
     int StrU16Length(const char16_t* text);
@@ -426,7 +431,7 @@ namespace UI
     void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color border_color, Color background_color);
     void DrawTexturedRectangle_impl(int x, int y, int width, int height, const TextureRect& texture);
     void DrawText_impl(TextPrimitive draw_command);
-    void DrawText_impl(TextStyle style, int x, int y, const char16_t* text, int size);
+    void DrawText_impl(TextStyle style, int x, int y, const char32_t* text, int size);
     int MeasureChar_impl(char32_t c, int font_size, int spacing);
     void BeginScissorMode_impl(float x, float y, float width, float height);
     void EndScissorMode_impl();
@@ -635,8 +640,9 @@ namespace UI
         BoxInfo Info(uint64_t key);
         void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
         void EndRoot();
-        void BeginBox(const UI::BoxStyle& box_style, const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
-        void InsertText(StringU8 string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+        void BeginBox(const UI::BoxStyle& style, const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+        void InsertText(const UI::TextStyle& style, const StringU8& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+        void InsertText(const UI::TextStyle& style, const StringU32& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
         void EndBox();
         void Draw();
         uint32_t GetElementCount() const;

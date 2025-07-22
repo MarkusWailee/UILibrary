@@ -34,6 +34,8 @@ int main(void)
         
         UI::Draw();
         DrawText(TextFormat("Fps = %d", GetFPS()), 10, 10, 20, WHITE);
+        //UI::StringU32 str = UI::MakeStringU32(U"helo world");
+        //UI::DrawText_impl(style, 100, 100, str.data, str.size);
         EndDrawing();
     }
 

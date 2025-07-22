@@ -794,8 +794,12 @@ namespace UI
         }
     }
 
-
-    void Context::InsertText(StringU8 string, const char* id, bool copy_text, DebugInfo info)
+    void Context::InsertText(const UI::TextStyle& style, const StringU8& string, const char* id, bool copy_text, DebugInfo info)
+    {
+        //Need some special decoding StringU8 to StringU32
+        assert(0 && "have not made function yet");
+    }
+    void Context::InsertText(const UI::TextStyle& style, const StringU32& string, const char* id, bool copy_text, DebugInfo info)
     {
         #if UI_ENABLE_DEBUG
         #endif
@@ -804,23 +808,13 @@ namespace UI
             return;
         if(stack.IsEmpty())
         {
-            HandleInternalError(Error{Error::Type::TEXT_NODE_CONTRADICTION, "Text node needs a container"});
+            assert(0 && "Stack is empty. Most likely inserting text without a root node");
             return;
         }
         TreeNode<BoxCore>* parent_node = stack.Peek();
         assert(parent_node);
-        const BoxCore& parent_box = parent_node->box;
-        TreeNode<BoxCore> node;
-        auto parent_tail = parent_node->children.GetTail();
-        if(parent_tail && parent_tail->value.box.IsTextElement())
-        {
-            //string.data = CopyStrU16ToArena(string.data, string.Size(), &arena2);             
-        }
-        else
-        {
-            
-        }
     }
+
 
 
 

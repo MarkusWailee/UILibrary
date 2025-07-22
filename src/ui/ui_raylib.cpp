@@ -211,7 +211,7 @@ namespace UI
 
     //This is not an optimal implementation for performance, but this works for testing
     //Use raylibs batching system to drastically speed up text rendering
-    void DrawText_impl(TextStyle style, int x, int y, const char16_t* text, int size)
+    void DrawText_impl(TextStyle style, int x, int y, const char32_t* text, int size)
     {
         if(!text || !size)
             return;
@@ -220,7 +220,7 @@ namespace UI
         int cursor_y = 0;
         for(int i = 0; i< size; i++)
         {
-            char16_t c = text[i];
+            char32_t c = text[i];
             int width = MeasureChar_impl(c, style.GetFontSize(), style.GetFontSpacing());
             if(c == '\n')
             {
