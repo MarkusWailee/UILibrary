@@ -57,6 +57,7 @@ namespace UI
     {
         return !context_stack.IsEmpty() && context_stack.Peek();
     }
+
     void PushContext(Context* context)
     {
         assert(context && "Context nullptr");
@@ -65,17 +66,20 @@ namespace UI
         context_stack.Push(context);
         context_queue.Push(context);
     }
+
     Context* GetContext()
     {
         assert(!context_stack.IsEmpty() && context_stack.Peek() && "No context has been pushed");
         return context_stack.Peek();
     }
+
     BoxInfo Info(const char* id)
     {
         if(IsContextActive())
             return GetContext()->Info(id);
         return BoxInfo();
     }
+
     void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info)
     {
         PushContext(context);
@@ -85,6 +89,7 @@ namespace UI
             GetContext()->BeginRoot(style, debug_info);
         }
     }
+
     void EndRoot()
     {
         if(IsContextActive())
@@ -96,19 +101,23 @@ namespace UI
         if(IsContextActive()) 
             builder.SetContext(GetContext());
     }
+
     void BeginBox(const UI::BoxStyle& box_style, const char* id, DebugInfo debug_info)
     {
         if(IsContextActive())
             GetContext()->BeginBox(box_style, id, debug_info);
     }
+
     void InsertText(const char16_t* text, const char* id, bool copy_text, DebugInfo debug_info)
     {
     }
+
     void EndBox()
     {
         if(IsContextActive())
             GetContext()->EndBox();
     }
+
     void Draw()
     {
         while(!context_queue.IsEmpty())
@@ -125,18 +134,22 @@ namespace UI
     {
         return builder.Box(style, id, debug_info);
     }
+
     BoxInfo Info()
     {
         return builder.Info();
     }
+
     BoxStyle& Style()
     {
         return builder.Style();
     }
+
     bool IsHover()
     {
         return builder.IsHover();
     }
+
     bool IsDirectHover()
     {
         return builder.IsDirectHover();
@@ -147,63 +160,80 @@ namespace UI
 //Box
 namespace UI
 {
+    inline BoxCore::Type BoxCore::GetElementType() const
+    {
+        return type;
+    }
 
     inline void BoxCore::SetFlowAxis(Flow::Axis axis){flow_axis = axis;}
+
     inline void BoxCore::SetScissor(bool flag){scissor = flag;}
+
     inline Layout BoxCore::GetLayout() const
     {
         return layout;
     }
+
     inline Flow::Axis BoxCore::GetFlowAxis() const
     {
         return flow_axis;
     }
+
     inline bool BoxCore::IsScissor() const
     {
         return scissor;
     }
+
     inline bool BoxCore::IsDetached() const
     {
         return detach != Detach::NONE;
     }
+
     inline bool BoxCore::IsTextElement() const
     {
         return !text.IsEmpty();
     }
+
     inline int BoxCore::GetBoxExpansionWidth() const
     {
         return margin.left + margin.right + padding.left + padding.right;
     }
+
     inline int BoxCore::GetBoxExpansionHeight() const
     {
         return margin.top + margin.bottom + padding.top + padding.bottom;
     }
+
     inline int BoxCore::GetBoxModelWidth() const
     {
         //internal box model
         return margin.left + padding.left + width + padding.right + margin.right;
     }
+
     inline int BoxCore::GetBoxModelHeight() const
     {
         return margin.top + padding.top + height + padding.bottom + margin.bottom;
     }
+
     inline int BoxCore::GetRenderingWidth() const
     {
         return padding.left + width + padding.right;
     }
+
     inline int BoxCore::GetRenderingHeight() const
     {
         return padding.top + height + padding.bottom;
     }
+
     inline int BoxCore::GetGridCellWidth() const
     {
         return (width - gap_column * (grid_column_count - 1)) / Max((uint8_t)1, grid_column_count);
     }
+
     inline int BoxCore::GetGridCellHeight() const
     {
         return (height - gap_row * (grid_row_count - 1)) / Max((uint8_t)1, grid_row_count);
     }
-
 
     inline void BoxResult::SetComputedResults(BoxCore& node)
     {
@@ -215,6 +245,7 @@ namespace UI
         this->content_width = node.result_content_width;
         this->content_height = node.result_content_height;
     }
+
     inline void BoxResult::UpdatePointer(BoxCore& node)
     {
         this->core = &node;
@@ -309,11 +340,13 @@ namespace UI
         return (r1.x < r2.x + r2.width && r1.x + r1.width > r2.x &&
                 r1.y < r2.y + r2.height && r1.y + r1.height > r2.y);
     }
+
     bool Rect::Contains(const Rect& r ,int x, int y)
     {
         return (x >= r.x && x <= r.x + r.width &&
                 y >= r.y && y <= r.y + r.height);
     }
+
     Rect Rect::Intersection(const Rect& r1, const Rect& r2)
     {
         Rect r;
@@ -344,6 +377,7 @@ namespace UI
                 return (int)unit.value; //Only meant for width/height
         }
     }
+
     BoxCore ComputeStyleSheet(const BoxStyle& style, const BoxCore& root)
     {
         int root_width = root.width - style.margin.left - style.margin.right - style.padding.left - style.padding.right;
@@ -353,6 +387,7 @@ namespace UI
 
         BoxCore box;
         box.texture = style.texture;
+        box.type = style.texture.HasTexture()? BoxCore::Type::IMAGE: BoxCore::Type::BOX;
 
         box.background_color =          style.background_color;
         box.border_color =              style.border_color;
@@ -361,16 +396,16 @@ namespace UI
         box.scroll_x =                  style.scroll_x;
         box.scroll_y =                  style.scroll_y;
         
-        box.x =                          style.x;
-        box.y =                          style.y;
-        box.width =                     (uint16_t)Max(0, FixedUnitToPx(style.width, root_width));
-        box.height =                    (uint16_t)Max(0, FixedUnitToPx(style.height, root_height));
-        box.gap_row =                    style.gap_row;
-        box.gap_column =                 style.gap_column;
-        box.min_width =                 (uint16_t)Max(0, FixedUnitToPx(style.min_width, root_width));
-        box.max_width =                 (uint16_t)Max(0, FixedUnitToPx(style.max_width, root_width));
-        box.min_height =                (uint16_t)Max(0, FixedUnitToPx(style.min_height, root_height));
-        box.max_height =                (uint16_t)Max(0, FixedUnitToPx(style.max_height, root_height));
+        box.x =                         (int16_t)style.x;
+        box.y =                         (int16_t)style.y;
+        box.width =                     (uint16_t)style.width.value;
+        box.height =                    (uint16_t)style.height.value;
+        box.gap_row =                   (uint16_t)style.gap_row;
+        box.gap_column =                (uint16_t)style.gap_column;
+        box.min_width =                 (uint16_t)style.min_width.value;
+        box.max_width =                 (uint16_t)style.max_width.value;
+        box.min_height =                (uint16_t)style.min_height.value;
+        box.max_height =                (uint16_t)style.max_height.value;
 
         box.width_unit =                style.width.unit;
         box.height_unit =               style.height.unit;

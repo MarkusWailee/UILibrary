@@ -482,11 +482,19 @@ namespace UI
 
         struct BoxCore
         {
+
             // ========= Only used when debugging is enabled
             #if UI_ENABLE_DEBUG
                 DebugInfo debug_info;
             #endif
             // =============================================
+
+            enum Type : unsigned char
+            {
+                BOX,
+                IMAGE,
+                TEXT,
+            };
 
             ArrayView<TextSpan> text;
             TextureRect texture;
@@ -539,11 +547,13 @@ namespace UI
             Spacing margin;
             Layout layout = Layout::FLOW;
             Detach detach = Detach::NONE;
+            Type type = Type::BOX;
         private:
             //Values that can potentially use bit array
             Flow::Axis flow_axis = Flow::Axis::HORIZONTAL;
             bool scissor = false;
         public:
+            Type GetElementType() const;
             void SetFlowAxis(Flow::Axis axis);
             void SetScissor(bool flag);
             Layout GetLayout() const;
