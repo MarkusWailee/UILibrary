@@ -390,7 +390,7 @@ namespace UI
     void EndRoot();
     void BeginBox(const BoxStyle& box_style, const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
     void EndBox();
-    void InsertText(const char16_t* text, const char* id = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
+    //void InsertText(const char16_t* text, const char* id = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
     void Draw();
     // ====================================
     // ========== Builder Notation ==========
@@ -494,9 +494,12 @@ namespace UI
                 BOX,
                 IMAGE,
                 TEXT,
+                NONE,
             };
 
-            ArrayView<TextSpan> text;
+            //an array of styled text
+            ArrayView<TextSpan> text_style_spans;
+
             TextureRect texture;
             uint64_t id_key =       0; 
 
@@ -636,6 +639,7 @@ namespace UI
         using TreeNode = Internal::TreeNode<T>;
         template<typename T>
         using ArenaLL = Internal::ArenaLL<T>;
+        using BoxType = Internal::BoxCore::Type;
 
         struct DeferredBox
         {
@@ -672,6 +676,12 @@ namespace UI
 
         // ========== Layout ===============
 
+        //Text related
+
+        //returns text height
+        int ComputeTextLineSpans(const Internal::ArrayView<Internal::TextSpan>& text_spans);
+
+
         //Width
         void WidthContentPercentPass_Flow(TreeNode<BoxCore>* node);
         void WidthContentPercentPass_Grid(TreeNode<BoxCore>* node);
@@ -701,6 +711,7 @@ namespace UI
     private:
         Error internal_error;
         uint32_t element_count = 0;
+        
 
         TreeNode<BoxCore>* tree_core = nullptr;
         TreeNode<BoxResult>* tree_result = nullptr;
@@ -710,6 +721,7 @@ namespace UI
         Internal::MemoryArena arena3;
 
         Internal::FixedStack<TreeNode<BoxCore>*, 64> stack; //elements should never nest over 100 layers deep
+        BoxCore* prev_inserted_box = nullptr;
         Internal::ArenaLL<DeferredBox> deferred_elements;
         uint64_t directly_hovered_element_key = 0;
 

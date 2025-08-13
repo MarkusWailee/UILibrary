@@ -2,6 +2,31 @@
 #include <raylib.h>
 #include "ui/ui.hpp"
 
+void TextLayoutTest(UI::Context* context)
+{
+    UI::BoxStyle root;
+    root.width = {GetScreenWidth()};
+    root.height = {GetScreenHeight()};
+    root.background_color = {50, 50, 60, 255};
+
+    UI::BoxStyle box1;
+    box1.width = {100, UI::Unit::CONTENT_PERCENT};
+    box1.height = {100};
+    box1.background_color = {255, 0, 0, 255};
+
+    UI::Root(context, root, [&]
+    {
+        UI::Box(box1)
+        .Run([&]
+        {
+            UI::TextStyle text_style;
+            text_style.FontSize(32).FgColor({255, 255, 255, 255});
+            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Should be in the green"));
+        });
+    });
+}
+
+//just to test ui code
 void LayoutTest(UI::Context* context)
 {
     UI::BoxStyle root;
@@ -104,8 +129,10 @@ void LayoutTest(UI::Context* context)
                     for(int i = 0; i<10; i ++)
                         UI::Box().Style(button).Run([&]
                         {
+
                             //UI::Text(font_style, u"Hello World");
-                            //UI::Text(font_style, u"Hello World");
+                            // UI::TextSpan(font_style, U"something");
+                            // UI::Text(font_style, U"Hello World");
                         });
                 });
                 UI::Box().Style(mid_panel).Run([&]
@@ -135,7 +162,9 @@ void LayoutTest(UI::Context* context)
                     {
                         UI::Box(button3).Run();
                         UI::Box(button3).Run();
-                        UI::Box(button3).Run();
+                        UI::Box(button3).Run([&]
+                        {
+                        });
 
                         UI::Box(pop_up).Run([&]
                         {
@@ -149,7 +178,6 @@ void LayoutTest(UI::Context* context)
                             })
                             .Run([&]
                             {
-
                             });
                         });
                     });
@@ -162,7 +190,12 @@ void LayoutTest(UI::Context* context)
                         UI::Style().grid.span_x = 2;
                         UI::Style().grid.span_y = 2;
                         UI::Style().background_color = {100, 100, 255, 255};
-                    }).Run([&]{});
+                    }).Run([&]{
+                        UI::TextStyle text_style;
+                        text_style.FontSize(32).FgColor({255, 255, 255, 255});
+                        UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Should be in the green"));
+                        UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"what the hell"));
+                    });
 
                     UI::Box().Style(button)
                     .PreRun([&]
@@ -172,7 +205,12 @@ void LayoutTest(UI::Context* context)
                         UI::Style().grid.span_x = 2;
                         UI::Style().grid.span_y = 3;
                         UI::Style().background_color = {100, 100, 255, 255};
-                    }).Run([&]{});
+                    }).Run([&]{
+                        UI::TextStyle text_style;
+                        text_style.FontSize(32).FgColor({255, 255, 255, 255});
+                        UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"HHHHHHHHHHHH"));
+                        UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Hello world"));
+                    });
                 });
                 UI::Box().Style(right_panel).Run([&]
                 {

@@ -13,6 +13,9 @@ namespace UI
     int FixedUnitToPx(Unit unit, int root_size);
     BoxCore ComputeStyleSheet(const BoxStyle& style, const BoxCore& root);
 
+    //Text related functions
+    int MeasureTextSpans(const ArrayView<TextSpan>& text_spans); 
+
     //Size should include '\0'
     void StringCopy(char* dst, const char* src, uint32_t size);
     //returns pointer pointing to arena
@@ -191,7 +194,7 @@ namespace UI
 
     inline bool BoxCore::IsTextElement() const
     {
-        return !text.IsEmpty();
+        return !text_style_spans.IsEmpty();
     }
 
     inline int BoxCore::GetBoxExpansionWidth() const
@@ -436,6 +439,27 @@ namespace UI
         return box;
     }
 
+
+    int MeasureTextSpans(const ArrayView<TextSpan>& text_spans)
+    {
+        auto MeasureSpan = [](const TextSpan& text_span) -> int
+        {
+            int result = 0;
+            int font_size = text_span.style.GetFontSize();
+            int spacing = text_span.style.GetFontSpacing();
+            for(int i = 0; i < text_span.text.Size(); i++)
+            {
+                result += MeasureChar_impl(text_span.text[i], font_size, spacing);
+            }
+            return result;
+        };
+        int result = 0;
+        for(int i = 0; i < text_spans.Size(); i++)
+        {
+            result += MeasureSpan(text_spans[i]);
+        }
+        return result;
+    }
 
     void StringCopy(char* dst, const char* src, uint32_t size)
     {
@@ -697,6 +721,7 @@ namespace UI
         arena1.Reset();
         stack.Clear();
         tree_core = nullptr;
+        prev_inserted_box = nullptr;
     }
     void Context::ResetArena2()
     {
@@ -734,6 +759,8 @@ namespace UI
             assert(tree_core && "Arena out of space");
             tree_core->box = root_box;
             stack.Push(tree_core);
+
+            prev_inserted_box = &tree_core->box;
         }
         else
         {
@@ -767,6 +794,7 @@ namespace UI
 
     void Context::BeginBox(const UI::BoxStyle& style, const char* id, DebugInfo debug_info)
     {
+
         #if UI_ENABLE_DEBUG
         #endif
 
@@ -795,6 +823,8 @@ namespace UI
             TreeNode<BoxCore>* child_ptr = parent_node->children.Add(child_node, &arena1); 
             assert(child_ptr && "Arena out of memory");
             stack.Push(child_ptr);
+
+            prev_inserted_box = &child_ptr->box;
         }
         else
         {
@@ -828,8 +858,8 @@ namespace UI
                 return;
         }
     }
-
     void Context::InsertText(const UI::TextStyle& style, const StringU8& string, const char* id, bool copy_text, DebugInfo info)
+
     {
         //Need some special decoding StringU8 to StringU32
         assert(0 && "have not made function yet");
@@ -841,13 +871,31 @@ namespace UI
 
         if(HasInternalError())
             return;
-        if(stack.IsEmpty())
-        {
-            assert(0 && "Stack is empty. Most likely inserting text without a root node");
-            return;
-        }
+        assert(!stack.IsEmpty() && prev_inserted_box && "Most likely started without root node");
+
         TreeNode<BoxCore>* parent_node = stack.Peek();
         assert(parent_node);
+
+        if(prev_inserted_box && !prev_inserted_box->IsTextElement())
+        {
+            TreeNode<BoxCore>* node = parent_node->children.Add(TreeNode<BoxCore>(), &arena1);
+            TextSpan* span = arena1.New<TextSpan>(TextSpan{.text = string, .style = style});
+            assert(node && "Arena1 out of memory");
+            assert(span && "Arena1 out of memory");
+
+            BoxCore& box = node->box;
+            box.type = BoxType::TEXT;
+            box.width = 100;
+            box.width_unit = Unit::AVAILABLE_PERCENT;
+            box.text_style_spans = ArrayView<TextSpan>{span, 1};
+            prev_inserted_box = &node->box;
+            return;
+        }
+
+        // This might look ambiguous, but Im appending the onto the previous boxes text array here
+        TextSpan* span = arena1.New<TextSpan>(TextSpan{.text = string, .style = style});
+        prev_inserted_box->text_style_spans.size++;
+        assert(span && "arena1 out of memroy");
     }
 
 
@@ -887,6 +935,13 @@ namespace UI
             deferred_elements.PopHead();
         }
     }
+
+    //int Context::ComputeTextLineSpans(const ArrayView<TextSpan>& text_spans)
+    int Context::ComputeTextLineSpans(const ArrayView<TextSpan>& text_spans)
+    {
+        return 1;
+    }
+
     void Context::WidthContentPercentPass_Flow(TreeNode<BoxCore>* node)
     {
         assert(node);
@@ -898,9 +953,15 @@ namespace UI
             {
                 WidthContentPercentPass(&temp->value);
                 BoxCore& box = temp->value.box;
-                if(box.IsDetached())
+                if(box.IsDetached()) //later add check for parent being content_percent
                     continue;
-                if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
+
+                if(box.IsTextElement())
+                {
+                    content_width += MeasureTextSpans(box.text_style_spans);
+                }
+
+                else if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
                 box.width_unit != Unit::Type::PARENT_PERCENT &&
                 box.max_width_unit != Unit::Type::PARENT_PERCENT &&
                 box.min_width_unit != Unit::Type::PARENT_PERCENT)
@@ -925,7 +986,15 @@ namespace UI
                 BoxCore& box = temp->value.box;
                 if(box.IsDetached())
                     continue;
-                if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
+
+                if(box.IsTextElement())
+                {
+                    int width = MeasureTextSpans(box.text_style_spans);
+                    if(largest_width < width)
+                        largest_width = width;
+                }
+
+                else if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
                 box.width_unit != Unit::Type::PARENT_PERCENT &&
                 box.max_width_unit != Unit::Type::PARENT_PERCENT &&
                 box.min_width_unit != Unit::Type::PARENT_PERCENT)
@@ -1379,6 +1448,7 @@ namespace UI
                     box.height = md.GetMeasuredHeight();
                 }
                 */
+                
 
                 //Ignore these values
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT && 
@@ -1726,7 +1796,8 @@ namespace UI
         //Render current box
         if(core.IsTextElement())
         {
-
+            for(int i = 0; i < core.text_style_spans.Size(); i++)
+                DrawText_impl(core.text_style_spans[i].style, draw.x, draw.y, core.text_style_spans[i].text.data, core.text_style_spans[i].text.Size());
         }
         else if(core.texture.HasTexture())
         {

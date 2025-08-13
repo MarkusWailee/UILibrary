@@ -3,9 +3,6 @@
 #include <math/vec.h>
 #include "UI_Demo.hpp"
 
-
-#include <vector>
-
 int main(void)
 {
     float screenWidth = 960;
@@ -18,28 +15,25 @@ int main(void)
 
     UI::Init_impl("assets/fonts/RobotoMonoNerdFont-Regular.ttf");
     UI::Context context(128 * UI::KB);
-
-    
     UI::TextStyle style;
     style.FgColor({255, 255, 255, 255}).FontSize(32);
-    while (!WindowShouldClose())    // Detect window close button or ESC key
+    while (!WindowShouldClose()) // Detect window close button or ESC key
     {
 
-        //SpotifyExample(&context);
-        LayoutTest(&context);
+        // LayoutTest(&context);
+        TextLayoutTest(&context);
 
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-        
         UI::Draw();
         DrawText(TextFormat("Fps = %d", GetFPS()), 10, 10, 20, WHITE);
-        //UI::StringU32 str = UI::MakeStringU32(U"helo world");
-        //UI::DrawText_impl(style, 100, 100, str.data, str.size);
+        // UI::StringU32 str = UI::MakeStringU32(U"helo world");
+        // UI::DrawText_impl(style, 100, 100, str.data, str.size);
         EndDrawing();
     }
 
-    CloseWindow();        // Close window and OpenGL context
+    CloseWindow(); // Close window and OpenGL context
 
     return 0;
 }
