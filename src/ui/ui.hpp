@@ -20,8 +20,8 @@
 
 //Only used for Fmt
 #include <stdarg.h>
-#include <stdio.h>
-#include <uchar.h>
+//#include <stdio.h>
+//#include <uchar.h>
 
 #include <iostream>
 #include "Memory.hpp"
@@ -54,7 +54,7 @@ namespace UI::Internal
 
 namespace UI
 {
-    enum Key 
+    enum Key
     {
         KEY_NULL            = 0,        // Key: NULL, used for no key pressed
         KEY_SPACE           = 32,       // Key: Space
@@ -190,7 +190,7 @@ namespace UI
 
     //Math helpers
     constexpr float DPI = 96.0f;
-    inline int MmToPx(float mm) { return int(mm * DPI / 25.4f); } 
+    inline int MmToPx(float mm) { return int(mm * DPI / 25.4f); }
     inline int CmToPx(float cm) { return int(cm * DPI / 2.54f); }
     inline int InchToPx(float inches) { return int(inches * DPI); }
     template<typename T>
@@ -220,14 +220,14 @@ namespace UI
     //All measurements are based on this Unit
     struct Unit
     {
-        enum Type : unsigned char 
+        enum Type : unsigned char
         {
 
             PIXEL,
             //Limited to width/height
             PARENT_PERCENT,
             ROOT_PERCENT,
-            CONTENT_PERCENT,   
+            CONTENT_PERCENT,
             AVAILABLE_PERCENT,
 
             WIDTH_PERCENT, //only be applied to height
@@ -279,7 +279,7 @@ namespace UI
         TOP_END,
         BOTTOM_END
     };
-    // ========== Box Styling ========== 
+    // ========== Box Styling ==========
     struct TextureRect
     {
         void* texture =     nullptr;
@@ -323,7 +323,7 @@ namespace UI
 
         //PIXEL VALUES
         unsigned char corner_radius = 0; //255 sets to circle
-        unsigned char border_width = 0;  
+        unsigned char border_width = 0;
 
         //Potentially performance heavy
         bool scissor = false;
@@ -472,7 +472,7 @@ namespace UI
             int y = 0;
             const char16_t* text = nullptr;
             uint16_t size = 0;
-            TextStyle style; 
+            TextStyle style;
         };
         struct TextSpan
         {
@@ -501,7 +501,7 @@ namespace UI
             ArrayView<TextSpan> text_style_spans;
 
             TextureRect texture;
-            uint64_t id_key =       0; 
+            uint64_t id_key =       0;
 
             Color background_color =    UI::Color{0, 0, 0, 0}; //used for debugging
             Color border_color =        UI::Color{0, 0, 0, 0};
@@ -545,7 +545,7 @@ namespace UI
             Flow::Alignment flow_vertical_alignment = Flow::Alignment::START;
             Flow::Alignment flow_horizontal_alignment = Flow::Alignment::START;
             uint8_t corner_radius = 0; //255 sets to circle
-            uint8_t border_width = 0;  
+            uint8_t border_width = 0;
             Spacing padding;
             Spacing margin;
             Layout layout = Layout::FLOW;
@@ -711,7 +711,7 @@ namespace UI
     private:
         Error internal_error;
         uint32_t element_count = 0;
-        
+
 
         TreeNode<BoxCore>* tree_core = nullptr;
         TreeNode<BoxResult>* tree_result = nullptr;
@@ -729,9 +729,9 @@ namespace UI
 
 
     //Builder Notation
-    class Builder 
+    class Builder
     {
-    public: 
+    public:
         void SetContext(Context* context);
 
 
@@ -833,7 +833,7 @@ namespace UI
         {
             this->style = style;
             this->debug_info = debug_info;
-            this->id = id; 
+            this->id = id;
             info = context->Info(id);
         }
         return *this;
@@ -858,7 +858,7 @@ namespace UI
     {
         return info;
     }
-    inline bool Builder::IsHover() const 
+    inline bool Builder::IsHover() const
     {
         return info.IsHover();
     }
@@ -884,7 +884,7 @@ namespace UI
     template<typename Func>
     Builder& Builder::OnHover(Func&& func)
     {
-        if(info.IsValid() && info.IsHover()) 
+        if(info.IsValid() && info.IsHover())
         {
             func();
         }
@@ -893,7 +893,7 @@ namespace UI
     template<typename Func>
     Builder& Builder::OnDirectHover(Func&& func)
     {
-        if(info.IsValid() && info.IsDirectHover()) 
+        if(info.IsValid() && info.IsDirectHover())
         {
             func();
         }

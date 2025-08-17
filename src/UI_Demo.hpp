@@ -2,7 +2,7 @@
 #include <raylib.h>
 #include "ui/ui.hpp"
 
-void TextLayoutTest(UI::Context* context)
+inline void TextLayoutTest(UI::Context* context)
 {
     UI::BoxStyle root;
     root.width = {GetScreenWidth()};
@@ -27,7 +27,7 @@ void TextLayoutTest(UI::Context* context)
 }
 
 //just to test ui code
-void LayoutTest(UI::Context* context)
+inline void LayoutTest(UI::Context* context)
 {
     UI::BoxStyle root;
     root.width = {GetScreenWidth()};

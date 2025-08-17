@@ -1,6 +1,7 @@
 #pragma once
 #include  "vec.h"
 
+
 //DEFAULT TO ROW MAJOR ORDERING
 //ADD TRANSPOSE IF NEEDED
 struct mat2
@@ -43,7 +44,7 @@ struct mat3
 };
 inline mat3 mat3::RotX(const float radians)
 {
-	return 
+	return
 	mat3
 	{
 		1,	0,	0,
@@ -53,7 +54,7 @@ inline mat3 mat3::RotX(const float radians)
 }
 inline mat3 mat3::RotY(const float radians)
 {
-	return 
+	return
 	mat3
 	{
 		cosf(radians), 0, sinf(radians),
@@ -63,7 +64,7 @@ inline mat3 mat3::RotY(const float radians)
 }
 inline mat3 mat3::RotZ(const float radians)
 {
-	return 
+	return
 	mat3
 	{
 		cosf(radians), sinf(radians), 0,
@@ -114,7 +115,7 @@ struct mat4
 };
 inline mat4 mat4::RotX(const float radians)
 {
-	return 
+	return
 	mat4
 	{
 		1,	0,	0, 0,
@@ -126,7 +127,7 @@ inline mat4 mat4::RotX(const float radians)
 }
 inline mat4 mat4::RotY(const float radians)
 {
-	return 
+	return
 	mat4
 	{
 		cosf(radians), 0, sinf(radians), 0,
@@ -138,7 +139,7 @@ inline mat4 mat4::RotY(const float radians)
 }
 inline mat4 mat4::RotZ(const float radians)
 {
-	return 
+	return
 	mat4
 	{
 		cosf(radians), sinf(radians), 0, 0,

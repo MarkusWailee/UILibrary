@@ -42,10 +42,10 @@ struct vector2
 	vector2(const T s): x(s), y(s){}
 	vector2(const T x, const T y) : x(x), y(y) {}
 	vector2(const vector2<T>& v) : x(v.x), y(v.y){}
-	explicit vector2<T>(const vector3<T>& v) : x(v.x), y(v.y) {};
-	explicit vector2<T>(const vector4<T>& v) : x(v.x), y(v.y) {};
+	explicit vector2(const vector3<T>& v) : x(v.x), y(v.y) {};
+	explicit vector2(const vector4<T>& v) : x(v.x), y(v.y) {};
 	template<typename K>
-	explicit vector2<T>(const vector2<K>& v): x(static_cast<T>(v.x)), y(static_cast<T>(v.y)){}
+	explicit vector2(const vector2<K>& v): x(static_cast<T>(v.x)), y(static_cast<T>(v.y)){}
 	template<typename K>
 	vector2& operator=(const vector2<K>& v);
 	vector2& operator=(const vector2<T>& v);
@@ -62,7 +62,7 @@ struct vector2
 	void operator+=(const T s);
 	void operator-=(const vector2<T>& v);
 	void operator-=(const T s);
-	
+
 	vector2 operator*(const T s) const;
 	vector2 operator*(const vector2<T>& v) const;
 	vector2 operator/(const T s) const;
@@ -132,10 +132,10 @@ struct vector4
 	vector4(const T s) : x(s), y(s), z(s), w(s) {}
 	vector4(const T x, const T y, const T z, const T w) : x(x), y(y), z(z), w(w) {}
 	vector4(const vector4<T>& v): x(v.x), y(v.y), z(v.z), w(v.w){}
-	explicit vector4<T>(const vector3<T>& v) : x(v.x), y(v.y), z(v.z), w(0) {};
-	explicit vector4<T>(const vector2<T>& v) : x(v.x), y(v.y), z(0), w(0) {};
+	explicit vector4(const vector3<T>& v) : x(v.x), y(v.y), z(v.z), w(0) {};
+	explicit vector4(const vector2<T>& v) : x(v.x), y(v.y), z(0), w(0) {};
 	template<typename K>
-	explicit vector4<T>(const vector4<K>& v): x(static_cast<T>(v.x)), y(static_cast<T>(v.y)), z(static_cast<T>(v.z)), w(static_cast<T>(v.w)) {}
+	explicit vector4(const vector4<K>& v): x(static_cast<T>(v.x)), y(static_cast<T>(v.y)), z(static_cast<T>(v.z)), w(static_cast<T>(v.w)) {}
 	template<typename K>
 	vector4& operator=(const vector4<K>& v);
 	vector4& operator=(const T s);
@@ -236,7 +236,7 @@ inline vector2<T> vector2<T>::operator*(const vector2<T>& v) const
 	return vector2<T>(x * v.x, y * v.y);
 }
 template<typename T>
-inline vector2<T> vector2<T>::operator/(const T s) const 
+inline vector2<T> vector2<T>::operator/(const T s) const
 {
 	return vector2<T>(x / s, y / s);
 }
@@ -246,7 +246,7 @@ inline vector2<T> vector2<T>::operator/(const vector2<T>& v) const
 	return vector2<T>(x/v.x, y/v.y);
 }
 template<typename T>
-inline vector2<T> vector2<T>::operator+(const vector2<T>& v) const 
+inline vector2<T> vector2<T>::operator+(const vector2<T>& v) const
 {
 	return vector2<T>(x + v.x, y + v.y);
 }
@@ -256,7 +256,7 @@ inline vector2<T> vector2<T>::operator+(const T s) const
 	return vector2<T>(x + s, y + s);
 }
 template<typename T>
-inline vector2<T> vector2<T>::operator-(const vector2<T>& v) const 
+inline vector2<T> vector2<T>::operator-(const vector2<T>& v) const
 {
 	return vector2<T>(x - v.x, y - v.y);
 }
@@ -266,7 +266,7 @@ inline vector2<T> vector2<T>::operator-(const T s) const
 	return vector2<T>(x - s, y - s);
 }
 template<typename T>
-inline bool vector2<T>::operator==(const vector2<T>& v) const 
+inline bool vector2<T>::operator==(const vector2<T>& v) const
 {
 	return (x == v.x && y == v.y);
 }
@@ -391,7 +391,7 @@ inline vector3<T> vector3<T>::operator-(const T s) const
 	return vector3<T>(x - s, y - s, z - s);
 }
 template<typename T>
-inline bool vector3<T>::operator==(const vector3<T>& v) const 
+inline bool vector3<T>::operator==(const vector3<T>& v) const
 {
 	return (x == v.x && y == v.y && z == v.z);
 }
@@ -568,7 +568,7 @@ template<typename T>
 inline vector3<T> cross(const vector3<T>& a, const vector3<T>& b)
 {
 	return vector3<T>(
-		a.y * b.z - b.y * a.z, 
+		a.y * b.z - b.y * a.z,
 		b.x * a.z - a.x * b.z,
 		a.x * b.y - b.x * a.y
 		);

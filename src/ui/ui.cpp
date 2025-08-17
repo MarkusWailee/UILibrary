@@ -14,7 +14,7 @@ namespace UI
     BoxCore ComputeStyleSheet(const BoxStyle& style, const BoxCore& root);
 
     //Text related functions
-    int MeasureTextSpans(const ArrayView<TextSpan>& text_spans); 
+    int MeasureTextSpans(const ArrayView<TextSpan>& text_spans);
 
     //Size should include '\0'
     void StringCopy(char* dst, const char* src, uint32_t size);
@@ -101,7 +101,7 @@ namespace UI
         assert(!context_stack.IsEmpty() && "No context has been pushed");
         context_stack.Pop();
 
-        if(IsContextActive()) 
+        if(IsContextActive())
             builder.SetContext(GetContext());
     }
 
@@ -253,7 +253,7 @@ namespace UI
     {
         this->core = &node;
     }
-    
+
 
     //Common helpers and error checking
     void DisplayError(const Error& error)
@@ -271,7 +271,7 @@ namespace UI
         }
     Error CheckUnitErrors(const BoxCore& style)
     {
-        //The following units cannot equal the specified Unit Types 
+        //The following units cannot equal the specified Unit Types
 
         //Content%
         Error error;
@@ -374,7 +374,7 @@ namespace UI
         {
             case Unit::Type::PIXEL:
                 return (int)unit.value;
-            case Unit::Type::ROOT_PERCENT: 
+            case Unit::Type::ROOT_PERCENT:
                 return (int)unit.value * root_size / 100;
             default:
                 return (int)unit.value; //Only meant for width/height
@@ -398,7 +398,7 @@ namespace UI
 
         box.scroll_x =                  style.scroll_x;
         box.scroll_y =                  style.scroll_y;
-        
+
         box.x =                         (int16_t)style.x;
         box.y =                         (int16_t)style.y;
         box.width =                     (uint16_t)style.width.value;
@@ -428,7 +428,7 @@ namespace UI
         box.flow_horizontal_alignment = style.flow.horizontal_alignment;
         //PIXEL VALUES
         box.corner_radius =             style.corner_radius; //255 sets to circle
-        box.border_width =              style.border_width;  
+        box.border_width =              style.border_width;
         box.padding =                   style.padding;
         box.margin =                    style.margin;
         box.layout =                    style.layout;
@@ -636,9 +636,9 @@ namespace UI
     {
         parent_width -= box.padding.left + box.padding.right + box.margin.left + box.margin.right;
         parent_width = Max(0, parent_width);
-        box.width =                     (uint16_t)Max(0, ParentPercentToPx(box.width,            box.width_unit,             parent_width)); 
-        box.min_width =                 (uint16_t)Max(0, ParentPercentToPx(box.min_width,        box.min_width_unit,         parent_width)); 
-        box.max_width =                 (uint16_t)Max(0, ParentPercentToPx(box.max_width,        box.max_width_unit,         parent_width)); 
+        box.width =                     (uint16_t)Max(0, ParentPercentToPx(box.width,            box.width_unit,             parent_width));
+        box.min_width =                 (uint16_t)Max(0, ParentPercentToPx(box.min_width,        box.min_width_unit,         parent_width));
+        box.max_width =                 (uint16_t)Max(0, ParentPercentToPx(box.max_width,        box.max_width_unit,         parent_width));
     }
 
     //Height
@@ -646,10 +646,10 @@ namespace UI
     {
         parent_height -= box.padding.top + box.padding.bottom + box.margin.top + box.margin.bottom;
         parent_height = Max(0, parent_height);
-        box.height =                    (uint16_t)Max(0, ParentPercentToPx(box.height,           box.height_unit,            parent_height)); 
-        box.gap_row =                   (uint16_t)Max(0, ParentPercentToPx(box.gap_row,          box.gap_row_unit,           parent_height)); 
-        box.min_height =                (uint16_t)Max(0, ParentPercentToPx(box.min_height,       box.min_height_unit,        parent_height)); 
-        box.max_height =                (uint16_t)Max(0, ParentPercentToPx(box.max_height,       box.max_height_unit,        parent_height)); 
+        box.height =                    (uint16_t)Max(0, ParentPercentToPx(box.height,           box.height_unit,            parent_height));
+        box.gap_row =                   (uint16_t)Max(0, ParentPercentToPx(box.gap_row,          box.gap_row_unit,           parent_height));
+        box.min_height =                (uint16_t)Max(0, ParentPercentToPx(box.min_height,       box.min_height_unit,        parent_height));
+        box.max_height =                (uint16_t)Max(0, ParentPercentToPx(box.max_height,       box.max_height_unit,        parent_height));
     }
     void ComputeWidthPercentForHeight(BoxCore& box)
     {
@@ -820,7 +820,7 @@ namespace UI
             if(HandleInternalError(CheckUnitErrors(child_node.box)))
                 return;
 
-            TreeNode<BoxCore>* child_ptr = parent_node->children.Add(child_node, &arena1); 
+            TreeNode<BoxCore>* child_ptr = parent_node->children.Add(child_node, &arena1);
             assert(child_ptr && "Arena out of memory");
             stack.Push(child_ptr);
 
@@ -905,13 +905,13 @@ namespace UI
     {
         #if UI_ENABLE_DEBUG
         #endif
-        
+
 
 
         if(HasInternalError())
             return;
         assert(tree_core && "No RootNode Provided");
-        
+
         if(!stack.IsEmpty())
         {
             HandleInternalError(Error{Error::Type::ROOT_NODE_CONTRADICTION, "Missing EndRoot()"});
@@ -1145,7 +1145,7 @@ namespace UI
                 for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 {
                     GrowBox& b = node->value;
-                    if(b.result >= b.box->min_width && b.result < b.box->max_width) 
+                    if(b.result >= b.box->min_width && b.result < b.box->max_width)
                         total_percent_in_bounds += b.box->width;
                     if(b.result < b.box->min_width)
                         total_percent_below_min += b.box->width;
@@ -1190,7 +1190,7 @@ namespace UI
             #endif
 
             #if 0 //Available Percent version only with MAX values working
-            while(true) 
+            while(true)
             {
                 int total_p = 0;
                 for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
@@ -1263,7 +1263,7 @@ namespace UI
             BoxCore& box = temp->value.box;
             if(box.width_unit == Unit::Type::AVAILABLE_PERCENT)
                 box.width_unit = Unit::Type::PARENT_PERCENT;
-            
+
             ComputeParentWidthPercent(box, cell_width * box.grid_span_x + parent_box.gap_column * (box.grid_span_x - 1));
             box.width = Clamp(box.width, box.min_width, box.max_width);
             WidthPass(&temp->value);
@@ -1338,7 +1338,7 @@ namespace UI
                 for(auto node = growing_elements.GetHead(); node != nullptr; node = node->next)
                 {
                     GrowBox& b = node->value;
-                    if(b.result >= b.box->min_height && b.result < b.box->max_height) 
+                    if(b.result >= b.box->min_height && b.result < b.box->max_height)
                         total_percent_in_bounds += b.box->height;
                     if(b.result < b.box->min_height)
                         total_percent_below_min += b.box->height;
@@ -1433,7 +1433,7 @@ namespace UI
             {
                 HeightContentPercentPass(&temp->value);
                 BoxCore& box = temp->value.box;
-                
+
                 if(box.IsDetached()) //Ignore layout for detached boxes
                     continue;
 
@@ -1448,24 +1448,24 @@ namespace UI
                     box.height = md.GetMeasuredHeight();
                 }
                 */
-                
+
 
                 //Ignore these values
-                if(box.height_unit != Unit::Type::AVAILABLE_PERCENT && 
-                    box.height_unit != Unit::Type::PARENT_PERCENT && 
-                    box.min_height_unit != Unit::Type::PARENT_PERCENT && 
+                if(box.height_unit != Unit::Type::AVAILABLE_PERCENT &&
+                    box.height_unit != Unit::Type::PARENT_PERCENT &&
+                    box.min_height_unit != Unit::Type::PARENT_PERCENT &&
                     box.max_height_unit != Unit::Type::PARENT_PERCENT)
                 {
                     box.height = Clamp(box.height, box.min_height, box.max_height);
                     int height = box.GetBoxModelHeight();
                     if(largest_height < height)
                         largest_height = height;
-                    }
-                    else
-                    {
-                        int height = box.GetBoxExpansionHeight() + box.min_height;
-                        if(largest_height < height)
-                            largest_height = height;
+                }
+                else
+                {
+                    int height = box.GetBoxExpansionHeight() + box.min_height;
+                    if(largest_height < height)
+                        largest_height = height;
                 }
             }
             content_height = largest_height;
@@ -1492,9 +1492,9 @@ namespace UI
                 }
                 */
                 //Ignore these values
-                if(box.height_unit != Unit::Type::AVAILABLE_PERCENT && 
-                    box.height_unit != Unit::Type::PARENT_PERCENT && 
-                    box.min_height_unit != Unit::Type::PARENT_PERCENT && 
+                if(box.height_unit != Unit::Type::AVAILABLE_PERCENT &&
+                    box.height_unit != Unit::Type::PARENT_PERCENT &&
+                    box.min_height_unit != Unit::Type::PARENT_PERCENT &&
                     box.max_height_unit != Unit::Type::PARENT_PERCENT)
                 {
                     box.height = Clamp(box.height, box.min_height, box.max_height);
@@ -1530,7 +1530,7 @@ namespace UI
 
     void Context::HeightContentPercentPass(TreeNode<BoxCore>* node)
     {
-        if(!node)    
+        if(!node)
             return;
         assert(node);
         const BoxCore& box = node->box;
@@ -1612,7 +1612,7 @@ namespace UI
                 {
                     case Flow::START:   break;
                     case Flow::END:     cursor_y = available_height; break;
-                    default:            cursor_y = available_height/2; break; 
+                    default:            cursor_y = available_height/2; break;
                 }
 
                 box.result_rel_x = cursor_x;
@@ -1661,7 +1661,7 @@ namespace UI
                 {
                     case Flow::START:   break;
                     case Flow::END:     cursor_x = available_width; break;
-                    default:            cursor_x = available_width/2; break; 
+                    default:            cursor_x = available_width/2; break;
                 }
 
                 box.result_rel_x = cursor_x;
@@ -1746,7 +1746,7 @@ namespace UI
         }
         result.x += parent.x;
         result.y += parent.y;
-        
+
         auto err = deferred_elements.Add(result, &arena2);
         assert(err && "Arena2 out of memory");
     }
@@ -1757,7 +1757,7 @@ namespace UI
             return;
 
         ResetArena2();
-        tree_result = arena2.New<TreeNode<BoxResult>>(); 
+        tree_result = arena2.New<TreeNode<BoxResult>>();
         assert(tree_result && "Arena2 out of memory");
         tree_result->box.SetComputedResults(tree_core->box);
 
@@ -1801,7 +1801,7 @@ namespace UI
         }
         else if(core.texture.HasTexture())
         {
-            DrawTexturedRectangle_impl(draw.x, draw.y, draw.width, draw.height, core.texture);  
+            DrawTexturedRectangle_impl(draw.x, draw.y, draw.width, draw.height, core.texture);
         }
         else
         {

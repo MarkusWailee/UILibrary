@@ -14,7 +14,7 @@ namespace UI
         if(IsFontValid(font))
         {
             for(int i = 32; i<=126; i++) //Printable asci characters
-            font_info[i] = GetGlyphInfo(font, i);
+                font_info[i] = GetGlyphInfo(font, i);
             SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
         }
     }
@@ -85,7 +85,7 @@ namespace UI
             case::UI::Key::KEY_BACKSLASH     : return KeyboardKey::KEY_BACKSLASH       ;
             case::UI::Key::KEY_RIGHT_BRACKET : return KeyboardKey::KEY_RIGHT_BRACKET   ;
             case::UI::Key::KEY_GRAVE         : return KeyboardKey::KEY_GRAVE           ;
-            case::UI::Key::KEY_ESCAPE        : return KeyboardKey::KEY_ESCAPE          ; 
+            case::UI::Key::KEY_ESCAPE        : return KeyboardKey::KEY_ESCAPE          ;
             case::UI::Key::KEY_ENTER         : return KeyboardKey::KEY_ENTER           ;
             case::UI::Key::KEY_TAB           : return KeyboardKey::KEY_TAB             ;
             case::UI::Key::KEY_BACKSPACE     : return KeyboardKey::KEY_BACKSPACE       ;
@@ -145,12 +145,12 @@ namespace UI
             case::UI::Key::KEY_BACK          : return KeyboardKey::KEY_BACK            ;
             case::UI::Key::KEY_MENU          : return KeyboardKey::KEY_MENU            ;
             default                          : return KeyboardKey::KEY_NULL            ;
-        }   
-    }                                           
-}                                               
-                                                
-#include <iostream>                            
-//Drawing functions                           
+        }
+    }
+}
+
+#include <iostream>
+//Drawing functions
 namespace UI
 {
     void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color brdr, Color bg)
@@ -163,7 +163,7 @@ namespace UI
             DrawRectangle(x, y, width, height, {bg.r, bg.g, bg.b, bg.a});
             //DrawRectangleRounded({x+border_size, y+border_size, width-border_size, height-border_size}, ((float)corner_radius / Min(width-border_size, height - border_size)), 4, {bg.r, bg.g, bg.b, bg.a});
             //DrawRectangleRoundedLinesEx({x+border_size, y+border_size, width-border_size, height-border_size}, ((float)corner_radius / Min(width-border_size, height - border_size)), 4,border_size, {brdr.r, brdr.g, brdr.b, brdr.a});
-            
+
             return;
         }
         #endif
@@ -172,14 +172,14 @@ namespace UI
         int near_offset = corner_radius + border_size;
         int outer_radius = corner_radius + border_size;
         int segments = 4;
-        if(corner_radius == 255)    
+        if(corner_radius == 255)
         {
             DrawCircle(x, y, corner_radius, {bg.r, bg.g, bg.b, bg.a});
             DrawRing({x, y}, corner_radius, outer_radius, 0, 360, 32, {brdr.r, brdr.g, brdr.b, brdr.a});
         }
         else
         {
-            //inner 
+            //inner
             DrawRing({x + near_offset, y + near_offset}, 0, corner_radius, 180, 270,                segments, {bg.r, bg.g, bg.b, bg.a}); //top left
             DrawRing({x + width - near_offset, y + near_offset}, 0, corner_radius, 270, 360,        segments, {bg.r, bg.g, bg.b, bg.a}); //top right
             DrawRing({x + width - near_offset, y + height - near_offset}, 0, corner_radius, 0, 90,  segments, {bg.r, bg.g, bg.b, bg.a}); //bottom right
@@ -292,7 +292,7 @@ void UI::EndScissorMode_impl()
 void UI::LogError_impl(const char* msg)
 {
     if(msg != nullptr)
-        std::cout<<msg; 
+        std::cout<<msg;
 }
 
 
