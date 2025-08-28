@@ -12,7 +12,7 @@ inline void TextLayoutTest(UI::Context* context)
     UI::BoxStyle box1;
     box1.width = {100, UI::Unit::CONTENT_PERCENT};
     box1.height = {100};
-    box1.background_color = {255, 0, 0, 255};
+    box1.background_color = {0, 255, 0, 255};
 
     UI::Root(context, root, [&]
     {
@@ -22,6 +22,8 @@ inline void TextLayoutTest(UI::Context* context)
             UI::TextStyle text_style;
             text_style.FontSize(32).FgColor({255, 255, 255, 255});
             UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Should be in the green"));
+            text_style.FgColor({255, 255, 0, 255});
+            //UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"\nContinue text"));
         });
     });
 }

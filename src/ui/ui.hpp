@@ -474,10 +474,19 @@ namespace UI
             uint16_t size = 0;
             TextStyle style;
         };
+
         struct TextSpan
         {
             StringU32 text;
             TextStyle style;
+        };
+
+        struct TextSpans : public ArrayView<TextSpan>
+        {
+            // struct Iterator
+            // {
+            //     Iterator Next();
+            // };
         };
 
         struct BoxCore
@@ -503,9 +512,10 @@ namespace UI
             TextureRect texture;
             uint64_t id_key =       0;
 
-            Color background_color =    UI::Color{0, 0, 0, 0}; //used for debugging
+            Color background_color =    UI::Color{0, 0, 0, 0};
             Color border_color =        UI::Color{0, 0, 0, 0};
-            //By the end of UI::Draw(), all final measurements are placed back into box
+
+
             int scroll_x =              0;
             int scroll_y =              0;
             uint16_t width =            0;
@@ -519,6 +529,16 @@ namespace UI
             int16_t x =                 0;
             int16_t y =                 0;
 
+            /*
+                By the end of UI::Draw(), final measurements are sent to BoxResult.
+                These variables are the only things saved by layout computation.
+                Porperties like color, texture, and positioning can be passed by reference
+                straight through.
+                Properteis like width/height are progressively resolved from layout algorithms
+                at the end, width/height should hold their final measurements and BoxResult can then use
+                GetRenderWidth() to store the final computation. See void SetComputedResults(BoxCore& node);
+                to see what variable get passed down for caching into the next arena.
+            */
             //Info sent to BoxResult
             int16_t result_rel_x = 0;
             int16_t result_rel_y = 0;
@@ -528,8 +548,6 @@ namespace UI
 
             Unit::Type width_unit =              Unit::Type::PIXEL;
             Unit::Type height_unit =             Unit::Type::PIXEL;
-            Unit::Type gap_row_unit =            Unit::Type::PIXEL; //might not need
-            Unit::Type gap_column_unit =         Unit::Type::PIXEL; //might not need
             Unit::Type min_width_unit =          Unit::Type::PIXEL;
             Unit::Type max_width_unit =          Unit::Type::PIXEL;
             Unit::Type min_height_unit =         Unit::Type::PIXEL;
@@ -556,6 +574,9 @@ namespace UI
             Flow::Axis flow_axis = Flow::Axis::HORIZONTAL;
             bool scissor = false;
         public:
+            int MeasureAllTextSpanWidths() const;
+            int ComputeTextLinesAndReturnHeight();
+
             Type GetElementType() const;
             void SetFlowAxis(Flow::Axis axis);
             void SetScissor(bool flag);
@@ -577,6 +598,7 @@ namespace UI
         struct BoxResult
         {
             BoxCore* core = nullptr;
+            ArrayView<TextSpan> text_style_lines;
             int16_t rel_x = 0;
             int16_t rel_y = 0;
             uint16_t draw_width = 0;
@@ -675,13 +697,6 @@ namespace UI
         bool HandleInternalError(const Error& error);
 
         // ========== Layout ===============
-
-        //Text related
-
-        //returns text height
-        int ComputeTextLineSpans(const Internal::ArrayView<Internal::TextSpan>& text_spans);
-
-
         //Width
         void WidthContentPercentPass_Flow(TreeNode<BoxCore>* node);
         void WidthContentPercentPass_Grid(TreeNode<BoxCore>* node);
@@ -716,9 +731,9 @@ namespace UI
         TreeNode<BoxCore>* tree_core = nullptr;
         TreeNode<BoxResult>* tree_result = nullptr;
 
-        Internal::MemoryArena arena1;
-        Internal::MemoryArena arena2;
-        Internal::MemoryArena arena3;
+        Internal::MemoryArena arena1; //Arena used for building the ui tree
+        Internal::MemoryArena arena2; //Arena used for caching computed ui tree and computed text lines after measurements
+        Internal::MemoryArena arena3; //Arena used for string allocation
 
         Internal::FixedStack<TreeNode<BoxCore>*, 64> stack; //elements should never nest over 100 layers deep
         BoxCore* prev_inserted_box = nullptr;

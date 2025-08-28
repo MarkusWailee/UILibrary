@@ -163,6 +163,37 @@ namespace UI
 //Box
 namespace UI
 {
+    inline int BoxCore::MeasureAllTextSpanWidths() const
+    {
+        auto MeasureSpan = [](const TextSpan& text_span) -> int
+        {
+            int result = 0;
+            int font_size = text_span.style.GetFontSize();
+            int spacing = text_span.style.GetFontSpacing();
+            for(int i = 0; i < text_span.text.Size(); i++)
+            {
+                result += MeasureChar_impl(text_span.text[i], font_size, spacing);
+            }
+            return result;
+        };
+        int result = 0;
+        for(int i = 0; i < text_style_spans.Size(); i++)
+        {
+            result += MeasureSpan(text_style_spans[i]);
+        }
+        return result;
+    }
+    inline int BoxCore::ComputeTextLinesAndReturnHeight()
+    {
+        struct TextSpanArray
+        {
+            ArrayView<TextSpan> text_spans;
+            int current_index = 0;
+            int current_ = 0;
+        };
+
+        return 0;
+    }
     inline BoxCore::Type BoxCore::GetElementType() const
     {
         return type;
@@ -647,7 +678,6 @@ namespace UI
         parent_height -= box.padding.top + box.padding.bottom + box.margin.top + box.margin.bottom;
         parent_height = Max(0, parent_height);
         box.height =                    (uint16_t)Max(0, ParentPercentToPx(box.height,           box.height_unit,            parent_height));
-        box.gap_row =                   (uint16_t)Max(0, ParentPercentToPx(box.gap_row,          box.gap_row_unit,           parent_height));
         box.min_height =                (uint16_t)Max(0, ParentPercentToPx(box.min_height,       box.min_height_unit,        parent_height));
         box.max_height =                (uint16_t)Max(0, ParentPercentToPx(box.max_height,       box.max_height_unit,        parent_height));
     }
@@ -858,12 +888,17 @@ namespace UI
                 return;
         }
     }
+
+    //UTF 8 version
     void Context::InsertText(const UI::TextStyle& style, const StringU8& string, const char* id, bool copy_text, DebugInfo info)
 
     {
         //Need some special decoding StringU8 to StringU32
         assert(0 && "have not made function yet");
     }
+
+    //UTF 32 version
+    //This is complete for now
     void Context::InsertText(const UI::TextStyle& style, const StringU32& string, const char* id, bool copy_text, DebugInfo info)
     {
         #if UI_ENABLE_DEBUG
@@ -892,7 +927,7 @@ namespace UI
             return;
         }
 
-        // This might look ambiguous, but Im appending the onto the previous boxes text array here
+        // This might look ambiguous, but Im appending the onto the previous boxes text array here.
         TextSpan* span = arena1.New<TextSpan>(TextSpan{.text = string, .style = style});
         prev_inserted_box->text_style_spans.size++;
         assert(span && "arena1 out of memroy");
@@ -936,11 +971,6 @@ namespace UI
         }
     }
 
-    //int Context::ComputeTextLineSpans(const ArrayView<TextSpan>& text_spans)
-    int Context::ComputeTextLineSpans(const ArrayView<TextSpan>& text_spans)
-    {
-        return 1;
-    }
 
     void Context::WidthContentPercentPass_Flow(TreeNode<BoxCore>* node)
     {
@@ -958,9 +988,9 @@ namespace UI
 
                 if(box.IsTextElement())
                 {
-                    content_width += MeasureTextSpans(box.text_style_spans);
+                    //content_width += MeasureTextSpans(box.text_style_spans);
+                    content_width += box.MeasureAllTextSpanWidths();
                 }
-
                 else if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
                 box.width_unit != Unit::Type::PARENT_PERCENT &&
                 box.max_width_unit != Unit::Type::PARENT_PERCENT &&
@@ -1420,6 +1450,10 @@ namespace UI
     }
 
 
+    /*
+        This is an important path for measuring text height and generating
+        the line spans that will be saved in BoxResult
+    */
     void Context::HeightContentPercentPass_Flow(TreeNode<BoxCore>* node)
     {
         assert(node);
@@ -1437,7 +1471,7 @@ namespace UI
                 if(box.IsDetached()) //Ignore layout for detached boxes
                     continue;
 
-                /* Measure text height here
+                /* Measure text height here (old way)
                 if(box.text)
                 {
                     //Width should be computed by this point
@@ -1448,6 +1482,10 @@ namespace UI
                     box.height = md.GetMeasuredHeight();
                 }
                 */
+                if(box.IsTextElement())
+                {
+
+                }
 
 
                 //Ignore these values
@@ -1783,37 +1821,37 @@ namespace UI
         if(!node || !node->box.core)
             return;
 
-        const BoxResult& box = node->box;
-        const BoxCore& core = *node->box.core;
+        const BoxResult& box_result = node->box;
+        const BoxCore& box_core = *node->box.core;
 
         Rect draw;
-        draw.x = core.x + box.rel_x + parent_x;
-        draw.y = core.y + box.rel_y + parent_y;
-        draw.width = box.draw_width;
-        draw.height = box.draw_height;
+        draw.x = box_core.x + box_result.rel_x + parent_x;
+        draw.y = box_core.y + box_result.rel_y + parent_y;
+        draw.width = box_result.draw_width;
+        draw.height = box_result.draw_height;
 
 
         //Render current box
-        if(core.IsTextElement())
+        if(box_core.IsTextElement())
         {
-            for(int i = 0; i < core.text_style_spans.Size(); i++)
-                DrawText_impl(core.text_style_spans[i].style, draw.x, draw.y, core.text_style_spans[i].text.data, core.text_style_spans[i].text.Size());
+            for(int i = 0; i < box_core.text_style_spans.Size(); i++)
+                DrawText_impl(box_core.text_style_spans[i].style, draw.x, draw.y, box_core.text_style_spans[i].text.data, box_core.text_style_spans[i].text.Size());
         }
-        else if(core.texture.HasTexture())
+        else if(box_core.texture.HasTexture())
         {
-            DrawTexturedRectangle_impl(draw.x, draw.y, draw.width, draw.height, core.texture);
+            DrawTexturedRectangle_impl(draw.x, draw.y, draw.width, draw.height, box_core.texture);
         }
         else
         {
-            DrawRectangle_impl(draw.x, draw.y, draw.width, draw.height, core.corner_radius, core.border_width, core.border_color, core.background_color);
+            DrawRectangle_impl(draw.x, draw.y, draw.width, draw.height, box_core.corner_radius, box_core.border_width, box_core.border_color, box_core.background_color);
         }
 
 
         //Render children boxes
-        int x = draw.x - core.scroll_x;
-        int y = draw.y - core.scroll_y;
+        int x = draw.x - box_core.scroll_x;
+        int y = draw.y - box_core.scroll_y;
 
-        if(core.IsScissor())
+        if(box_core.IsScissor())
             scissor_aabb = Rect::Intersection(scissor_aabb, draw);
 
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
@@ -1825,11 +1863,11 @@ namespace UI
                 continue;
             }
 
-            if(core.IsScissor())
+            if(box_core.IsScissor())
                 BeginScissorMode_impl(scissor_aabb);
             DrawPass(&temp->value, x, y, scissor_aabb);
         }
-        if(core.IsScissor())
+        if(box_core.IsScissor())
             EndScissorMode_impl();
     }
 
