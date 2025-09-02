@@ -27,7 +27,7 @@ private:
 
 namespace UI::Internal
 {
-    
+
 
 
     template<typename T, unsigned int CAPACITY>
@@ -62,7 +62,7 @@ namespace UI::Internal
     // ========== Useful Hash Functions ==========
     constexpr uint64_t HashCombine(uint64_t seed, uint64_t value);
     template<typename T>
-    constexpr typename std::enable_if<std::is_enum<T>::value, uint64_t>::type 
+    constexpr typename std::enable_if<std::is_enum<T>::value, uint64_t>::type
     CastToU64(T value);
     template<typename T>
     constexpr typename std::enable_if<std::is_integral<T>::value, uint64_t>::type
@@ -134,7 +134,7 @@ namespace UI::Internal
     {
     public:
         bool IsEmpty() const;
-        uint64_t Size() const; 
+        uint64_t Size() const;
         T& operator[](uint64_t index);
         const T& operator[](uint64_t index) const;
         T* data = nullptr;
@@ -146,12 +146,12 @@ namespace UI::Internal
     {
     public:
         bool IsEmpty() const;
-        uint64_t Size() const; 
-        T operator[](uint64_t index) const;
+        uint64_t Size() const;
+        const T& operator[](uint64_t index) const;
         const T* data = nullptr;
         uint64_t size = 0;
     };
-    
+
 
 
     template<typename T>
@@ -184,7 +184,7 @@ namespace UI::Internal
     {
         char* data = nullptr;
         uint64_t capacity = 0;
-        uint64_t current_offset = 0; 
+        uint64_t current_offset = 0;
     public:
         MemoryArena(uint64_t cap);
         ~MemoryArena();
@@ -218,7 +218,7 @@ namespace UI::Internal
     class ArenaLL
     {
     public:
-        struct Node 
+        struct Node
         {
             Node* next = nullptr;
             T value;
@@ -237,6 +237,30 @@ namespace UI::Internal
         Node* GetTail();
     };
 
+    template<typename T>
+    class ArenaDLL
+    {
+    public:
+        struct Node
+        {
+            Node* next = nullptr;
+            Node* prev = nullptr;
+            T value;
+        };
+    private:
+        Node* head = nullptr;
+        Node* tail = nullptr;
+    public:
+        //returns address or nullptr if arena is out of space
+        T* Add(const T& value, MemoryArena* arena);
+        bool IsEmpty() const;
+        //Just sets head/tail to nullptr
+        void Clear();
+        bool PopHead();
+        bool PopTail();
+        Node* GetHead();
+        Node* GetTail();
+    };
 
 
     template<typename T>
@@ -251,7 +275,7 @@ namespace UI::Internal
             T value;
         };
         bool AllocateCapacity(uint32_t count, MemoryArena* arena);
-        void RewindArena(MemoryArena* arena); 
+        void RewindArena(MemoryArena* arena);
         T* Insert(uint64_t key, const T& value);
         T* GetValue(uint64_t key);
         void Reset();
@@ -270,7 +294,7 @@ namespace UI::Internal
     template<typename T>
     class ArenaDoubleBufferMap
     {
-    
+
         ArenaMap<T> front;
         ArenaMap<T> back;
     public:
@@ -318,7 +342,7 @@ namespace UI::Internal
         assert(0 && "No hash function provided");
         return 0;
     }
-    inline constexpr uint64_t HashCombine(uint64_t seed, uint64_t value) 
+    inline constexpr uint64_t HashCombine(uint64_t seed, uint64_t value)
     {
         return seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2));
     }
@@ -357,7 +381,7 @@ namespace UI::Internal
         return CAPACITY;
     }
     template<typename T, unsigned int CAPACITY>
-    inline T& FixedArray<T, CAPACITY>::operator[](unsigned int index) 
+    inline T& FixedArray<T, CAPACITY>::operator[](unsigned int index)
     {
         assert(index < CAPACITY);
         return data[index];
@@ -391,7 +415,7 @@ namespace UI::Internal
     template<typename T, unsigned int CAPACITY>
     inline void FixedStack<T, CAPACITY>::Clear()
     {
-        size = 0; 
+        size = 0;
     }
     template<typename T, unsigned int CAPACITY>
     inline uint32_t FixedStack<T, CAPACITY>::Size() const
@@ -404,7 +428,7 @@ namespace UI::Internal
         return CAPACITY;
     }
     template<typename T, unsigned int CAPACITY>
-    inline T& FixedStack<T, CAPACITY>::operator[](unsigned int index) 
+    inline T& FixedStack<T, CAPACITY>::operator[](unsigned int index)
     {
         assert(index < size);
         return data[index];
@@ -516,12 +540,12 @@ namespace UI::Internal
         return size == 0 || data == nullptr;
     }
     template<typename T>
-    inline T ArrayViewConst<T>::operator[](uint64_t index) const
+    inline const T& ArrayViewConst<T>::operator[](uint64_t index) const
     {
         assert(index < size && "ArrayView out of scope");
         return data[index];
     }
-    
+
     template<typename T>
     inline Map<T>::~Map()
     {
@@ -660,7 +684,7 @@ namespace UI::Internal
 
 
     //MemoryArena Implementation
-    inline MemoryArena::MemoryArena(uint64_t bytes) 
+    inline MemoryArena::MemoryArena(uint64_t bytes)
         : capacity(bytes), current_offset(0), data(new char[bytes])
     {
         assert(data); //Over Capacity
@@ -687,7 +711,7 @@ namespace UI::Internal
         assert((alignment & (alignment - 1)) == 0 && "Alignment must be power of 2");
         alignment--;
         current_offset = (current_offset + alignment) & ~alignment;
-        uint64_t new_offset = current_offset + bytes; 
+        uint64_t new_offset = current_offset + bytes;
         if(new_offset <= capacity)
         {
             void* ptr = (data + current_offset);
@@ -700,7 +724,7 @@ namespace UI::Internal
     inline T* MemoryArena::NewArray(uint64_t count)
     {
         assert(count && "0 count");
-        T* temp = (T*)Allocate(count * sizeof(T), alignof(T)); 
+        T* temp = (T*)Allocate(count * sizeof(T), alignof(T));
         if(!temp) return nullptr;
         //initialize
         for(uint64_t i = 0; i<count; i++)
@@ -711,7 +735,7 @@ namespace UI::Internal
     inline T* MemoryArena::NewArrayZero(uint64_t count)
     {
         assert(count && "0 count");
-        T* temp = (T*)Allocate(count * sizeof(T), alignof(T)); 
+        T* temp = (T*)Allocate(count * sizeof(T), alignof(T));
         if(!temp) return nullptr;
         //initialize
         memset(temp, 0, count * sizeof(T));
@@ -721,7 +745,7 @@ namespace UI::Internal
     inline T* MemoryArena::NewArrayCopy(const T* src, uint64_t count)
     {
         assert(count && "0 count");
-        T* temp = (T*)Allocate(count * sizeof(T), alignof(T)); 
+        T* temp = (T*)Allocate(count * sizeof(T), alignof(T));
         if(!temp) return nullptr;
         //initialize
         memcpy(temp, src, count * sizeof(T));
@@ -730,7 +754,7 @@ namespace UI::Internal
     template<typename T>
     inline T* MemoryArena::New()
     {
-        T* temp = (T*)Allocate(sizeof(T), alignof(T)); 
+        T* temp = (T*)Allocate(sizeof(T), alignof(T));
         if(!temp) return nullptr;
         *temp = T();
         return temp;
@@ -738,7 +762,7 @@ namespace UI::Internal
     template<typename T>
     inline T* MemoryArena::New(const T& value)
     {
-        T* temp = (T*)Allocate(sizeof(T), alignof(T)); 
+        T* temp = (T*)Allocate(sizeof(T), alignof(T));
         if(!temp) return nullptr;
         *temp = value;
         return temp;
@@ -750,7 +774,7 @@ namespace UI::Internal
         assert(ptr >= data && ptr < data + capacity);
         uint64_t new_offset = ((char*)ptr - data);
         if(new_offset < current_offset)
-            current_offset = new_offset; 
+            current_offset = new_offset;
     }
     inline void MemoryArena::Reset()
     {
@@ -790,12 +814,12 @@ namespace UI::Internal
     template<typename T>
     inline typename ArenaLL<T>::Node* ArenaLL<T>::GetHead()
     {
-        return head; 
+        return head;
     }
     template<typename T>
     inline typename ArenaLL<T>::Node* ArenaLL<T>::GetTail()
     {
-        return tail; 
+        return tail;
     }
     template<typename T>
     inline bool ArenaLL<T>::PopHead()
@@ -818,6 +842,74 @@ namespace UI::Internal
     }
 
 
+    //ArenaDLL Implementation
+    template<typename T>
+    inline T* ArenaDLL<T>::Add(const T& value, MemoryArena* arena)
+    {
+        assert(arena);
+        Node* temp = arena->New<ArenaDLL<T>::Node>();
+        if(!temp)
+            return nullptr;
+        temp->value = value;
+        if(head == nullptr)
+        {
+            head = temp;
+            tail = temp;
+        }
+        else
+        {
+            temp->prev = tail;
+            tail->next = temp;
+            tail = temp;
+        }
+        return &temp->value;
+    }
+
+    template<typename T>
+    inline typename ArenaDLL<T>::Node* ArenaDLL<T>::GetHead()
+    {
+        return head;
+    }
+    template<typename T>
+    inline typename ArenaDLL<T>::Node* ArenaDLL<T>::GetTail()
+    {
+        return tail;
+    }
+    template<typename T>
+    inline bool ArenaDLL<T>::PopHead()
+    {
+        if(head == nullptr)
+            return false;
+        head = head->next;
+        if(head)
+            head->prev = nullptr;
+        else
+            tail = nullptr;
+        return true;
+    }
+    template<typename T>
+    inline bool ArenaDLL<T>::PopTail()
+    {
+        if(tail == nullptr)
+            return false;
+        tail = tail->prev;
+        if(tail)
+            tail->next = nullptr;
+        else
+            head = nullptr;
+        return true;
+    }
+    template<typename T>
+    inline void ArenaDLL<T>::Clear()
+    {
+        head = nullptr;
+        tail = nullptr;
+    }
+    template<typename T>
+    inline bool ArenaDLL<T>::IsEmpty() const
+    {
+        return head == nullptr;
+    }
 
     //Map Implementation
     template<typename T>
@@ -853,7 +945,7 @@ namespace UI::Internal
     {
         if(!key || data == nullptr)
             return nullptr; //key should never be 0
-        
+
         int index = key % cap1;
         if(data[index].key == 0)
         {

@@ -30,8 +30,8 @@
 namespace UI
 {
     using StringU8 = Internal::ArrayViewConst<char>;
-    using StringU32 = Internal::ArrayViewConst<char32_t>;
     using StringAsci = Internal::ArrayViewConst<char>;
+    struct StringU32;
     class Context;
     class Builder;
     struct Error;
@@ -174,6 +174,17 @@ namespace UI
         MOUSE_EXTRA   = 4,       // Mouse button extra (advanced mouse device)
         MOUSE_FORWARD = 5,       // Mouse button forward (advanced mouse device)
         MOUSE_BACK    = 6,       // Mouse button back (advanced mouse device)
+    };
+
+    struct StringU32 : public Internal::ArrayViewConst<char32_t>
+    {
+        StringU32 SubStr(int start, int size) const
+        {
+            if(size == -1)
+                size = (int)Size() - start;
+            assert(start >= 0 && start <= (int)this->Size() && size <= (int)this->Size() - start);
+            return {data + start, (uint64_t)size};
+        }
     };
 
     constexpr uint64_t KB = 1024;
@@ -337,6 +348,7 @@ namespace UI
         int GetFontSpacing() const;
         int GetLineSpacing() const;
         Color GetColor() const;
+        // bool operator==(const TextStyle& t) const;
     private:
         Color fg_color;
         Color bg_color;
@@ -466,27 +478,40 @@ namespace UI
     //Internal namespace is just used for seperation in public api
     namespace Internal
     {
-        struct TextLine
-        {
-            int x = 0;
-            int y = 0;
-            const char16_t* text = nullptr;
-            uint16_t size = 0;
-            TextStyle style;
-        };
 
         struct TextSpan
         {
             StringU32 text;
             TextStyle style;
         };
+        struct TextLine : public TextSpan
+        {
+            int x = 0;
+            int y = 0;
+        };
+        using TextLines = ArrayView<TextLine>;
 
         struct TextSpans : public ArrayView<TextSpan>
         {
-            // struct Iterator
-            // {
-            //     Iterator Next();
-            // };
+            //Used for wrapping algorithm
+            struct Iterator
+            {
+                TextSpans* ref_ = nullptr;
+                int string_index = 0;
+                int span_index = 0;
+                Iterator Next() const;
+                Iterator Back() const;
+                bool IsValid() const;
+                char32_t GetChar() const;
+                TextStyle GetStyle() const;
+                TextSpan GetSpan();
+                bool operator==(const Iterator& a) const;
+                bool operator!=(const Iterator& a) const;
+            };
+            Iterator Begin();
+
+            //Iterators must have the same span_index.
+            static StringU32 GetSubString(Iterator start, Iterator end);
         };
 
         struct BoxCore
@@ -507,7 +532,7 @@ namespace UI
             };
 
             //an array of styled text
-            ArrayView<TextSpan> text_style_spans;
+            TextSpans text_style_spans;
 
             TextureRect texture;
             uint64_t id_key =       0;
@@ -540,6 +565,7 @@ namespace UI
                 to see what variable get passed down for caching into the next arena.
             */
             //Info sent to BoxResult
+            TextLines result_text_lines;
             int16_t result_rel_x = 0;
             int16_t result_rel_y = 0;
             uint16_t result_content_width = 0;
@@ -575,8 +601,6 @@ namespace UI
             bool scissor = false;
         public:
             int MeasureAllTextSpanWidths() const;
-            int ComputeTextLinesAndReturnHeight();
-
             Type GetElementType() const;
             void SetFlowAxis(Flow::Axis axis);
             void SetScissor(bool flag);
@@ -598,7 +622,7 @@ namespace UI
         struct BoxResult
         {
             BoxCore* core = nullptr;
-            ArrayView<TextSpan> text_style_lines;
+            TextLines text_lines;
             int16_t rel_x = 0;
             int16_t rel_y = 0;
             uint16_t draw_width = 0;
@@ -697,6 +721,8 @@ namespace UI
         bool HandleInternalError(const Error& error);
 
         // ========== Layout ===============
+        //Text
+        int ComputeTextLinesAndReturnHeight(BoxCore& box);
         //Width
         void WidthContentPercentPass_Flow(TreeNode<BoxCore>* node);
         void WidthContentPercentPass_Grid(TreeNode<BoxCore>* node);
@@ -830,6 +856,10 @@ namespace UI
     {
         return line_spacing;
     }
+    // inline bool TextStyle::operator==(const TextStyle& t) const
+    // {
+    //     return std::memcmp(this, &t, sizeof(TextStyle)) == 0;
+    // }
 
     template<typename Func>
     inline void Root(Context* context, const BoxStyle& style, Func&& func, DebugInfo debug_info)

@@ -38,6 +38,7 @@ namespace UI
 
 
     inline void BeginScissorMode_impl(const Rect& rect) { BeginScissorMode_impl((float)rect.x, (float)rect.y, (float)rect.width, (float)rect.height);}
+    inline int MeasureChar_impl(char32_t c, const TextStyle& style) { return MeasureChar_impl(c, style.GetFontSize(), style.GetFontSpacing()); }
 
 }
 
@@ -163,6 +164,122 @@ namespace UI
 //Box
 namespace UI
 {
+    TextSpans::Iterator TextSpans::Iterator::Next() const
+    {
+        assert(this->ref_);
+        Iterator it = *this;
+        const TextSpans& spans = *it.ref_;
+
+        if(it.IsValid())
+        {
+            it.string_index++;
+            if(it.string_index >= spans[it.span_index].text.Size())
+            {
+                it.span_index++;
+                it.string_index = 0;
+            }
+        }
+        else if(it.span_index < 0)
+        {
+            it.span_index = 0;
+            it.string_index = 0;
+        }
+
+        return it;
+    }
+
+    TextSpans::Iterator TextSpans::Iterator::Back() const
+    {
+        assert(this->ref_);
+        Iterator it = *this;
+        const TextSpans& spans = *it.ref_;
+
+        if(it.IsValid())
+        {
+            it.string_index--;
+            if(it.string_index < 0)
+            {
+                it.span_index--;
+                it.string_index = 0;
+                if(it.span_index >= 0)
+                    it.string_index = (int)spans[it.span_index].text.Size() - 1;
+            }
+        }
+        else if(it.span_index >= (int)spans.Size())
+        {
+            it.span_index = (int)spans.Size() - 1;
+            it.string_index = (int)spans[it.span_index].text.Size() - 1;
+        }
+
+        return it;
+    }
+
+    bool TextSpans::Iterator::IsValid() const
+    {
+        assert(this->ref_);
+        return span_index >= 0 && span_index < (int)ref_->Size() &&
+            string_index >= 0 && string_index < (int)(*ref_)[span_index].text.Size();
+    }
+    char32_t TextSpans::Iterator::GetChar() const
+    {
+        assert(IsValid());
+        // if(IsValid())
+            return (*ref_)[span_index].text[string_index];
+        // return 0;
+    }
+
+    TextStyle TextSpans::Iterator::GetStyle() const
+    {
+        // assert(this->ref_);
+        // const TextSpans& spans = *ref_;
+        //
+        // if(IsValid())
+        assert(IsValid());
+            return (*ref_)[span_index].style;
+        // return TextStyle();
+    }
+    TextSpan TextSpans::Iterator::GetSpan()
+    {
+        assert(ref_ && IsValid());
+        return (*ref_)[span_index];
+    }
+    bool TextSpans::Iterator::operator==(const Iterator& a) const
+    {
+        return
+            ref_ == a.ref_ &&
+            string_index == a.string_index &&
+            span_index == a.span_index;
+    }
+    bool TextSpans::Iterator::operator!=(const Iterator& a) const
+    {
+        return
+            !(ref_ == a.ref_ &&
+            string_index == a.string_index &&
+            span_index == a.span_index);
+    }
+
+    TextSpans::Iterator TextSpans::Begin()
+    {
+        return Iterator{this, 0, 0};
+    }
+
+    StringU32 TextSpans::GetSubString(Iterator start, Iterator end)
+    {
+        if(start.IsValid())
+        {
+            // auto end_back = end.Back();
+            // assert(end_back.IsValid() && "End not valid");
+            // if(end_back.IsValid() && start.span_index == end_back.span_index)
+            // {
+            //     int size = end_back.string_index - start.string_index + 1;
+            //     assert(size >= 1);
+            //     return (*start.ref_)[start.span_index].text.SubStr(start.string_index, size);
+            // }
+            // return (*start.ref_)[start.span_index].text.SubStr(start.string_index, 0);
+        }
+        return UI::MakeStringU32(U"Error");
+    }
+
     inline int BoxCore::MeasureAllTextSpanWidths() const
     {
         auto MeasureSpan = [](const TextSpan& text_span) -> int
@@ -183,17 +300,8 @@ namespace UI
         }
         return result;
     }
-    inline int BoxCore::ComputeTextLinesAndReturnHeight()
-    {
-        struct TextSpanArray
-        {
-            ArrayView<TextSpan> text_spans;
-            int current_index = 0;
-            int current_ = 0;
-        };
 
-        return 0;
-    }
+
     inline BoxCore::Type BoxCore::GetElementType() const
     {
         return type;
@@ -272,6 +380,7 @@ namespace UI
     inline void BoxResult::SetComputedResults(BoxCore& node)
     {
         UpdatePointer(node);
+        this->text_lines = node.result_text_lines;
         this->rel_x = node.result_rel_x;
         this->rel_y = node.result_rel_y;
         this->draw_width = node.GetRenderingWidth();
@@ -922,7 +1031,7 @@ namespace UI
             box.type = BoxType::TEXT;
             box.width = 100;
             box.width_unit = Unit::AVAILABLE_PERCENT;
-            box.text_style_spans = ArrayView<TextSpan>{span, 1};
+            box.text_style_spans = TextSpans{span, 1};
             prev_inserted_box = &node->box;
             return;
         }
@@ -934,6 +1043,65 @@ namespace UI
     }
 
 
+    //TO BE CONTINUED
+    inline int Context::ComputeTextLinesAndReturnHeight(BoxCore& box)
+    {
+        struct Int2 { int x = 0, y = 0; };
+        Int2 pos;
+        Int2 cursor;
+        int max_width = box.width;
+
+        auto start = box.text_style_spans.Begin();
+        auto end = box.text_style_spans.Begin();
+        auto space = box.text_style_spans.Begin().Back();
+        int word = 0;
+        auto AddTextLine = [&]
+        {
+            assert(start.IsValid());
+            TextLine* line = arena2.New<TextLine>(TextLine{start.GetSpan(), pos.x, pos.y});
+            assert(line && "Arena2 out of memory");
+            if(box.result_text_lines.IsEmpty())
+            {
+                box.result_text_lines = {line, 1};
+            }
+            else
+            {
+                box.result_text_lines.size++;
+            }
+        };
+
+        // while(end.IsValid())
+        // {
+        //     int w = MeasureChar_impl(end.GetChar(), end.GetStyle());
+        //     word += w;
+        //     cursor.x += w;
+        //
+        //     if(end.GetChar() == U' ') //markdown the last space
+        //     {
+        //         space = end;
+        //         word = 0;
+        //     }
+        //
+        //     if(cursor.x > max_width) //Wrap text
+        //     {
+        //         end = space;
+        //         cursor.x = 0;
+        //         cursor.y += end.GetStyle().GetFontSize() + end.GetStyle().GetLineSpacing();
+        //
+        //         start = end;
+        //         //To DO initialize text lines here
+        //     }
+        //
+        //
+        //     end = end.Next();
+        // }
+        // if(start.IsValid())
+
+        AddTextLine();
+        AddTextLine();
+        box.height = 100;
+        return 0;
+    }
 
 
     void Context::Draw()
@@ -1484,7 +1652,7 @@ namespace UI
                 */
                 if(box.IsTextElement())
                 {
-
+                    ComputeTextLinesAndReturnHeight(box);
                 }
 
 
@@ -1834,8 +2002,13 @@ namespace UI
         //Render current box
         if(box_core.IsTextElement())
         {
-            for(int i = 0; i < box_core.text_style_spans.Size(); i++)
-                DrawText_impl(box_core.text_style_spans[i].style, draw.x, draw.y, box_core.text_style_spans[i].text.data, box_core.text_style_spans[i].text.Size());
+            for(int i = 0; i < box_result.text_lines.Size(); i++)
+            {
+                const TextLine& line = box_result.text_lines[i];
+                int x = line.x + draw.x;
+                int y = line.y + draw.y;
+                DrawText_impl(line.style, x, y, line.text.data, line.text.Size());
+            }
         }
         else if(box_core.texture.HasTexture())
         {
