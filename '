@@ -14,7 +14,7 @@ namespace UI
     BoxCore ComputeStyleSheet(const BoxStyle& style, const BoxCore& root);
 
     //Text related functions
-    int MeasureTextSpans(const BoxCore& box);
+    int MeasureTextSpans(const ArrayView<TextSpan>& text_spans);
 
     //Size should include '\0'
     void StringCopy(char* dst, const char* src, uint32_t size);
@@ -164,6 +164,143 @@ namespace UI
 //Box
 namespace UI
 {
+    TextSpans::Iterator TextSpans::Iterator::Next() const
+    {
+        assert(this->ref_);
+        Iterator it = *this;
+        const TextSpans& spans = *it.ref_;
+
+        if(it.IsValid())
+        {
+            it.string_index++;
+            if(it.string_index >= spans[it.span_index].text.Size())
+            {
+                it.span_index++;
+                it.string_index = 0;
+            }
+        }
+        else if(it.span_index < 0)
+        {
+            it.span_index = 0;
+            it.string_index = 0;
+        }
+
+        return it;
+    }
+
+    TextSpans::Iterator TextSpans::Iterator::Back() const
+    {
+        assert(this->ref_);
+        Iterator it = *this;
+        const TextSpans& spans = *it.ref_;
+
+        if(it.IsValid())
+        {
+            it.string_index--;
+            if(it.string_index < 0)
+            {
+                it.span_index--;
+                it.string_index = 0;
+                if(it.span_index >= 0)
+                    it.string_index = (int)spans[it.span_index].text.Size() - 1;
+            }
+        }
+        else if(it.span_index >= (int)spans.Size())
+        {
+            it.span_index = (int)spans.Size() - 1;
+            it.string_index = (int)spans[it.span_index].text.Size() - 1;
+        }
+
+        return it;
+    }
+
+    bool TextSpans::Iterator::IsValid() const
+    {
+        assert(this->ref_);
+        return span_index >= 0 && span_index < (int)ref_->Size() &&
+            string_index >= 0 && string_index < (int)(*ref_)[span_index].text.Size();
+    }
+    char32_t TextSpans::Iterator::GetChar() const
+    {
+        assert(IsValid());
+        // if(IsValid())
+            return (*ref_)[span_index].text[string_index];
+        // return 0;
+    }
+
+    TextStyle TextSpans::Iterator::GetStyle() const
+    {
+        // assert(this->ref_);
+        // const TextSpans& spans = *ref_;
+        //
+        // if(IsValid())
+        assert(IsValid());
+            return (*ref_)[span_index].style;
+        // return TextStyle();
+    }
+    TextSpan TextSpans::Iterator::GetSpan()
+    {
+        assert(ref_ && IsValid());
+        return (*ref_)[span_index];
+    }
+    bool TextSpans::Iterator::operator==(const Iterator& a) const
+    {
+        return
+            ref_ == a.ref_ &&
+            string_index == a.string_index &&
+            span_index == a.span_index;
+    }
+    bool TextSpans::Iterator::operator!=(const Iterator& a) const
+    {
+        return
+            !(ref_ == a.ref_ &&
+            string_index == a.string_index &&
+            span_index == a.span_index);
+    }
+
+    TextSpans::Iterator TextSpans::Begin()
+    {
+        return Iterator{this, 0, 0};
+    }
+
+    StringU32 TextSpans::GetSubString(Iterator start, Iterator end)
+    {
+        if(start.IsValid())
+        {
+            // auto end_back = end.Back();
+            // assert(end_back.IsValid() && "End not valid");
+            // if(end_back.IsValid() && start.span_index == end_back.span_index)
+            // {
+            //     int size = end_back.string_index - start.string_index + 1;
+            //     assert(size >= 1);
+            //     return (*start.ref_)[start.span_index].text.SubStr(start.string_index, size);
+            // }
+            // return (*start.ref_)[start.span_index].text.SubStr(start.string_index, 0);
+        }
+        return UI::MakeStringU32(U"Error");
+    }
+
+    inline int BoxCore::MeasureAllTextSpanWidths() const
+    {
+        auto MeasureSpan = [](const TextSpan& text_span) -> int
+        {
+            int result = 0;
+            int font_size = text_span.style.GetFontSize();
+            int spacing = text_span.style.GetFontSpacing();
+            for(int i = 0; i < text_span.text.Size(); i++)
+            {
+                result += MeasureChar_impl(text_span.text[i], font_size, spacing);
+            }
+            return result;
+        };
+        int result = 0;
+        for(int i = 0; i < text_style_spans.Size(); i++)
+        {
+            result += MeasureSpan(text_style_spans[i]);
+        }
+        return result;
+    }
+
 
     inline BoxCore::Type BoxCore::GetElementType() const
     {
@@ -443,9 +580,25 @@ namespace UI
     }
 
 
-    int MeasureTextSpans(const BoxCore& box)
+    int MeasureTextSpans(const ArrayView<TextSpan>& text_spans)
     {
-        return 100;
+        auto MeasureSpan = [](const TextSpan& text_span) -> int
+        {
+            int result = 0;
+            int font_size = text_span.style.GetFontSize();
+            int spacing = text_span.style.GetFontSpacing();
+            for(int i = 0; i < text_span.text.Size(); i++)
+            {
+                result += MeasureChar_impl(text_span.text[i], font_size, spacing);
+            }
+            return result;
+        };
+        int result = 0;
+        for(int i = 0; i < text_spans.Size(); i++)
+        {
+            result += MeasureSpan(text_spans[i]);
+        }
+        return result;
     }
 
     void StringCopy(char* dst, const char* src, uint32_t size)
@@ -874,10 +1027,9 @@ namespace UI
     }
 
 
-    //todo
+    //TO BE CONTINUED
     inline int Context::ComputeTextLinesAndReturnHeight(BoxCore& box)
     {
-        return 0;
     }
 
 
@@ -933,7 +1085,8 @@ namespace UI
 
                 if(box.IsTextElement())
                 {
-                    content_width += MeasureTextSpans(box);
+                    //content_width += MeasureTextSpans(box.text_style_spans);
+                    content_width += box.MeasureAllTextSpanWidths();
                 }
                 else if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
                 box.width_unit != Unit::Type::PARENT_PERCENT &&
@@ -963,7 +1116,7 @@ namespace UI
 
                 if(box.IsTextElement())
                 {
-                    int width = MeasureTextSpans(box);
+                    int width = MeasureTextSpans(box.text_style_spans);
                     if(largest_width < width)
                         largest_width = width;
                 }
@@ -1778,7 +1931,13 @@ namespace UI
         //Render current box
         if(box_core.IsTextElement())
         {
-            //todo
+            for(int i = 0; i < box_result.text_lines.Size(); i++)
+            {
+                const TextLine& line = box_result.text_lines[i];
+                int x = line.x + draw.x;
+                int y = line.y + draw.y;
+                DrawText_impl(line.style, x, y, line.text.data, line.text.Size());
+            }
         }
         else if(box_core.texture.HasTexture())
         {
