@@ -479,10 +479,36 @@ namespace UI
     namespace Internal
     {
 
-        struct TextSpan
+        struct TextSpan : public StringU32
         {
-            StringU32 text;
             TextStyle style;
+        };
+        struct TextSpans : public ArenaDLL<TextSpan>
+        {
+            /*
+                This is only used in ComputeTextLines so I can
+                iterate all characters easily for wrapping
+            */
+            struct Iterator
+            {
+                TextSpans::Node* ref_ = nullptr;
+                int string_index = 0;
+                Iterator Next() const;
+                Iterator Prev() const;
+            };
+            Iterator Begin()
+            {
+                if(GetHead())
+                    return Iterator{GetHead(), 0};
+                return Iterator{};
+            }
+            //Index is initialized past the largest index when at end
+            Iterator End()
+            {
+                if(GetTail())
+                    return Iterator{GetTail(), (int)GetTail()->value.Size()};
+                return Iterator{};
+            }
         };
 
         //The same as a text span with positions
@@ -510,7 +536,7 @@ namespace UI
             };
 
             //A doubly linked list of styled text spans
-            ArenaDLL<TextSpan> text_style_spans;
+            TextSpans text_style_spans;
 
             TextureRect texture;
             uint64_t id_key =       0;
@@ -697,9 +723,10 @@ namespace UI
         //Returns true, sets internal error, and displays error if true
         bool HandleInternalError(const Error& error);
 
+        BoxType GetPreviousNodeBoxType() const;
         // ========== Layout ===============
         //Text
-        int ComputeTextLinesAndReturnHeight(BoxCore& box);
+        void ComputeTextLinesAndHeight(BoxCore& box);
         //Width
         void WidthContentPercentPass_Flow(TreeNode<BoxCore>* node);
         void WidthContentPercentPass_Grid(TreeNode<BoxCore>* node);

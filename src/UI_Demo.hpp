@@ -23,7 +23,9 @@ inline void TextLayoutTest(UI::Context* context)
         {
             UI::TextStyle text_style;
             text_style.FontSize(32).FgColor({255, 255, 255, 255});
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Should be in the green"));
+            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Hello World "));
+            text_style.FgColor({255, 0, 0, 255});
+            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"This is my program"));
         });
     });
 }

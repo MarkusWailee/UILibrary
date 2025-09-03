@@ -1,5 +1,6 @@
 #include "ui.hpp"
 #include "Memory.hpp"
+#include <iterator>
 
 namespace UI
 {
@@ -164,6 +165,49 @@ namespace UI
 //Box
 namespace UI
 {
+    TextSpans::Iterator TextSpans::Iterator::Next() const
+    {
+        Iterator it = *this;
+        if(!it.ref_)
+            return it;
+        const TextSpan& span = it.ref_->value;
+        it.string_index++;
+        if(it.string_index >= (int)span.Size()) //Iterate next
+        {
+            if(it.ref_->next)
+            {
+                it.ref_ = it.ref_->next;
+                it.string_index = 0;
+            }
+            else //at the tail
+            {
+                //Set to one past the largest index when at the end
+                it.string_index = (int)it.ref_->value.Size();
+            }
+        }
+        return it;
+    }
+    TextSpans::Iterator TextSpans::Iterator::Prev() const
+    {
+        Iterator it = *this;
+        if(!it.ref_)
+            return it;
+        const TextSpan& span = it.ref_->value;
+        it.string_index--;
+        if(it.string_index < 0)
+        {
+            if(it.ref_->prev)
+            {
+                it.ref_ = it.ref_->prev;
+                it.string_index = (int)it.ref_->value.Size();
+            }
+            else //At the head
+            {
+                it.string_index = 0;
+            }
+        }
+        return it;
+    }
 
     inline BoxCore::Type BoxCore::GetElementType() const
     {
@@ -681,6 +725,12 @@ namespace UI
         }
         return false;
     }
+    Internal::BoxCore::Type Context::GetPreviousNodeBoxType() const
+    {
+        if(prev_inserted_box)
+            return prev_inserted_box->type;
+        return BoxType::NONE;
+    }
     BoxInfo Context::Info(uint64_t key)
     {
         #if UI_ENABLE_DEBUG
@@ -862,22 +912,31 @@ namespace UI
 
         if(HasInternalError())
             return;
-        assert(!stack.IsEmpty() && prev_inserted_box && "Most likely started without root node");
+        assert(!stack.IsEmpty() && "Most likely started without root node");
 
         TreeNode<BoxCore>* parent_node = stack.Peek();
         assert(parent_node);
 
-        if(prev_inserted_box && !prev_inserted_box->IsTextElement())
+        if(GetPreviousNodeBoxType() != BoxType::TEXT) //Initialize new text node
         {
+            TreeNode<BoxCore>* node = parent_node->children.Add(TreeNode<BoxCore>(), &arena1);
+            assert(node && "Arena1 out of memory");
+            BoxCore& box = node->box;
+            box.type = BoxType::TEXT;
+            box.width = 100;
+            box.width_unit = Unit::AVAILABLE_PERCENT;
+            prev_inserted_box = &node->box;
         }
-
+        assert(prev_inserted_box && "Should not be null");
+        TextSpan* span = prev_inserted_box->text_style_spans.Add(TextSpan{string.data, string.Size(), style}, &arena1);
+        assert(span && "Arena1 out of memory");
+        return;
     }
 
 
     //todo
-    inline int Context::ComputeTextLinesAndReturnHeight(BoxCore& box)
+    inline void Context::ComputeTextLinesAndHeight(BoxCore& box)
     {
-        return 0;
     }
 
 
@@ -1428,7 +1487,7 @@ namespace UI
                 */
                 if(box.IsTextElement())
                 {
-                    ComputeTextLinesAndReturnHeight(box);
+                    this->ComputeTextLinesAndHeight(box);
                 }
 
 
@@ -1765,8 +1824,8 @@ namespace UI
         if(!node || !node->box.core)
             return;
 
-        const BoxResult& box_result = node->box;
-        const BoxCore& box_core = *node->box.core;
+        BoxResult& box_result = node->box;
+        BoxCore& box_core = *node->box.core;
 
         Rect draw;
         draw.x = box_core.x + box_result.rel_x + parent_x;
@@ -1779,6 +1838,15 @@ namespace UI
         if(box_core.IsTextElement())
         {
             //todo
+            for(auto span = box_core.text_style_spans.GetHead(); span != nullptr; span = span->next)
+            {
+                DrawText_impl(span->value.style, draw.x, draw.y, span->value.data, span->value.Size());
+            }
+
+            // for(auto temp = box_result.text_lines.GetHead(); temp != nullptr; temp = temp->next)
+            // {
+            //     DrawText_impl(temp->value.style, draw.x, draw.y, temp->value.text.data, temp->value.text.Size());
+            // }
         }
         else if(box_core.texture.HasTexture())
         {
