@@ -491,24 +491,25 @@ namespace UI
             */
             struct Iterator
             {
-                TextSpans::Node* ref_ = nullptr;
+                TextSpans::Node* node = nullptr;
                 int string_index = 0;
                 Iterator Next() const;
                 Iterator Prev() const;
+                char32_t GetChar() const;
+                TextStyle GetStyle() const;
+                bool IsValid() const;
+
+                /*
+                   End is inclusive,
+                   End should be within the same node as Start or else
+                   Start will return its entire string
+                */
             };
-            Iterator Begin()
-            {
-                if(GetHead())
-                    return Iterator{GetHead(), 0};
-                return Iterator{};
-            }
-            //Index is initialized past the largest index when at end
-            Iterator End()
-            {
-                if(GetTail())
-                    return Iterator{GetTail(), (int)GetTail()->value.Size()};
-                return Iterator{};
-            }
+            static StringU32 GetString(Iterator start, Iterator end);
+            static TextSpan GetTextSpan(Iterator start, Iterator end);
+            Iterator Begin();
+            //The last character in the TextSpan list
+            Iterator End();
         };
 
         //The same as a text span with positions

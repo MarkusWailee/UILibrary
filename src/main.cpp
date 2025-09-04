@@ -2,27 +2,23 @@
 #include "ui/ui.hpp"
 #include "UI_Demo.hpp"
 
+void LogStringU32(const UI::StringU32& string)
+{
+    for(int i = 0; i < string.Size(); i++)
+        std::cout<<(char)string[i]<<'\n';
+}
+
 int main(void)
 {
     // {
-    //
-    //     UI::TextStyle style;
-    //     style.FgColor({255,0 ,0, 255}).FontSize(12);
-    //     UI::Internal::TextSpan spans[] =
-    //     {
-    //         UI::Internal::TextSpan{UI::MakeStringU32(U"Hello"), style},
-    //         UI::Internal::TextSpan{UI::MakeStringU32(U" World"), style}
-    //     };
-    //     UI::Internal::TextSpans a = {UI::Internal::ArrayView<UI::Internal::TextSpan>{spans, 2}};
-    //     UI::Internal::TextSpans::Iterator it = a.Begin();
-    //
-    //     UI::StringU32 str = a.GetSubString(it, it);
-    //     //UI::StringU32 str = a.GetSubString(it, it);
-    //     for(int i = 0; i < str.Size(); i++)
-    //     {
-    //         std::cout << (char)str[i];
-    //     }
-    //
+    //     using namespace UI::Internal;
+    //     MemoryArena arena(1 * UI::KB);
+    //     TextSpans spans;
+    //     spans.Add(TextSpan{UI::MakeStringU32(U"HEL"), UI::TextStyle()}, &arena);
+    //     spans.Add(TextSpan{UI::MakeStringU32(U"WORLD"), UI::TextStyle()}, &arena);
+    //     auto start = spans.Begin();
+    //     TextSpans::Iterator end;
+    //     LogStringU32(TextSpans::Iterator::GetTextSpan(start, end));
     //     std::cin.get();
     //     return 0;
     // }

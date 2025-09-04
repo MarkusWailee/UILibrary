@@ -168,21 +168,20 @@ namespace UI
     TextSpans::Iterator TextSpans::Iterator::Next() const
     {
         Iterator it = *this;
-        if(!it.ref_)
+        if(!it.node)
             return it;
-        const TextSpan& span = it.ref_->value;
+        const TextSpan& span = it.node->value;
         it.string_index++;
         if(it.string_index >= (int)span.Size()) //Iterate next
         {
-            if(it.ref_->next)
+            if(it.node->next)
             {
-                it.ref_ = it.ref_->next;
+                it.node = it.node->next;
                 it.string_index = 0;
             }
-            else //at the tail
+            else
             {
-                //Set to one past the largest index when at the end
-                it.string_index = (int)it.ref_->value.Size();
+                it.string_index--;
             }
         }
         return it;
@@ -190,23 +189,72 @@ namespace UI
     TextSpans::Iterator TextSpans::Iterator::Prev() const
     {
         Iterator it = *this;
-        if(!it.ref_)
+        if(!it.node)
             return it;
-        const TextSpan& span = it.ref_->value;
+        const TextSpan& span = it.node->value;
         it.string_index--;
         if(it.string_index < 0)
         {
-            if(it.ref_->prev)
+            if(it.node->prev)
             {
-                it.ref_ = it.ref_->prev;
-                it.string_index = (int)it.ref_->value.Size();
+                it.node = it.node->prev;
+                it.string_index = (int)it.node->value.Size() - 1;
             }
-            else //At the head
+            else
             {
                 it.string_index = 0;
             }
         }
         return it;
+    }
+
+    char32_t TextSpans::Iterator::GetChar() const
+    {
+        assert(node && string_index >= 0 && string_index < node->value.Size()); // my own sanity
+        return node->value[string_index];
+    }
+    TextStyle TextSpans::Iterator::GetStyle() const
+    {
+        assert(node && string_index >= 0 && string_index < node->value.Size()); // my own sanity
+        return node->value.style;
+    }
+    bool TextSpans::Iterator::IsValid() const
+    {
+        return node;
+    }
+
+    StringU32 TextSpans::GetString(Iterator start, Iterator end)
+    {
+        assert(start.node);
+        StringU32& string = start.node->value;
+        if(start.node == end.node) //if they are the same style
+        {
+            int size = Max(0 ,end.string_index - start.string_index + 1);
+            return string.SubStr(start.string_index, size);
+        }
+        //Just returns the whole string in start
+        return string.SubStr(start.string_index, -1);
+    }
+
+    TextSpan TextSpans::GetTextSpan(Iterator start, Iterator end)
+    {
+        assert(start.node);
+        return TextSpan{GetString(start, end), start.node->value.style};
+    }
+
+    TextSpans::Iterator TextSpans::Begin()
+    {
+        if(GetHead())
+            return Iterator{GetHead(), 0};
+        return Iterator{};
+    }
+
+    //Index is initialized past the largest index when at end
+    TextSpans::Iterator TextSpans::End()
+    {
+        if(GetTail())
+            return Iterator{GetTail(), (int)GetTail()->value.Size()};
+        return Iterator{};
     }
 
     inline BoxCore::Type BoxCore::GetElementType() const
@@ -937,6 +985,34 @@ namespace UI
     //todo
     inline void Context::ComputeTextLinesAndHeight(BoxCore& box)
     {
+        struct Int2
+        {
+            int x = 0, y = 0;
+        };
+        int max_width = box.width;
+        Int2 pos;
+        Int2 cursor;
+        auto start = box.text_style_spans.Begin();
+        auto end = box.text_style_spans.Begin();
+        auto space = box.text_style_spans.Begin();
+        while(end.IsValid())
+        {
+            // cursor.x += MeasureChar_impl(end.GetChar(), end.GetStyle());
+            // if(end.GetChar() == U' ')
+            //     space = end;
+            // if(cursor.x > max_width)
+            // {
+            //     // TextLine line = TextLine{TextSpans::GetTextSpan(start, space), pos.x, pos.y};
+            //     // TextLine* new_line = box.result_text_lines.Add(line, &arena2);
+            //     // assert(new_line && "Arena2 out of memory");
+            //
+            //     start = end = space;
+            //     cursor.x = 0;
+            //     cursor.y += end.GetStyle().GetFontSize() + end.GetStyle().GetLineSpacing();
+            //     pos = cursor;
+            // }
+            end = end.Next();
+        }
     }
 
 
