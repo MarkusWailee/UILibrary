@@ -344,6 +344,7 @@ namespace UI
     {
         TextStyle& FontSize(int size);
         TextStyle& FgColor(const Color& color);
+        TextStyle& BgColor(const Color& color);
         int GetFontSize() const;
         int GetFontSpacing() const;
         int GetLineSpacing() const;
@@ -517,6 +518,7 @@ namespace UI
         {
             int x = 0;
             int y = 0;
+            int width = 0;
         };
 
         struct BoxCore
@@ -843,6 +845,11 @@ namespace UI
     inline TextStyle& TextStyle::FgColor(const Color& color)
     {
         this->fg_color = color;
+        return *this;
+    }
+    inline TextStyle& TextStyle::BgColor(const Color& color)
+    {
+        this->bg_color = color;
         return *this;
     }
     inline int TextStyle::GetFontSize() const

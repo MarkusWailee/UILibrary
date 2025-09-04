@@ -1008,9 +1008,12 @@ namespace UI
         Iterator space{}; //Marks down the last white space hit
         box.height += start.GetStyle().GetFontSize();
 
-        auto WrapIfPossible = [&]
+        int span_width = 0;
+        int word_width = 0;
+
+        auto WrapIfPossible = [&](int line_width) -> bool
         {
-            if(space.IsValid())
+            if(line_width > max_width && space.IsValid())
             {
                 TextLine line = TextLine{TextSpans::GetTextSpan(start, space), pos.x, pos.y};
                 TextLine* new_line = box.result_text_lines.Add(line, &arena2);
@@ -1021,22 +1024,41 @@ namespace UI
                 pos = cursor;
                 start = end = space.Next(); //when space.Next() is the next char, space.Next() == nullptr, and when space.Next() is a different style
                 space = Iterator{}; //Make space invalid again
+                return true;
             }
+            return false;
 
         };
         //TextSpans::Iterator space;
         while(end.IsValid())
         {
-            cursor.x += MeasureChar_impl(end.GetChar(), end.GetStyle());
+            int m = MeasureChar_impl(end.GetChar(), end.GetStyle());
+            cursor.x += m;
+            word_width += m;
+            span_width += m;
             if(end.GetChar() == U' ')
                 space = end;
-            if(cursor.x > max_width)
-            {
-                WrapIfPossible();
+            if(WrapIfPossible(cursor.x))
                 continue;
-            }
             else if(start.node != end.node) //different styles
             {
+                // auto it = end.Next();
+                // int width = cursor.x;
+                // while(it.IsValid() && it.GetChar() != U' ')
+                // {
+                //     width += MeasureChar_impl(it.GetChar(), it.GetStyle());
+                //     it = it.Next();
+                // }
+                // if(!WrapIfPossible(width))
+                // {
+                //     //handle style chaning
+                //     cursor.x -= MeasureChar_impl(end.GetChar(), end.GetStyle());
+                //     TextLine line = TextLine{TextSpans::GetTextSpan(start, end.Prev()), pos.x, pos.y};
+                //     TextLine* new_line = box.result_text_lines.Add(line, &arena2);
+                //     assert(new_line && "Arena2 out of memory");
+                //     start = end;
+                //     pos = cursor;
+                // }
 
             }
             end = end.Next();
