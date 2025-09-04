@@ -343,12 +343,14 @@ namespace UI
     struct TextStyle
     {
         TextStyle& FontSize(int size);
+        TextStyle& LineSpacing(int spacing);
         TextStyle& FgColor(const Color& color);
         TextStyle& BgColor(const Color& color);
         int GetFontSize() const;
         int GetFontSpacing() const;
         int GetLineSpacing() const;
-        Color GetColor() const;
+        Color GetFgColor() const;
+        Color GetBgColor() const;
         // bool operator==(const TextStyle& t) const;
     private:
         Color fg_color;
@@ -842,6 +844,11 @@ namespace UI
         font_size = size;
         return *this;
     }
+    inline TextStyle& TextStyle::LineSpacing(int spacing)
+    {
+        line_spacing = spacing;
+        return *this;
+    }
     inline TextStyle& TextStyle::FgColor(const Color& color)
     {
         this->fg_color = color;
@@ -856,9 +863,13 @@ namespace UI
     {
         return font_size;
     }
-    inline Color TextStyle::GetColor() const
+    inline Color TextStyle::GetFgColor() const
     {
         return fg_color;
+    }
+    inline Color TextStyle::GetBgColor() const
+    {
+        return bg_color;
     }
     inline int TextStyle::GetFontSpacing() const
     {

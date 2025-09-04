@@ -15,7 +15,10 @@ inline void TextLayoutTest(UI::Context* context)
     box1.height = {100, UI::Unit::CONTENT_PERCENT};
     box1.min_height = {5};
     box1.min_width = {5};
-    box1.background_color = {0, 255, 0, 255};
+    box1.background_color = {100, 100, 100, 255};
+    box1.padding = {4,4,4,4};
+    box1.border_width = 4;
+    box1.border_color = {0, 0, 0, 255};
 
     UI::Root(context, root, [&]
     {
@@ -23,14 +26,11 @@ inline void TextLayoutTest(UI::Context* context)
         .Run([&]
         {
             UI::TextStyle text_style;
-            text_style.FontSize(32).FgColor({255, 255, 255, 255});
+            text_style.FontSize(32).FgColor({255, 255, 255, 255}).BgColor({0, 0, 255, 100}).LineSpacing(2);
             //UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum"));
             UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Hello Hello"));
-            text_style.FgColor({255, 0, 0, 255});
-            //UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U" World Test"));
-            //UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"HELLOHELLO"));
-            // text_style.FgColor({255, 0, 0, 255});
-            // UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"This is my program"));
+            text_style.FgColor({255, 0, 0, 200}).BgColor({0, 0, 255, 200});
+            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"World World"));
         });
     });
 }

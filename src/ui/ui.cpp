@@ -1,5 +1,6 @@
 #include "ui.hpp"
 #include "Memory.hpp"
+#include "raylib/raylib.h"
 #include <iterator>
 
 namespace UI
@@ -1008,14 +1009,14 @@ namespace UI
         Iterator space{}; //Marks down the last white space hit
         box.height += start.GetStyle().GetFontSize();
 
-        int span_width = 0;
-        int word_width = 0;
+        int word_width = 0; // only used for BgColor when wrapping
 
         auto WrapIfPossible = [&](int line_width) -> bool
         {
             if(line_width > max_width && space.IsValid())
             {
                 TextLine line = TextLine{TextSpans::GetTextSpan(start, space), pos.x, pos.y};
+                line.width = cursor.x - pos.x - MeasureChar_impl(U' ', start.GetStyle()) - word_width;
                 TextLine* new_line = box.result_text_lines.Add(line, &arena2);
                 assert(new_line && "Arena2 out of memory");
 
@@ -1035,31 +1036,34 @@ namespace UI
             int m = MeasureChar_impl(end.GetChar(), end.GetStyle());
             cursor.x += m;
             word_width += m;
-            span_width += m;
             if(end.GetChar() == U' ')
+            {
                 space = end;
+                word_width = 0;
+            }
             if(WrapIfPossible(cursor.x))
                 continue;
             else if(start.node != end.node) //different styles
             {
-                // auto it = end.Next();
-                // int width = cursor.x;
-                // while(it.IsValid() && it.GetChar() != U' ')
-                // {
-                //     width += MeasureChar_impl(it.GetChar(), it.GetStyle());
-                //     it = it.Next();
-                // }
-                // if(!WrapIfPossible(width))
-                // {
-                //     //handle style chaning
-                //     cursor.x -= MeasureChar_impl(end.GetChar(), end.GetStyle());
-                //     TextLine line = TextLine{TextSpans::GetTextSpan(start, end.Prev()), pos.x, pos.y};
-                //     TextLine* new_line = box.result_text_lines.Add(line, &arena2);
-                //     assert(new_line && "Arena2 out of memory");
-                //     start = end;
-                //     pos = cursor;
-                // }
-
+                cursor.x -= m;
+                //word_width -= m;
+                auto it = end.Next();
+                int width = cursor.x;
+                while(it.IsValid() && it.GetChar() != U' ')
+                {
+                    width += MeasureChar_impl(it.GetChar(), it.GetStyle());
+                    it = it.Next();
+                }
+                if(!WrapIfPossible(width))
+                {
+                    std::cout<<"no Wrapping\n";
+                    TextLine line = TextLine{TextSpans::GetTextSpan(start, Iterator{}), pos.x, pos.y};
+                    line.width = cursor.x - pos.x;
+                    TextLine* new_line = box.result_text_lines.Add(line, &arena2);
+                    assert(new_line && "Arena2 out of memory");
+                    start = end;
+                    pos = cursor;
+                }
             }
             end = end.Next();
         }
@@ -1067,6 +1071,7 @@ namespace UI
         {
             //This will just insert text from start to end
             TextLine line = TextLine{TextSpans::GetTextSpan(start, Iterator{}), pos.x, pos.y};
+            line.width = cursor.x - pos.x;
             TextLine* new_line = box.result_text_lines.Add(line, &arena2);
             assert(new_line && "Arena2 out of memory");
         }
@@ -1980,7 +1985,10 @@ namespace UI
             for(auto temp = box_result.text_lines.GetHead(); temp != nullptr; temp = temp->next)
             {
                 const TextLine& line = temp->value;
-                DrawText_impl(line.style, draw.x + line.x, draw.y + line.y, line.data, line.Size());
+                int x = draw.x + line.x;
+                int y = draw.y + line.y;
+                DrawRectangle_impl(x, y, line.width, line.style.GetFontSize(), 0, 0, {}, line.style.GetBgColor());
+                DrawText_impl(line.style, x, y, line.data, line.Size());
             }
         }
         else if(box_core.texture.HasTexture())

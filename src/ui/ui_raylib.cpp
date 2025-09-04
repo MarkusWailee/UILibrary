@@ -235,7 +235,7 @@ namespace UI
             }
             int render_x = x + cursor_x;
             int render_y = y + cursor_y;
-            Color color = style.GetColor();
+            Color color = style.GetFgColor();
             DrawTextCodepoint(font, c, {(float)render_x, (float)render_y}, (float)style.GetFontSize(), {color.r, color.g, color.b, color.a});
             cursor_x += width + style.GetFontSpacing();
         }
