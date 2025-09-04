@@ -15,7 +15,7 @@ namespace UI
     BoxCore ComputeStyleSheet(const BoxStyle& style, const BoxCore& root);
 
     //Text related functions
-    int MeasureTextSpans(const BoxCore& box);
+    int MeasureTextSpans(BoxCore& box);
 
     //Size should include '\0'
     void StringCopy(char* dst, const char* src, uint32_t size);
@@ -174,15 +174,17 @@ namespace UI
         it.string_index++;
         if(it.string_index >= (int)span.Size()) //Iterate next
         {
-            if(it.node->next)
-            {
-                it.node = it.node->next;
-                it.string_index = 0;
-            }
-            else
-            {
-                it.string_index--;
-            }
+            it.node = it.node->next;
+            it.string_index = 0;
+            // if(it.node->next)
+            // {
+            //     it.node = it.node->next;
+            //     it.string_index = 0;
+            // }
+            // else
+            // {
+            //     it.string_index--;
+            // }
         }
         return it;
     }
@@ -535,9 +537,17 @@ namespace UI
     }
 
 
-    int MeasureTextSpans(const BoxCore& box)
+    int MeasureTextSpans(BoxCore& box)
     {
-        return 100;
+        int result = 0;
+        for(auto node = box.text_style_spans.GetHead(); node != nullptr; node = node->next)
+        {
+            for(int i = 0; i < node->value.Size(); i++)
+            {
+                result += MeasureChar_impl(node->value[i], node->value.style);
+            }
+        }
+        return result;
     }
 
     void StringCopy(char* dst, const char* src, uint32_t size)
@@ -989,30 +999,56 @@ namespace UI
         {
             int x = 0, y = 0;
         };
+        using Iterator = TextSpans::Iterator;
         int max_width = box.width;
         Int2 pos;
         Int2 cursor;
-        auto start = box.text_style_spans.Begin();
-        auto end = box.text_style_spans.Begin();
-        auto space = box.text_style_spans.Begin();
+        Iterator start = box.text_style_spans.Begin();
+        Iterator end = box.text_style_spans.Begin();
+        Iterator space{}; //Marks down the last white space hit
+        box.height += start.GetStyle().GetFontSize();
+
+        auto WrapIfPossible = [&]
+        {
+            if(space.IsValid())
+            {
+                TextLine line = TextLine{TextSpans::GetTextSpan(start, space), pos.x, pos.y};
+                TextLine* new_line = box.result_text_lines.Add(line, &arena2);
+                assert(new_line && "Arena2 out of memory");
+
+                cursor.x = 0;
+                cursor.y += start.GetStyle().GetFontSize() + start.GetStyle().GetLineSpacing();
+                pos = cursor;
+                start = end = space.Next(); //when space.Next() is the next char, space.Next() == nullptr, and when space.Next() is a different style
+                space = Iterator{}; //Make space invalid again
+            }
+
+        };
+        //TextSpans::Iterator space;
         while(end.IsValid())
         {
-            // cursor.x += MeasureChar_impl(end.GetChar(), end.GetStyle());
-            // if(end.GetChar() == U' ')
-            //     space = end;
-            // if(cursor.x > max_width)
-            // {
-            //     // TextLine line = TextLine{TextSpans::GetTextSpan(start, space), pos.x, pos.y};
-            //     // TextLine* new_line = box.result_text_lines.Add(line, &arena2);
-            //     // assert(new_line && "Arena2 out of memory");
-            //
-            //     start = end = space;
-            //     cursor.x = 0;
-            //     cursor.y += end.GetStyle().GetFontSize() + end.GetStyle().GetLineSpacing();
-            //     pos = cursor;
-            // }
+            cursor.x += MeasureChar_impl(end.GetChar(), end.GetStyle());
+            if(end.GetChar() == U' ')
+                space = end;
+            if(cursor.x > max_width)
+            {
+                WrapIfPossible();
+                continue;
+            }
+            else if(start.node != end.node) //different styles
+            {
+
+            }
             end = end.Next();
         }
+        if(start.IsValid())
+        {
+            //This will just insert text from start to end
+            TextLine line = TextLine{TextSpans::GetTextSpan(start, Iterator{}), pos.x, pos.y};
+            TextLine* new_line = box.result_text_lines.Add(line, &arena2);
+            assert(new_line && "Arena2 out of memory");
+        }
+        box.height += cursor.y;
     }
 
 
@@ -1035,6 +1071,7 @@ namespace UI
 
 
         //Layout pipeline
+        ResetArena2();
         WidthContentPercentPass(tree_core);
         WidthPass(tree_core);
         HeightContentPercentPass(tree_core);
@@ -1873,7 +1910,6 @@ namespace UI
         if(!tree_core)
             return;
 
-        ResetArena2();
         tree_result = arena2.New<TreeNode<BoxResult>>();
         assert(tree_result && "Arena2 out of memory");
         tree_result->box.SetComputedResults(tree_core->box);
@@ -1914,15 +1950,16 @@ namespace UI
         if(box_core.IsTextElement())
         {
             //todo
-            for(auto span = box_core.text_style_spans.GetHead(); span != nullptr; span = span->next)
-            {
-                DrawText_impl(span->value.style, draw.x, draw.y, span->value.data, span->value.Size());
-            }
-
-            // for(auto temp = box_result.text_lines.GetHead(); temp != nullptr; temp = temp->next)
+            // for(auto span = box_core.text_style_spans.GetHead(); span != nullptr; span = span->next)
             // {
-            //     DrawText_impl(temp->value.style, draw.x, draw.y, temp->value.text.data, temp->value.text.Size());
+            //     DrawText_impl(span->value.style, draw.x, draw.y, span->value.data, span->value.Size());
             // }
+
+            for(auto temp = box_result.text_lines.GetHead(); temp != nullptr; temp = temp->next)
+            {
+                const TextLine& line = temp->value;
+                DrawText_impl(line.style, draw.x + line.x, draw.y + line.y, line.data, line.Size());
+            }
         }
         else if(box_core.texture.HasTexture())
         {

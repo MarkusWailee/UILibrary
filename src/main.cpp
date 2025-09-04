@@ -10,6 +10,7 @@ void LogStringU32(const UI::StringU32& string)
 
 int main(void)
 {
+
     // {
     //     using namespace UI::Internal;
     //     MemoryArena arena(1 * UI::KB);
@@ -29,7 +30,7 @@ int main(void)
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
     SetExitKey(0);
-    SetTargetFPS(60);
+    //SetTargetFPS(60);
 
     UI::Init_impl("assets/fonts/RobotoMonoNerdFont-Regular.ttf");
     UI::Context context(128 * UI::KB);
@@ -45,7 +46,7 @@ int main(void)
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
         UI::Draw();
-        //DrawText(TextFormat("Fps = %d", GetFPS()), 10, 10, 20, WHITE);
+        DrawText(TextFormat("Fps = %d", GetFPS()), 10, 10, 20, WHITE);
         //UI::StringU32 str = UI::MakeStringU32(U"helo world");
         //UI::DrawText_impl(style, 100, 100, str.data, str.size);
         EndDrawing();
