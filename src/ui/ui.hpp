@@ -411,6 +411,7 @@ namespace UI
     // ========== Builder Notation ==========
     template<typename Func>
     void Root(Context* context, const BoxStyle& style, Func&& func, DebugInfo debug_info = UI_DEBUG("Root"));
+    void Text(const TextStyle& style, const StringU32& string, DebugInfo debug_info = UI_DEBUG("Text"));
     Builder& Box(const BoxStyle& style = BoxStyle(), const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
     BoxInfo Info();
     BoxStyle& Style();
@@ -787,6 +788,7 @@ namespace UI
 
         //Also Implemented as global functions
         Builder& Box(const BoxStyle& style = BoxStyle(), const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+        void Text(const TextStyle& style, const StringU32& string, DebugInfo debug_info = UI_DEBUG("Text"));
         BoxInfo Info() const;
         BoxStyle& Style();
         bool IsHover() const;
@@ -905,6 +907,14 @@ namespace UI
             info = context->Info(id);
         }
         return *this;
+    }
+    inline void Builder::Text(const TextStyle& style, const StringU32& string, DebugInfo debug_info)
+    {
+        ClearStates();
+        if(HasContext())
+        {
+            this->context->InsertText(style, string, nullptr, true, debug_info);
+        }
     }
     inline void Builder::SetContext(Context* context)
     {

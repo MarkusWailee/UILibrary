@@ -136,6 +136,10 @@ namespace UI
 
 
     // ========== Builder Notation ===========
+    void Text(const TextStyle& style, const StringU32& string, DebugInfo debug_info)
+    {
+        builder.Text(style, string, debug_info);
+    }
     Builder& Box(const BoxStyle& style, const char* id, DebugInfo debug_info)
     {
         return builder.Box(style, id, debug_info);
@@ -963,7 +967,8 @@ namespace UI
     }
 
     //UTF 32 version
-    //This is complete for now
+    //This is complete for now.
+    //Not proud of this, but it works temporarily
     void Context::InsertText(const UI::TextStyle& style, const StringU32& string, const char* id, bool copy_text, DebugInfo info)
     {
         #if UI_ENABLE_DEBUG
@@ -1004,8 +1009,6 @@ namespace UI
             TextLine* new_line = box.result_text_lines.Add(line, &arena2);
             assert(new_line && "Arena2 out of memory");
         };
-        box.height = box.text_style_spans.Begin().GetStyle().GetFontSize();
-
         int max_width = box.width;
         int word_width = 0;
         int span_width = 0;
@@ -1051,7 +1054,7 @@ namespace UI
                 int word = word_width;
                 int span = span_width;
                 bool did_wrap = false;
-                while(it.IsValid() && it.GetChar() != U' ') //Test if it needs to wrap
+                while(it.IsValid()) //Test if it needs to wrap
                 {
                     int char_width = MeasureChar_impl(it.GetChar(), it.GetStyle());
                     span = cursor_x - pos.x;
@@ -1062,6 +1065,8 @@ namespace UI
                         did_wrap = true;
                         break;
                     }
+                    if(it.GetChar() == U' ') //if it doest wrap by now, then we can exit
+                        break;
                     it = it.Next();
                 }
                 if(!did_wrap)
@@ -1073,28 +1078,29 @@ namespace UI
                     space = Iterator{};
                 }
             }
-            else if(end.GetChar() == U'\n')
+            else
+            {
+                WrapIfPossible(cursor.x, span_width - word_width);
+            }
+            if(end.GetChar() == U'\n')
             {
                 AddTextLine(TextSpans::GetTextSpan(start, end), pos, span_width);
                 cursor.x = 0;
-                cursor.y += start.GetStyle().GetFontSize() + start.GetStyle().GetLineSpacing();
+                auto next = end.Next();
+                cursor.y += end.GetStyle().GetFontSize() + end.GetStyle().GetLineSpacing();
                 pos = cursor;
                 start = end.Next();
                 space = Iterator{};
-            }
-            else
-            {
-                WrapIfPossible(cursor.x ,span_width - word_width);
             }
             end = end.Next();
         }
 
         if(start.IsValid())
         {
+            cursor.y += start.GetStyle().GetFontSize();
             span_width = cursor.x - pos.x;
             AddTextLine(TextSpans::GetTextSpan(start, Iterator{}), pos, span_width);
         }
-
 
         box.height += cursor.y;
     }

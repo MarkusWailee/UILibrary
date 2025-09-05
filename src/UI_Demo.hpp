@@ -26,10 +26,16 @@ inline void TextLayoutTest(UI::Context* context)
         .Run([&]
         {
             UI::TextStyle text_style;
-            text_style.FontSize(64).FgColor({255, 255, 255, 255}).BgColor({100, 0, 0, 100}).LineSpacing(2);
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Hello\n"));
-            text_style.FontSize(64).FgColor({255, 255, 255, 255}).BgColor({0, 0, 100, 100}).LineSpacing(2);
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"World This is test"));
+            text_style.FontSize(64).FgColor({255, 255, 255, 255}).BgColor({20, 20, 20, 100}).LineSpacing(2);
+            UI::StringU32 string = UI::MakeStringU32(U" a b c d e f g h i j k\n");
+            for(int i = 0; i < string.Size(); i++)
+            {
+                float col = (float)i / string.Size() * 255;
+                text_style.FgColor({(unsigned char)(col), 0, 0, 255});
+                UI::Text(text_style, string.SubStr(i, 1));
+            }
+            text_style.FontSize(24);
+            UI::Text(text_style,  UI::MakeStringU32(U"Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchang"));
         });
     });
 }
