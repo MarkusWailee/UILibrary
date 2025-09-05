@@ -30,7 +30,7 @@ int main(void)
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
     SetExitKey(0);
-    //SetTargetFPS(60);
+    SetTargetFPS(60);
 
     UI::Init_impl("assets/fonts/RobotoMonoNerdFont-Regular.ttf");
     UI::Context context(128 * UI::KB);

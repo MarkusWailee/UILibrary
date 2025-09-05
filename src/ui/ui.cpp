@@ -232,7 +232,7 @@ namespace UI
         StringU32& string = start.node->value;
         if(start.node == end.node) //if they are the same style
         {
-            int size = Max(0 ,end.string_index - start.string_index + 1);
+            int size = Max(0 ,end.string_index - start.string_index);
             return string.SubStr(start.string_index, size);
         }
         //Just returns the whole string in start
@@ -996,85 +996,97 @@ namespace UI
     //todo
     inline void Context::ComputeTextLinesAndHeight(BoxCore& box)
     {
-        struct Int2
-        {
-            int x = 0, y = 0;
-        };
         using Iterator = TextSpans::Iterator;
+        struct Int2 { int x = 0, y = 0; };
+        auto AddTextLine = [&](const TextSpan& span, Int2 pos, int width)
+        {
+            TextLine line = {span, pos.x, pos.y, width};
+            TextLine* new_line = box.result_text_lines.Add(line, &arena2);
+            assert(new_line && "Arena2 out of memory");
+        };
+        box.height = box.text_style_spans.Begin().GetStyle().GetFontSize();
+
         int max_width = box.width;
+        int word_width = 0;
+        int span_width = 0;
         Int2 pos;
         Int2 cursor;
         Iterator start = box.text_style_spans.Begin();
         Iterator end = box.text_style_spans.Begin();
         Iterator space{}; //Marks down the last white space hit
-        box.height += start.GetStyle().GetFontSize();
 
-        int word_width = 0; // only used for BgColor when wrapping
-
-        auto WrapIfPossible = [&](int line_width) -> bool
+        //passing the width of the text line
+        auto WrapIfPossible = [&](int cursor_x, int width) ->bool
         {
-            if(line_width > max_width && space.IsValid())
+            if(cursor_x > max_width && space.IsValid())
             {
-                TextLine line = TextLine{TextSpans::GetTextSpan(start, space), pos.x, pos.y};
-                line.width = cursor.x - pos.x - MeasureChar_impl(U' ', start.GetStyle()) - word_width;
-                TextLine* new_line = box.result_text_lines.Add(line, &arena2);
-                assert(new_line && "Arena2 out of memory");
-
+                AddTextLine(TextSpans::GetTextSpan(start, space), pos, width);
                 cursor.x = 0;
                 cursor.y += start.GetStyle().GetFontSize() + start.GetStyle().GetLineSpacing();
                 pos = cursor;
-                start = end = space.Next(); //when space.Next() is the next char, space.Next() == nullptr, and when space.Next() is a different style
-                space = Iterator{}; //Make space invalid again
+                end = space; //This gets incremented at the end anyway
+                start = space.Next();
+                space = Iterator{};
                 return true;
             }
             return false;
-
         };
-        //TextSpans::Iterator space;
+
         while(end.IsValid())
         {
             int m = MeasureChar_impl(end.GetChar(), end.GetStyle());
             cursor.x += m;
             word_width += m;
+            span_width = cursor.x - pos.x;
+
             if(end.GetChar() == U' ')
             {
                 space = end;
                 word_width = 0;
             }
-            if(WrapIfPossible(cursor.x))
-                continue;
-            else if(start.node != end.node) //different styles
+            if(start.node != end.node)
             {
-                cursor.x -= m;
-                //word_width -= m;
                 auto it = end.Next();
-                int width = cursor.x;
+                int cursor_x = cursor.x;
+                int word = word_width;
+                int span = span_width;
+                bool did_wrap = false;
                 while(it.IsValid() && it.GetChar() != U' ')
                 {
-                    width += MeasureChar_impl(it.GetChar(), it.GetStyle());
+                    int m = MeasureChar_impl(it.GetChar(), it.GetStyle());
+                    cursor_x += m;
+                    word += m;
+                    span = cursor_x - pos.x;
+                    if(WrapIfPossible(cursor_x, span - word - m))
+                    {
+                        did_wrap = true;
+                        break;
+                    }
                     it = it.Next();
                 }
-                if(!WrapIfPossible(width))
+                if(!did_wrap)
                 {
-                    std::cout<<"no Wrapping\n";
-                    TextLine line = TextLine{TextSpans::GetTextSpan(start, Iterator{}), pos.x, pos.y};
-                    line.width = cursor.x - pos.x;
-                    TextLine* new_line = box.result_text_lines.Add(line, &arena2);
-                    assert(new_line && "Arena2 out of memory");
+                    AddTextLine(TextSpans::GetTextSpan(start, Iterator{}), pos, span_width - m);
+                    pos.x = cursor.x - m;
+                    pos.y = cursor.y;
                     start = end;
-                    pos = cursor;
+                    space = Iterator{};
                 }
+            }
+            else
+            {
+                /*
+                   -m because I dont want to count the current character measured, as its
+                    the character out of bounds
+                */
+                WrapIfPossible(cursor.x ,span_width - word_width - m);
             }
             end = end.Next();
         }
         if(start.IsValid())
-        {
-            //This will just insert text from start to end
-            TextLine line = TextLine{TextSpans::GetTextSpan(start, Iterator{}), pos.x, pos.y};
-            line.width = cursor.x - pos.x;
-            TextLine* new_line = box.result_text_lines.Add(line, &arena2);
-            assert(new_line && "Arena2 out of memory");
-        }
+            AddTextLine(TextSpans::GetTextSpan(start, Iterator{}), pos, span_width);
+
+
         box.height += cursor.y;
     }
 
