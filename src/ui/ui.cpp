@@ -67,7 +67,7 @@ namespace UI
     void PushContext(Context* context)
     {
         assert(context && "Context nullptr");
-        assert(!context_stack.IsFull() && "Why are you using so many contexts");
+        assert(!context_stack.IsFull() && "Missing Draw function or too many contexts");
         assert(!context_queue.IsFull() && "Missing Draw or too many contexts");
         context_stack.Push(context);
         context_queue.Push(context);
@@ -992,7 +992,7 @@ namespace UI
             prev_inserted_box = &node->box;
         }
         assert(prev_inserted_box && "Should not be null");
-        TextSpan* span = prev_inserted_box->text_style_spans.Add(TextSpan{string.data, string.Size(), style}, &arena1);
+        TextSpan* span = prev_inserted_box->text_style_spans.Add(TextSpan{StringU32(string.data, string.Size()), style}, &arena1);
         assert(span && "Arena1 out of memory");
         return;
     }

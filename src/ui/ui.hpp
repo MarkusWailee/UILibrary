@@ -178,6 +178,12 @@ namespace UI
 
     struct StringU32 : public Internal::ArrayViewConst<char32_t>
     {
+        StringU32(){};
+        StringU32(const char32_t* str, uint64_t size): Internal::ArrayViewConst<char32_t>{str, size} {}
+
+        template<int N>
+        constexpr StringU32(const char32_t (&str)[N]): StringU32(str, N - 1){}
+
         StringU32 SubStr(int start, int size) const
         {
             if(size == -1)
@@ -191,9 +197,9 @@ namespace UI
     constexpr uint64_t MB = KB * KB;
     //String Helper
     template<int size>
-    constexpr StringU8 MakeStringU8(const char (&str)[size]) { return StringU8{str, size - 1}; }
+    constexpr StringU8 MakeStringU8(const char (&str)[size]) { return StringU8(str, size - 1); }
     template<int size>
-    constexpr StringU32 MakeStringU32(const char32_t (&str)[size]) { return StringU32{str, size - 1}; }
+    constexpr StringU32 MakeStringU32(const char32_t (&str)[size]) { return StringU32(str, size - 1); }
 
     const char *Fmt(const char *text, ...);
     int StrAsciLength(const char* text);
