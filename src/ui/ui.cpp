@@ -1044,14 +1044,14 @@ namespace UI
                 space = end;
                 word_width = 0;
             }
-            if(start.node != end.node)
+            if(start.node != end.node) //Styles are different
             {
                 auto it = end.Next();
                 int cursor_x = cursor.x;
                 int word = word_width;
                 int span = span_width;
                 bool did_wrap = false;
-                while(it.IsValid() && it.GetChar() != U' ')
+                while(it.IsValid() && it.GetChar() != U' ') //Test if it needs to wrap
                 {
                     int char_width = MeasureChar_impl(it.GetChar(), it.GetStyle());
                     span = cursor_x - pos.x;
@@ -1072,6 +1072,15 @@ namespace UI
                     start = end;
                     space = Iterator{};
                 }
+            }
+            else if(end.GetChar() == U'\n')
+            {
+                AddTextLine(TextSpans::GetTextSpan(start, end), pos, span_width);
+                cursor.x = 0;
+                cursor.y += start.GetStyle().GetFontSize() + start.GetStyle().GetLineSpacing();
+                pos = cursor;
+                start = end.Next();
+                space = Iterator{};
             }
             else
             {

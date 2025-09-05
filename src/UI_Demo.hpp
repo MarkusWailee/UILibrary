@@ -27,9 +27,9 @@ inline void TextLayoutTest(UI::Context* context)
         {
             UI::TextStyle text_style;
             text_style.FontSize(64).FgColor({255, 255, 255, 255}).BgColor({100, 0, 0, 100}).LineSpacing(2);
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Hello "));
+            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Hello\n"));
             text_style.FontSize(64).FgColor({255, 255, 255, 255}).BgColor({0, 0, 100, 100}).LineSpacing(2);
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"World"));
+            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"World This is test"));
         });
     });
 }
