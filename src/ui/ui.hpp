@@ -29,9 +29,12 @@
 
 namespace UI
 {
-    using StringU8 = Internal::ArrayViewConst<char>;
-    using StringAsci = Internal::ArrayViewConst<char>;
-    struct StringU32;
+    template<typename char_type>
+    struct BaseString;
+    using StringAsci = BaseString<const char>;
+    using StringU8 = BaseString<const char8_t>;
+    using StringU32 = BaseString<const char32_t>;
+    //struct StringU32;
     class Context;
     class Builder;
     struct Error;
@@ -176,20 +179,20 @@ namespace UI
         MOUSE_BACK    = 6,       // Mouse button back (advanced mouse device)
     };
 
-    struct StringU32 : public Internal::ArrayViewConst<char32_t>
+    template<typename char_type>
+    struct BaseString : public Internal::ArrayView<char_type>
     {
-        StringU32(){};
-        StringU32(const char32_t* str, uint64_t size): Internal::ArrayViewConst<char32_t>{str, size} {}
-
+        BaseString() = default;
+        BaseString(char_type* str, uint64_t size): Internal::ArrayView<char_type>{str, size} {}
         template<int N>
-        constexpr StringU32(const char32_t (&str)[N]): StringU32(str, N - 1){}
+        constexpr BaseString(char_type (&str)[N]): BaseString(str, N > 0 ? N - 1: 0){}
 
-        StringU32 SubStr(int start, int size) const
+        BaseString SubStr(int start, int size) const
         {
             if(size == -1)
-                size = (int)Size() - start;
+                size = (int)this->Size() - start;
             assert(start >= 0 && start <= (int)this->Size() && size <= (int)this->Size() - start);
-            return {data + start, (uint64_t)size};
+            return {this->data + start, (uint64_t)size};
         }
     };
 

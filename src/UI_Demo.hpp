@@ -28,7 +28,6 @@ inline void TextLayoutTest(UI::Context* context)
             UI::TextStyle text_style;
             text_style.FontSize(64).FgColor({255, 255, 255, 255}).BgColor({20, 20, 20, 100}).LineSpacing(2);
             UI::StringU32 string = U"This is random colors a b c d e f g\n";
-            string = U"Hello this is different text\n";
             for(int i = 0; i < string.Size(); i++)
             {
                 float col = (float)i / string.Size() * 255;
@@ -85,7 +84,7 @@ inline void LayoutTest(UI::Context* context)
     mid_panel.min_width = {50};
     mid_panel.background_color = {40, 40, 40, 255};
     mid_panel.scissor = true;
-    static int mouse_scroll = 0;
+    static float mouse_scroll = 0;
     mid_panel.scroll_y = mouse_scroll;
     mouse_scroll += UI::GetMouseScroll() * 20;
 

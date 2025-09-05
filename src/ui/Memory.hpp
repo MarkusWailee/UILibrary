@@ -141,18 +141,6 @@ namespace UI::Internal
         uint64_t size = 0;
     };
 
-    template<typename T>
-    class ArrayViewConst
-    {
-    public:
-        bool IsEmpty() const;
-        uint64_t Size() const;
-        const T& operator[](uint64_t index) const;
-        const T* data = nullptr;
-        uint64_t size = 0;
-    };
-
-
 
     template<typename T>
     class Map
@@ -524,23 +512,6 @@ namespace UI::Internal
     }
     template<typename T>
     inline const T& ArrayView<T>::operator[](uint64_t index) const
-    {
-        assert(index < size && "ArrayView out of scope");
-        return data[index];
-    }
-
-    template<typename T>
-    inline uint64_t ArrayViewConst<T>::Size() const
-    {
-        return size;
-    }
-    template<typename T>
-    inline bool ArrayViewConst<T>::IsEmpty() const
-    {
-        return size == 0 || data == nullptr;
-    }
-    template<typename T>
-    inline const T& ArrayViewConst<T>::operator[](uint64_t index) const
     {
         assert(index < size && "ArrayView out of scope");
         return data[index];

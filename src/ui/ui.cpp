@@ -1037,6 +1037,7 @@ namespace UI
 
         while(end.IsValid())
         {
+
             int char_width = MeasureChar_impl(end.GetChar(), end.GetStyle());
             span_width = cursor.x - pos.x;
             cursor.x += char_width;
@@ -1047,7 +1048,17 @@ namespace UI
                 space = end;
                 word_width = 0;
             }
-            if(start.node != end.node) //Styles are different
+            if(end.GetChar() == U'\n')
+            {
+                AddTextLine(TextSpans::GetTextSpan(start, end), pos, span_width);
+                cursor.x = 0;
+                auto next = end.Next();
+                cursor.y += end.GetStyle().GetFontSize() + end.GetStyle().GetLineSpacing();
+                pos = cursor;
+                start = end.Next();
+                space = Iterator{};
+            }
+            else if(start.node != end.node) //Styles are different
             {
                 auto it = end.Next();
                 int cursor_x = cursor.x;
@@ -1081,16 +1092,6 @@ namespace UI
             else
             {
                 WrapIfPossible(cursor.x, span_width - word_width);
-            }
-            if(end.GetChar() == U'\n')
-            {
-                AddTextLine(TextSpans::GetTextSpan(start, end), pos, span_width);
-                cursor.x = 0;
-                auto next = end.Next();
-                cursor.y += end.GetStyle().GetFontSize() + end.GetStyle().GetLineSpacing();
-                pos = cursor;
-                start = end.Next();
-                space = Iterator{};
             }
             end = end.Next();
         }
