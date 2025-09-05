@@ -993,7 +993,7 @@ namespace UI
     }
 
 
-    //todo
+    // IMPORTANT, This is the heart of computing the text layout
     inline void Context::ComputeTextLinesAndHeight(BoxCore& box)
     {
         using Iterator = TextSpans::Iterator;
@@ -1034,10 +1034,10 @@ namespace UI
 
         while(end.IsValid())
         {
-            int m = MeasureChar_impl(end.GetChar(), end.GetStyle());
-            cursor.x += m;
-            word_width += m;
+            int char_width = MeasureChar_impl(end.GetChar(), end.GetStyle());
             span_width = cursor.x - pos.x;
+            cursor.x += char_width;
+            word_width += char_width;
 
             if(end.GetChar() == U' ')
             {
@@ -1053,11 +1053,11 @@ namespace UI
                 bool did_wrap = false;
                 while(it.IsValid() && it.GetChar() != U' ')
                 {
-                    int m = MeasureChar_impl(it.GetChar(), it.GetStyle());
-                    cursor_x += m;
-                    word += m;
+                    int char_width = MeasureChar_impl(it.GetChar(), it.GetStyle());
                     span = cursor_x - pos.x;
-                    if(WrapIfPossible(cursor_x, span - word - m))
+                    cursor_x += char_width;
+                    word += char_width;
+                    if(WrapIfPossible(cursor_x, span - word))
                     {
                         did_wrap = true;
                         break;
@@ -1066,8 +1066,8 @@ namespace UI
                 }
                 if(!did_wrap)
                 {
-                    AddTextLine(TextSpans::GetTextSpan(start, Iterator{}), pos, span_width - m);
-                    pos.x = cursor.x - m;
+                    AddTextLine(TextSpans::GetTextSpan(start, Iterator{}), pos, span_width);
+                    pos.x = cursor.x - char_width;
                     pos.y = cursor.y;
                     start = end;
                     space = Iterator{};
@@ -1075,16 +1075,16 @@ namespace UI
             }
             else
             {
-                /*
-                   -m because I dont want to count the current character measured, as its
-                    the character out of bounds
-                */
-                WrapIfPossible(cursor.x ,span_width - word_width - m);
+                WrapIfPossible(cursor.x ,span_width - word_width);
             }
             end = end.Next();
         }
+
         if(start.IsValid())
+        {
+            span_width = cursor.x - pos.x;
             AddTextLine(TextSpans::GetTextSpan(start, Iterator{}), pos, span_width);
+        }
 
 
         box.height += cursor.y;

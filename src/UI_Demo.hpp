@@ -26,18 +26,10 @@ inline void TextLayoutTest(UI::Context* context)
         .Run([&]
         {
             UI::TextStyle text_style;
-            text_style.FontSize(32).FgColor({255, 255, 255, 255}).BgColor({0, 0, 0, 0}).LineSpacing(2);
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Title "));
-            text_style.FontSize(24).FgColor({255, 255, 255, 255}).BgColor({0, 0, 0, 0}).LineSpacing(2);
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum"));
-            text_style.FgColor({255, 255, 255, 255}).BgColor({0, 0, 255, 100}).LineSpacing(2);
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Hello World, this is wrapping"));
-            text_style.FgColor({0, 0, 255, 200}).BgColor({255, 0, 0, 100});
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Text example"));
-            text_style.FgColor({0, 255, 0, 200}).BgColor({100, 0, 0, 100});
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U" Markus ui library testing"));
-            text_style.FgColor({255, 255, 255, 200}).BgColor({100, 100, 0, 100});
-            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text"));
+            text_style.FontSize(64).FgColor({255, 255, 255, 255}).BgColor({100, 0, 0, 100}).LineSpacing(2);
+            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Hello "));
+            text_style.FontSize(64).FgColor({255, 255, 255, 255}).BgColor({0, 0, 100, 100}).LineSpacing(2);
+            UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"World"));
         });
     });
 }
