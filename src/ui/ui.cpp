@@ -767,8 +767,15 @@ namespace UI
 namespace UI
 {
     Context::Context(uint64_t arena_bytes) :
-        arena1(arena_bytes), arena2(arena_bytes), arena3(arena_bytes)
+        arena1(arena_bytes), arena2(arena_bytes)//, arena3(arena_bytes)
     {
+
+        //Super rough estimate of how many elements we might be able to hold.
+        int element_count = arena_bytes /
+            (sizeof(TreeNode<BoxCore>) + sizeof(TreeNode<BoxResult>) + sizeof(Internal::ArenaMap<BoxInfo>::Item) * 2);
+        double_buffer_map.AllocateBufferCapacity(element_count, &arena1); //assuming all elements need an id
+        std::cout<<element_count<<'\n';
+        std::cout<<(float)arena1.GetOffset() / arena1.Capacity()<<'\n';
     }
     uint32_t Context::GetElementCount() const
     {
@@ -815,6 +822,17 @@ namespace UI
         directly_hovered_element_key = 0;
     }
 
+    void Context::ResetAtBeginRoot()
+    {
+        arena1.Rewind(tree_core);
+
+        stack.Clear();
+        deferred_elements.Clear();
+        tree_core = nullptr;
+        element_count = 0;
+        directly_hovered_element_key = 0;
+    }
+
     void Context::ResetArena1()
     {
         arena1.Reset();
@@ -829,6 +847,8 @@ namespace UI
     }
     void Context::BeginRoot(BoxStyle style, DebugInfo debug_info)
     {
+        //Adjusting the root style based on margin and padding.
+        //This is most likely the desired outcome
         style.width = {style.width.value - style.padding.right - style.padding.left - style.margin.right - style.margin.left, Unit::PIXEL};
         style.height = {style.height.value - style.padding.top - style.padding.bottom - style.margin.top - style.margin.bottom, Unit::PIXEL};
         style.min_height.unit = Unit::PIXEL;
@@ -841,7 +861,8 @@ namespace UI
 
         if(HasInternalError())
             return;
-        ResetArena1();
+        //ResetArena1();
+        ResetAtBeginRoot();
 
 
         assert(stack.IsEmpty());

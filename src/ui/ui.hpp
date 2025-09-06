@@ -730,6 +730,7 @@ namespace UI
         //Might not even use this
         void ResetAllStates();
     private:
+        void ResetAtBeginRoot();
         void ResetArena1();
         void ResetArena2();
             //These functions are for internals only
@@ -773,12 +774,13 @@ namespace UI
         uint32_t element_count = 0;
 
 
+        Internal::ArenaDoubleBufferMap<BoxInfo> double_buffer_map;
         TreeNode<BoxCore>* tree_core = nullptr;
         TreeNode<BoxResult>* tree_result = nullptr;
 
         Internal::MemoryArena arena1; //Arena used for building the ui tree
         Internal::MemoryArena arena2; //Arena used for caching computed ui tree and computed text lines after measurements
-        Internal::MemoryArena arena3; //Arena used for string allocation
+        //Internal::MemoryArena arena3; //Arena used for string allocation
 
         Internal::FixedStack<TreeNode<BoxCore>*, 64> stack; //elements should never nest over 100 layers deep
         BoxCore* prev_inserted_box = nullptr;
