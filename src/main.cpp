@@ -21,8 +21,8 @@ int main(void)
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
         count++;
-        //LayoutTest(&context);
-        TextLayoutTest(&context);
+        LayoutTest(&context);
+        //TextLayoutTest(&context);
 
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});

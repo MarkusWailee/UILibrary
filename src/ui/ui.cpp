@@ -79,7 +79,7 @@ namespace UI
         return context_stack.Peek();
     }
 
-    BoxInfo Info(const char* id)
+    BoxInfo Info(const StringAsci& id)
     {
         if(IsContextActive())
             return GetContext()->Info(id);
@@ -108,14 +108,10 @@ namespace UI
             builder.SetContext(GetContext());
     }
 
-    void BeginBox(const UI::BoxStyle& box_style, const char* id, DebugInfo debug_info)
+    void BeginBox(const UI::BoxStyle& box_style, const StringAsci& id, DebugInfo debug_info)
     {
         if(IsContextActive())
             GetContext()->BeginBox(box_style, id, debug_info);
-    }
-
-    void InsertText(const char16_t* text, const char* id, bool copy_text, DebugInfo debug_info)
-    {
     }
 
     void EndBox()
@@ -140,7 +136,7 @@ namespace UI
     {
         builder.Text(style, string, debug_info);
     }
-    Builder& Box(const BoxStyle& style, const char* id, DebugInfo debug_info)
+    Builder& Box(const BoxStyle& style, const StringAsci& id, DebugInfo debug_info)
     {
         return builder.Box(style, id, debug_info);
     }
@@ -807,9 +803,9 @@ namespace UI
         #endif
         return BoxInfo();
     }
-    BoxInfo Context::Info(const char* id)
+    BoxInfo Context::Info(const StringAsci& id)
     {
-        return Info(StrHash(id));
+        return Info(HashBytes(id.data, id.Size()));
     }
     void Context::ResetAllStates()
     {
@@ -912,7 +908,7 @@ namespace UI
         }
     }
 
-    void Context::BeginBox(const UI::BoxStyle& style, const char* id, DebugInfo debug_info)
+    void Context::BeginBox(const UI::BoxStyle& style, const StringAsci& id, DebugInfo debug_info)
     {
 
         #if UI_ENABLE_DEBUG
@@ -980,12 +976,12 @@ namespace UI
     }
 
     //UTF 8 version
-    void Context::InsertText(const UI::TextStyle& style, const StringU8& string, const char* id, bool copy_text, DebugInfo info)
-
-    {
-        //Need some special decoding StringU8 to StringU32
-        assert(0 && "have not made function yet");
-    }
+    // void Context::InsertText(const UI::TextStyle& style, const StringU8& string, const char* id, bool copy_text, DebugInfo info)
+    //
+    // {
+    //     //Need some special decoding StringU8 to StringU32
+    //     assert(0 && "have not made function yet");
+    // }
 
     //UTF 32 version
     //This is complete for now.

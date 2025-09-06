@@ -205,10 +205,6 @@ inline void LayoutTest(UI::Context* context)
                         UI::Style().grid.span_y = 2;
                         UI::Style().background_color = {100, 100, 255, 255};
                     }).Run([&]{
-                        UI::TextStyle text_style;
-                        text_style.FontSize(32).FgColor({255, 255, 255, 255});
-                        UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Should be in the green"));
-                        UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"what the hell"));
                     });
 
                     UI::Box().Style(button)
@@ -220,10 +216,6 @@ inline void LayoutTest(UI::Context* context)
                         UI::Style().grid.span_y = 3;
                         UI::Style().background_color = {100, 100, 255, 255};
                     }).Run([&]{
-                        UI::TextStyle text_style;
-                        text_style.FontSize(32).FgColor({255, 255, 255, 255});
-                        UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"HHHHHHHHHHHH"));
-                        UI::GetContext()->InsertText(text_style, UI::MakeStringU32(U"Hello world"));
                     });
                 });
                 UI::Box().Style(right_panel).Run([&]
@@ -235,7 +227,9 @@ inline void LayoutTest(UI::Context* context)
                             UI::Style().grid.x = i % 2;
                             UI::Style().grid.y = i / 2;
                             UI::Style().background_color = {100, 150, 150, 255};
-                        }).Run([&]{});
+                        }).Run([&]{
+
+                            });
                 });
             });
             UI::Box().Style(bottom_bar).Run([&]

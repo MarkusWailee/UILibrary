@@ -32,9 +32,8 @@ namespace UI
     template<typename char_type>
     struct BaseString;
     using StringAsci = BaseString<const char>;
-    using StringU8 = BaseString<const char8_t>;
+    using StringU8 = BaseString<const char8_t>; //UTF8 not supported right now
     using StringU32 = BaseString<const char32_t>;
-    //struct StringU32;
     class Context;
     class Builder;
     struct Error;
@@ -198,11 +197,6 @@ namespace UI
 
     constexpr uint64_t KB = 1024;
     constexpr uint64_t MB = KB * KB;
-    //String Helper
-    template<int size>
-    constexpr StringU8 MakeStringU8(const char (&str)[size]) { return StringU8(str, size - 1); }
-    template<int size>
-    constexpr StringU32 MakeStringU32(const char32_t (&str)[size]) { return StringU32(str, size - 1); }
 
     const char *Fmt(const char *text, ...);
     int StrAsciLength(const char* text);
@@ -407,12 +401,12 @@ namespace UI
     };
 
     // ========== Main Functions ==========
-    BoxInfo Info(const char* id);
+    BoxInfo Info(const StringAsci& id);
     Context* GetContext();
     bool IsContextActive();
     void BeginRoot(Context* context, const BoxStyle& style, DebugInfo debug_info = UI_DEBUG("Root"));
     void EndRoot();
-    void BeginBox(const BoxStyle& box_style, const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+    void BeginBox(const BoxStyle& box_style, const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
     void EndBox();
     //void InsertText(const char16_t* text, const char* id = nullptr, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
     void Draw();
@@ -421,7 +415,7 @@ namespace UI
     template<typename Func>
     void Root(Context* context, const BoxStyle& style, Func&& func, DebugInfo debug_info = UI_DEBUG("Root"));
     void Text(const TextStyle& style, const StringU32& string, DebugInfo debug_info = UI_DEBUG("Text"));
-    Builder& Box(const BoxStyle& style = BoxStyle(), const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+    Builder& Box(const BoxStyle& style = BoxStyle(), const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
     BoxInfo Info();
     BoxStyle& Style();
     bool IsHover();
@@ -472,7 +466,7 @@ namespace UI
     bool IsMousePressed(MouseButton button);
     bool IsMouseReleased(MouseButton button);
     bool IsMouseDown(MouseButton button);
-    int GetMouseScroll();
+    float GetMouseScroll();
     int GetMouseX();
     int GetMouseY();
 
@@ -714,12 +708,12 @@ namespace UI
 
     public:
         Context(uint64_t arena_bytes);
-        BoxInfo Info(const char* id);
+        BoxInfo Info(const StringAsci& id);
         BoxInfo Info(uint64_t key);
         void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
         void EndRoot();
-        void BeginBox(const UI::BoxStyle& style, const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
-        void InsertText(const UI::TextStyle& style, const StringU8& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+        void BeginBox(const UI::BoxStyle& style, const StringAsci& id, DebugInfo debug_info = UI_DEBUG("Box"));
+        //void InsertText(const UI::TextStyle& style, const StringU8& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
         void InsertText(const UI::TextStyle& style, const StringU32& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
         void EndBox();
         void Draw();
@@ -798,7 +792,7 @@ namespace UI
 
 
         //Also Implemented as global functions
-        Builder& Box(const BoxStyle& style = BoxStyle(), const char* id = nullptr, DebugInfo debug_info = UI_DEBUG("Box"));
+        Builder& Box(const BoxStyle& style = BoxStyle(), const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
         void Text(const TextStyle& style, const StringU32& string, DebugInfo debug_info = UI_DEBUG("Text"));
         BoxInfo Info() const;
         BoxStyle& Style();
@@ -807,7 +801,7 @@ namespace UI
 
         //Parmeters
         Builder& Style(const BoxStyle& style);
-        Builder& Id(const char* id);
+        Builder& Id(const StringAsci& id);
         template<typename Func>
         Builder& OnHover(Func&& func);
         template<typename Func>
@@ -828,7 +822,7 @@ namespace UI
         Context* context = nullptr;
 
         //States
-        const char* id = nullptr;
+        StringAsci id;
         BoxInfo info;
         BoxStyle style;
         DebugInfo debug_info;
@@ -907,7 +901,7 @@ namespace UI
 
 
     //Builder Implementation
-    inline Builder& Builder::Box(const BoxStyle& style, const char* id, DebugInfo debug_info)
+    inline Builder& Builder::Box(const BoxStyle& style, const StringAsci& id, DebugInfo debug_info)
     {
         ClearStates();
         if(HasContext())
@@ -937,7 +931,7 @@ namespace UI
     }
     inline void Builder::ClearStates()
     {
-        id = nullptr;
+        id = StringAsci{};
         info = BoxInfo();
         style = BoxStyle();
         debug_info = DebugInfo();
@@ -959,7 +953,7 @@ namespace UI
     {
         return style;
     }
-    inline Builder& Builder::Id(const char* id)
+    inline Builder& Builder::Id(const StringAsci& id)
     {
         this->id = id;
         this->info = context->Info(id);

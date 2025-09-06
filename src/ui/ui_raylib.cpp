@@ -330,9 +330,9 @@ bool UI::IsMouseDown(MouseButton button)
 {
     return ::IsMouseButtonDown(button);
 }
-int UI::GetMouseScroll()
+float UI::GetMouseScroll()
 {
-    return (int)::GetMouseWheelMove();
+    return ::GetMouseWheelMove();
 }
 int UI::GetMouseX()
 {
