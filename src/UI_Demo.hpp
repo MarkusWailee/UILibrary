@@ -8,14 +8,14 @@ inline void TextLayoutTest(UI::Context* context)
     root.flow = {.vertical_alignment = UI::Flow::CENTERED, .horizontal_alignment = UI::Flow::CENTERED};
     root.width = {GetScreenWidth()};
     root.height = {GetScreenHeight()};
-    root.background_color = {50, 50, 60, 255};
+    root.color = {50, 50, 60, 255};
 
     UI::BoxStyle box1;
     box1.width = {50, UI::Unit::PARENT_PERCENT};
     box1.height = {100, UI::Unit::CONTENT_PERCENT};
     box1.min_height = {5};
     box1.min_width = {5};
-    box1.background_color = {100, 100, 100, 255};
+    box1.color = {100, 100, 100, 255};
     box1.padding = {4,4,4,4};
     box1.border_width = 4;
     box1.border_color = {0, 0, 0, 255};
@@ -46,7 +46,7 @@ inline void LayoutTest(UI::Context* context)
     UI::BoxStyle root;
     root.width = {GetScreenWidth()};
     root.height = {GetScreenHeight()};
-    root.background_color = {50, 50, 60, 255};
+    root.color = {50, 50, 60, 255};
 
     UI::BoxStyle v_container;
     v_container.width = v_container.height = {100, UI::Unit::PARENT_PERCENT};
@@ -57,7 +57,7 @@ inline void LayoutTest(UI::Context* context)
     top_bar.flow.vertical_alignment = UI::Flow::CENTERED;
     top_bar.width = {100, UI::Unit::PARENT_PERCENT};
     top_bar.height = {50};
-    top_bar.background_color = {30, 30, 30, 255};
+    top_bar.color = {30, 30, 30, 255};
 
     UI::BoxStyle h_container;
     h_container.width = {100, UI::Unit::PARENT_PERCENT};
@@ -73,7 +73,7 @@ inline void LayoutTest(UI::Context* context)
     left_panel.height = {100, UI::Unit::PARENT_PERCENT};
     left_panel.max_width = {225};
     left_panel.min_width = {125};
-    left_panel.background_color = {40, 40, 40, 255};
+    left_panel.color = {40, 40, 40, 255};
 
     UI::BoxStyle mid_panel;
     mid_panel.layout = UI::Layout::GRID;
@@ -82,7 +82,7 @@ inline void LayoutTest(UI::Context* context)
     mid_panel.width = {100, UI::Unit::AVAILABLE_PERCENT};
     mid_panel.height = {100, UI::Unit::PARENT_PERCENT};
     mid_panel.min_width = {50};
-    mid_panel.background_color = {40, 40, 40, 255};
+    mid_panel.color = {40, 40, 40, 255};
     mid_panel.scissor = true;
     static float mouse_scroll = 0;
     mid_panel.scroll_y = mouse_scroll;
@@ -100,17 +100,17 @@ inline void LayoutTest(UI::Context* context)
     button.height = {100, UI::Unit::AVAILABLE_PERCENT};
     button.margin = {5,5,5,5};
     button.corner_radius = 10;
-    button.background_color = {100, 200, 150, 255};
+    button.color = {100, 200, 150, 255};
     button.scissor = true;
 
     UI::BoxStyle button2;
     button2.width = {50};
     button2.height = {30};
-    button2.background_color = {150, 100, 150, 255};
+    button2.color = {150, 100, 150, 255};
     button2.corner_radius = 10;
 
     UI::BoxStyle button3 = button2;
-    button3.background_color = {255, 0, 0, 255};
+    button3.color = {255, 0, 0, 255};
     button3.margin = {10, 10, 10, 10};
     button3.width = {200};
     button3.height = {200};
@@ -118,7 +118,7 @@ inline void LayoutTest(UI::Context* context)
     UI::BoxStyle pop_up;
     pop_up.width = {100};
     pop_up.height = {100};
-    pop_up.background_color = {255,255,255,255};
+    pop_up.color = {255,255,255,255};
     pop_up.corner_radius = 5;
     pop_up.detach = UI::Detach::TOP_CENTER;
 
@@ -160,7 +160,7 @@ inline void LayoutTest(UI::Context* context)
                         })
                         .OnDirectHover([&]
                         {
-                            UI::Style().background_color = {200, 200, 200, 255};
+                            UI::Style().color = {200, 200, 200, 255};
                         })
                         .Run([&]{});
 
@@ -171,7 +171,7 @@ inline void LayoutTest(UI::Context* context)
                         UI::Style().grid.y = 5;
                         UI::Style().grid.span_x = 4;
                         UI::Style().grid.span_y = 1;
-                        UI::Style().background_color = {200, 100, 100, 255};
+                        UI::Style().color = {200, 100, 100, 255};
                     }).Run([&]
                     {
                         UI::Box(button3).Run();
@@ -185,7 +185,7 @@ inline void LayoutTest(UI::Context* context)
                             UI::Box(pop_up)
                             .PreRun([&]
                             {
-                                UI::Style().background_color = {200, 125, 100, 255};
+                                UI::Style().color = {200, 125, 100, 255};
                                 UI::Style().height = UI::Style().width = {50};
                                 UI::Style().detach = UI::Detach::RIGHT_CENTER;
                                 UI::Style().x = -25;
@@ -203,7 +203,7 @@ inline void LayoutTest(UI::Context* context)
                         UI::Style().grid.y = 3;
                         UI::Style().grid.span_x = 2;
                         UI::Style().grid.span_y = 2;
-                        UI::Style().background_color = {100, 100, 255, 255};
+                        UI::Style().color = {100, 100, 255, 255};
                     }).Run([&]{
                     });
 
@@ -214,7 +214,7 @@ inline void LayoutTest(UI::Context* context)
                         UI::Style().grid.y = 2;
                         UI::Style().grid.span_x = 2;
                         UI::Style().grid.span_y = 3;
-                        UI::Style().background_color = {100, 100, 255, 255};
+                        UI::Style().color = {100, 100, 255, 255};
                     }).Run([&]{
                     });
                 });
@@ -226,7 +226,7 @@ inline void LayoutTest(UI::Context* context)
                         {
                             UI::Style().grid.x = i % 2;
                             UI::Style().grid.y = i / 2;
-                            UI::Style().background_color = {100, 150, 150, 255};
+                            UI::Style().color = {100, 150, 150, 255};
                         }).Run([&]{
 
                             });
@@ -234,7 +234,7 @@ inline void LayoutTest(UI::Context* context)
             });
             UI::Box().Style(bottom_bar).Run([&]
             {
-                button2.background_color = {100, 90, 210, 255};
+                button2.color = {100, 90, 210, 255};
                 button2.width = {100};
                 UI::Box().Style(button2).Run([&]{});
 

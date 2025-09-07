@@ -33,7 +33,7 @@ int main(void)
         {
             .width = {100},
             .height = {100},
-            .background_color = {255, 255, 255, 255}
+            .color = {255, 0, 255, 255}
         };
         UI::BoxStyle box2 =
         {
@@ -41,7 +41,7 @@ int main(void)
             //.y = -10,
             .width = {200},
             .height = {200},
-            .background_color = {0, 255, 0, 80},
+            .color = {0, 255, 0, 80},
             .scissor = true
         };
 
@@ -54,9 +54,12 @@ int main(void)
                 .Id("SomeBox")
                 .OnHover([&]
                 {
-                    UI::Style().background_color = {255, 0, 0, 255};
+                    UI::Style().color = {255, 0, 0, 255};
                 })
-                .Run();
+                .Run([&]
+                {
+                    UI::Text(UI::TextStyle(), U"Hello World");
+                });
             });
 
         });

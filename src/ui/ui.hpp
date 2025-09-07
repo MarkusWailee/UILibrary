@@ -213,6 +213,8 @@ namespace UI
     inline T Max(T a, T b) {return a > b? a: b;}
     template<typename T>
     inline T Clamp(T value, T minimum, T maximum) { return Max(Min(value, maximum), minimum); }
+    template<typename T>
+    inline T Mix(T a, T b, float amount) { return a + Clamp(amount, 0.0f, 1.0f) * (b - a); }
 
     struct Rect
     {
@@ -226,6 +228,17 @@ namespace UI
         int height = 0;
     };
 
+    struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
+    inline Color Mix(Color c1, Color c2, float amount)
+    {
+        return Color
+        {
+            Mix(c1.r, c2.r, amount),
+            Mix(c1.g, c2.g, amount),
+            Mix(c1.b, c2.b, amount),
+            Mix(c1.a, c2.a, amount),
+        };
+    }
 
     // ========== Hashing functions ==========
     uint64_t StrHash(const char* str);
@@ -271,7 +284,6 @@ namespace UI
         uint8_t span_x = 1;
         uint8_t span_y = 1;
     };
-    struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
 
     struct Spacing { unsigned char left = 0, right = 0, top = 0, bottom = 0; };
 
@@ -305,7 +317,6 @@ namespace UI
     };
     struct BoxStyle
     {
-        //container
         Layout layout = Layout::FLOW;
         Flow flow;
         Grid grid;
@@ -324,7 +335,7 @@ namespace UI
         Spacing padding;
         Spacing margin;
 
-        Color background_color = UI::Color{0, 0, 0, 0};
+        Color color = UI::Color{0, 0, 0, 0};
         Color border_color = UI::Color{0, 0, 0, 0};
 
         TextureRect texture;
@@ -335,7 +346,6 @@ namespace UI
         int scroll_x = 0;
         int scroll_y = 0;
 
-        //PIXEL VALUES
         unsigned char corner_radius = 0; //255 sets to circle
         unsigned char border_width = 0;
 
@@ -356,9 +366,9 @@ namespace UI
         Color GetBgColor() const;
         // bool operator==(const TextStyle& t) const;
     private:
-        Color fg_color;
+        Color fg_color = {255, 255, 255, 255};
         Color bg_color;
-        uint8_t font_size = 0;
+        uint8_t font_size = 32;
         uint8_t font_spacing = 0;
         uint8_t line_spacing = 0;
     };

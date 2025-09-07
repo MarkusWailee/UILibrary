@@ -1,7 +1,5 @@
 #include "ui.hpp"
 #include "Memory.hpp"
-#include "raylib/raylib.h"
-#include <iterator>
 
 namespace UI
 {
@@ -490,7 +488,7 @@ namespace UI
         box.texture = style.texture;
         box.type = style.texture.HasTexture()? BoxCore::Type::IMAGE: BoxCore::Type::BOX;
 
-        box.background_color =          style.background_color;
+        box.background_color =          style.color;
         box.border_color =              style.border_color;
         //type 3
 
@@ -2024,47 +2022,48 @@ namespace UI
         draw.width = box_result.draw_width;
         draw.height = box_result.draw_height;
 
-
-        //Render current box
-        if(box_core.IsTextElement())
+        BoxInfo info;
+        if(Rect::Overlap(scissor_aabb, draw))
         {
-            for(auto temp = box_result.text_lines.GetHead(); temp != nullptr; temp = temp->next)
+            info.is_rendered = true;
+            //Render current box
+            if(box_core.IsTextElement())
             {
-                const TextLine& line = temp->value;
-                int x = draw.x + line.x;
-                int y = draw.y + line.y;
-                DrawRectangle_impl(x, y, line.width, line.style.GetFontSize(), 0, 0, {}, line.style.GetBgColor());
-                DrawText_impl(line.style, x, y, line.data, line.Size());
+                for(auto temp = box_result.text_lines.GetHead(); temp != nullptr; temp = temp->next)
+                {
+                    const TextLine& line = temp->value;
+                    int x = draw.x + line.x;
+                    int y = draw.y + line.y;
+                    DrawRectangle_impl(x, y, line.width, line.style.GetFontSize(), 0, 0, {}, line.style.GetBgColor());
+                    DrawText_impl(line.style, x, y, line.data, line.Size());
+                }
+            }
+            else if(box_core.texture.HasTexture())
+            {
+                DrawTexturedRectangle_impl(draw.x, draw.y, draw.width, draw.height, box_core.texture);
+            }
+            else
+            {
+                DrawRectangle_impl(draw.x, draw.y, draw.width, draw.height, box_core.corner_radius, box_core.border_width, box_core.border_color, box_core.background_color);
             }
         }
-        else if(box_core.texture.HasTexture())
-        {
-            DrawTexturedRectangle_impl(draw.x, draw.y, draw.width, draw.height, box_core.texture);
-        }
-        else
-        {
-            DrawRectangle_impl(draw.x, draw.y, draw.width, draw.height, box_core.corner_radius, box_core.border_width, box_core.border_color, box_core.background_color);
-        }
 
-        if(box_core.id_key)
-        {
-            //DrawRectangle_impl(draw.x, draw.y, draw.width, draw.height, 0, 1, {255, 0, 0, 255}, {});
-            DrawRectangle_impl(scissor_aabb.x, scissor_aabb.y, scissor_aabb.width, scissor_aabb.height, 0, 1, {255, 0, 0, 255}, {});
-        }
 
         //Input handling
         Rect new_aabb = Rect::Intersection(scissor_aabb, draw);
         if(box_core.id_key)
         {
             //Insert info back buffer
-            BoxInfo info;
             info.key = box_core.id_key;
             info.x = draw.x;
             info.y = draw.y;
+            info.padding = box_core.padding;
+            info.margin = box_core.margin;
             info.width = draw.width;
             info.height = draw.height;
             info.content_width = box_result.content_width;
             info.content_height = box_result.content_height;
+            info.valid =            true; // mainly used when you want to verify sizings as they are default to 0
             if(Rect::Contains(new_aabb, GetMouseX(), GetMouseY()))
             {
                 info.is_hover = true;
