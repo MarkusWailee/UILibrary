@@ -15,14 +15,51 @@ int main(void)
 
     UI::Init_impl("assets/fonts/RobotoMonoNerdFont-Regular.ttf");
     UI::Context context(128 * UI::KB);
-    UI::TextStyle style;
-    style.FgColor({255, 255, 255, 255}).FontSize(32);
-    int count = 0;
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
-        count++;
-        LayoutTest(&context);
+        //LayoutTest(&context);
         //TextLayoutTest(&context);
+        UI::BoxStyle root =
+        {
+            .flow =
+            {
+                .vertical_alignment = UI::Flow::CENTERED,
+                .horizontal_alignment = UI::Flow::CENTERED,
+            },
+            .width = {GetScreenWidth()},
+            .height = {GetScreenHeight()},
+        };
+        UI::BoxStyle box1 =
+        {
+            .width = {100},
+            .height = {100},
+            .background_color = {255, 255, 255, 255}
+        };
+        UI::BoxStyle box2 =
+        {
+            //.x = -10,
+            //.y = -10,
+            .width = {200},
+            .height = {200},
+            .background_color = {0, 255, 0, 80},
+            .scissor = true
+        };
+
+        UI::Root(&context, root, [&]
+        {
+            UI::Box(box2)
+            .Run([&]
+            {
+                UI::Box(box1)
+                .Id("SomeBox")
+                .OnHover([&]
+                {
+                    UI::Style().background_color = {255, 0, 0, 255};
+                })
+                .Run();
+            });
+
+        });
 
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});

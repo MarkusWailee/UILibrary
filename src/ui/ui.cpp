@@ -801,6 +801,9 @@ namespace UI
     {
         #if UI_ENABLE_DEBUG
         #endif
+        const BoxInfo* info = double_buffer_map.FrontValue(key);
+        if(info)
+            return *info;
         return BoxInfo();
     }
     BoxInfo Context::Info(const StringAsci& id)
@@ -820,6 +823,7 @@ namespace UI
 
     void Context::ResetAtBeginRoot()
     {
+        double_buffer_map.SwapBuffer();
         arena1.Rewind(tree_core);
 
         stack.Clear();
@@ -921,6 +925,8 @@ namespace UI
 
         //Input Handling
         uint64_t id_key = 0;
+        if(!id.IsEmpty())
+            id_key = HashBytes(id.data, id.Size());
 
         if(!stack.IsEmpty())  // should add to parent
         {
@@ -2003,6 +2009,7 @@ namespace UI
         }
     }
 
+    //scissor_aabb is the parents aabb
     void Context::DrawPass(TreeNode<BoxResult>* node, int parent_x, int parent_y, Rect scissor_aabb)
     {
         if(!node || !node->box.core)
@@ -2021,12 +2028,6 @@ namespace UI
         //Render current box
         if(box_core.IsTextElement())
         {
-            //todo
-            // for(auto span = box_core.text_style_spans.GetHead(); span != nullptr; span = span->next)
-            // {
-            //     DrawText_impl(span->value.style, draw.x, draw.y, span->value.data, span->value.Size());
-            // }
-
             for(auto temp = box_result.text_lines.GetHead(); temp != nullptr; temp = temp->next)
             {
                 const TextLine& line = temp->value;
@@ -2045,13 +2046,42 @@ namespace UI
             DrawRectangle_impl(draw.x, draw.y, draw.width, draw.height, box_core.corner_radius, box_core.border_width, box_core.border_color, box_core.background_color);
         }
 
+        if(box_core.id_key)
+        {
+            //DrawRectangle_impl(draw.x, draw.y, draw.width, draw.height, 0, 1, {255, 0, 0, 255}, {});
+            DrawRectangle_impl(scissor_aabb.x, scissor_aabb.y, scissor_aabb.width, scissor_aabb.height, 0, 1, {255, 0, 0, 255}, {});
+        }
+
+        //Input handling
+        Rect new_aabb = Rect::Intersection(scissor_aabb, draw);
+        if(box_core.id_key)
+        {
+            //Insert info back buffer
+            BoxInfo info;
+            info.key = box_core.id_key;
+            info.x = draw.x;
+            info.y = draw.y;
+            info.width = draw.width;
+            info.height = draw.height;
+            info.content_width = box_result.content_width;
+            info.content_height = box_result.content_height;
+            if(Rect::Contains(new_aabb, GetMouseX(), GetMouseY()))
+            {
+                info.is_hover = true;
+                if(directly_hovered_element_key != info.key)
+                    directly_hovered_element_key = info.key;
+            }
+            BoxInfo* box_info = double_buffer_map.Insert(box_core.id_key, info);
+            assert(box_info && "DoubleBufferArena full");
+        }
+
+        if(box_core.IsScissor())
+            scissor_aabb = new_aabb;
+
 
         //Render children boxes
         int x = draw.x - box_core.scroll_x;
         int y = draw.y - box_core.scroll_y;
-
-        if(box_core.IsScissor())
-            scissor_aabb = Rect::Intersection(scissor_aabb, draw);
 
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
