@@ -229,6 +229,19 @@ namespace UI
     template<typename T>
     inline T Mix(T a, T b, float amount) { return a + Clamp(amount, 0.0f, 1.0f) * (b - a); }
 
+    struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
+    template<>
+    inline Color Mix(Color c1, Color c2, float amount)
+    {
+        return Color
+        {
+            Mix(c1.r, c2.r, amount),
+            Mix(c1.g, c2.g, amount),
+            Mix(c1.b, c2.b, amount),
+            Mix(c1.a, c2.a, amount),
+        };
+    }
+
     struct Rect
     {
         static bool Overlap(const Rect& r1, const Rect& r2);
@@ -241,17 +254,6 @@ namespace UI
         int height = 0;
     };
 
-    struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
-    inline Color Mix(Color c1, Color c2, float amount)
-    {
-        return Color
-        {
-            Mix(c1.r, c2.r, amount),
-            Mix(c1.g, c2.g, amount),
-            Mix(c1.b, c2.b, amount),
-            Mix(c1.a, c2.a, amount),
-        };
-    }
 
     // ========== Hashing functions ==========
     // ========================================
@@ -385,10 +387,20 @@ namespace UI
         uint8_t line_spacing = 0;
     };
 
+    //Per element states that are saved across frames
+    //Users can use these however they like
+    struct BoxStates
+    {
+        float hover_anim = 0.0f;
+        float appear_anim = 0.0f;
+        float custom_anim = 0.0f;
+        uint32_t bit_states = 0;
+    };
 
     struct BoxInfo
     {
         uint64_t key = 0;
+        BoxStates states;
         int x = 0;
         int y = 0;
         int width = 0;
@@ -480,15 +492,18 @@ namespace UI
     void LogError_impl(const char* text);
 
 
+    void DrawText_impl(TextPrimitive draw_command);
     //Backend function to implement
     void Init_impl(const char* font_path);
+
     void DrawRectangle_impl(float x, float y, float width, float height, float corner_radius, float border_size, Color border_color, Color background_color);
     void DrawTexturedRectangle_impl(int x, int y, int width, int height, const TextureRect& texture);
-    void DrawText_impl(TextPrimitive draw_command);
     void DrawText_impl(TextStyle style, int x, int y, const char32_t* text, int size);
     int MeasureChar_impl(char32_t c, int font_size, int spacing);
     void BeginScissorMode_impl(float x, float y, float width, float height);
     void EndScissorMode_impl();
+    int GetMouseX();
+    int GetMouseY();
 
     //Input
     //These don't need to be implementd, but are great for backend agnostic widgets
@@ -502,12 +517,11 @@ namespace UI
     bool IsMouseReleased(MouseButton button);
     bool IsMouseDown(MouseButton button);
     float GetMouseScroll();
-    int GetMouseX();
-    int GetMouseY();
 
     //These are actually only for the inspector
     int GetScreenWidth();
     int GetScreenHeight();
+    float GetFrameTime();
 
 
 

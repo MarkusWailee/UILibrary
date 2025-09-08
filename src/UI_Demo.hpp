@@ -23,6 +23,17 @@ inline void TextLayoutTest(UI::Context* context)
     UI::Root(context, root, [&]
     {
         UI::Box(box1)
+        .Id("SomeBox")
+        .PreRun([&]
+        {
+            UI::Color c1 = {0, 0, 0, 0};
+            UI::Color c2 = {200, 200, 200, 255};
+            UI::Style().color = UI::Mix(c1, c2, UI::Info().states.appear_anim);
+            UI::Style().x = UI::Mix(-200.0f, 0.0f, UI::Info().states.appear_anim);
+
+            UI::Style().color = UI::Mix(UI::Style().color, {30, 30, 100, 255}, UI::Info().states.hover_anim);
+
+        })
         .Run([&]
         {
             UI::TextStyle text_style;

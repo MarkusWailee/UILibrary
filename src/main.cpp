@@ -17,8 +17,8 @@ int main(void)
     UI::Context context(128 * UI::KB, 128 * UI::KB);
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
-        LayoutTest(&context);
-        //TextLayoutTest(&context);
+        //LayoutTest(&context);
+        TextLayoutTest(&context);
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
         UI::Draw();

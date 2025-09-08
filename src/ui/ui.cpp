@@ -715,6 +715,7 @@ namespace UI
     {
         double_buffer_map.SwapBuffer();
         arena1.Rewind(tree_core);
+        arena3.Reset();
 
         stack.Clear();
         deferred_elements.Clear();
@@ -813,10 +814,32 @@ namespace UI
             return;
         element_count++;
 
-        //Input Handling
+        //============ Persistent states =============
         uint64_t id_key = 0;
         if(!id.IsEmpty())
+        {
             id_key = HashBytes(id.data, id.Size());
+            BoxInfo* current_info = double_buffer_map.FrontValue(id_key);
+            //Handling persistent state animation variables
+            if(current_info)
+            {
+                BoxStates& s = current_info->states;
+                if(current_info->IsHover())
+                {
+                    s.hover_anim += GetFrameTime();
+                }
+                else
+                    s.hover_anim -= GetFrameTime();
+
+                if(current_info->IsRendered())
+                    s.appear_anim += GetFrameTime();
+                else
+                    s.appear_anim = 0;
+                s.hover_anim = Clamp(s.hover_anim, 0.0f, 1.0f);
+                s.appear_anim = Clamp(s.appear_anim, 0.0f, 1.0f);
+            }
+        }
+        // ============================================
 
         if(!stack.IsEmpty())  // should add to parent
         {
@@ -1919,11 +1942,11 @@ namespace UI
         draw.y = box_core.y + box_result.rel_y + parent_y;
         draw.width = box_result.draw_width;
         draw.height = box_result.draw_height;
+        bool should_render = false;
 
-        BoxInfo info;
         if(Rect::Overlap(scissor_aabb, draw))
         {
-            info.is_rendered = true;
+            should_render = true;
             //Render current box
             if(box_core.IsTextElement())
             {
@@ -1951,7 +1974,8 @@ namespace UI
         Rect new_aabb = Rect::Intersection(scissor_aabb, draw);
         if(box_core.id_key)
         {
-            //Insert info back buffer
+            BoxInfo info;
+            info.is_rendered = should_render;
             info.key = box_core.id_key;
             info.x = draw.x;
             info.y = draw.y;
@@ -1961,15 +1985,18 @@ namespace UI
             info.height = draw.height;
             info.content_width = box_result.content_width;
             info.content_height = box_result.content_height;
-            info.valid =            true; // mainly used when you want to verify sizings as they are default to 0
+            info.valid = true; // mainly used when you want to verify sizings as they are default to 0
             if(Rect::Contains(new_aabb, GetMouseX(), GetMouseY()))
             {
                 info.is_hover = true;
-                if(directly_hovered_element_key != info.key)
-                    directly_hovered_element_key = info.key;
+                if(directly_hovered_element_key != box_core.id_key)
+                    directly_hovered_element_key = box_core.id_key;
             }
-            BoxInfo* box_info = double_buffer_map.Insert(box_core.id_key, info);
-            assert(box_info && "DoubleBufferArena full");
+            const BoxInfo* front_value = double_buffer_map.FrontValue(info.key);
+            if(front_value)
+                info.states = front_value->states;
+            BoxInfo* box_info = double_buffer_map.Insert(info.key, info);
+            assert(box_info && "DoubleBufferMap out of memory");
         }
 
         if(box_core.IsScissor())

@@ -350,6 +350,10 @@ int UI::GetScreenHeight()
 {
     return ::GetScreenHeight();
 }
+float UI::GetFrameTime()
+{
+    return ::GetFrameTime();
+}
 
 
 
