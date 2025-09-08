@@ -6,7 +6,6 @@ namespace UI
     using namespace Internal;
     void DisplayError(const Error& error);
     Error CheckUnitErrors(const BoxCore& style);
-    Error CheckLeafNodeContradictions(const BoxCore& leaf);
     Error CheckNodeContradictions(const BoxCore& child, const BoxCore& parent);
 
     //Used during tree descending
@@ -16,13 +15,8 @@ namespace UI
     //Text related functions
     int MeasureTextSpans(BoxCore& box);
 
-    //Size should include '\0'
-    void StringCopy(char* dst, const char* src, uint32_t size);
-    //returns pointer pointing to arena
-
     //size should includes '\0' if null terminated string are used
 
-    bool StringCompare(const char* s1, const char* s2);
     char ToLower(char c);
 
     //Does not count '\0'
@@ -130,9 +124,9 @@ namespace UI
 
 
     // ========== Builder Notation ===========
-    void Text(const TextStyle& style, const StringU32& string, DebugInfo debug_info)
+    void Text(const TextStyle& style, const StringU32& string, bool copy_text, DebugInfo debug_info)
     {
-        builder.Text(style, string, debug_info);
+        builder.Text(style, string, copy_text, debug_info);
     }
     Builder& Box(const BoxStyle& style, const StringAsci& id, DebugInfo debug_info)
     {
@@ -175,15 +169,6 @@ namespace UI
         {
             it.node = it.node->next;
             it.string_index = 0;
-            // if(it.node->next)
-            // {
-            //     it.node = it.node->next;
-            //     it.string_index = 0;
-            // }
-            // else
-            // {
-            //     it.string_index--;
-            // }
         }
         return it;
     }
@@ -356,82 +341,13 @@ namespace UI
     {
         LogError_impl(error.msg);
     }
-
-
-
-    #define UNIT_CONFLICT(value, illegal_unit, error_type)\
-        if(value == illegal_unit)\
-        {\
-            error.type = error_type;\
-            StringCopy(error.msg, Fmt(#error_type"\n"#value" = " #illegal_unit"\nFile: %s\nLine: %d\n", debug_info.file, debug_info.line), ERROR_MSG_SIZE);\
-        }
     Error CheckUnitErrors(const BoxCore& style)
     {
-        //The following units cannot equal the specified Unit Types
-
-        //Content%
-        Error error;
-        #if UI_ENABLE_DEBUG
-            DebugInfo debug_info = style.debug_info;
-            UNIT_CONFLICT(style.min_width_unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-            UNIT_CONFLICT(style.min_height_unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-            UNIT_CONFLICT(style.max_width_unit,             Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-            UNIT_CONFLICT(style.max_height_unit,            Unit::Type::AVAILABLE_PERCENT, Error::Type::INCORRENT_UNIT_TYPE);
-        #endif
-        return error;
+        return Error();
     }
-
-
-
-    Error CheckLeafNodeContradictions(const BoxCore& leaf)
-    {
-        //The Following erros are contradictions
-        Error error;
-        #if UI_ENABLE_DEBUG
-            DebugInfo debug_info = leaf.debug_info;
-            if(leaf.width_unit == Unit::Type::CONTENT_PERCENT)
-            {
-                error.type = Error::Type::LEAF_NODE_CONTRADICTION;
-                StringCopy(error.msg, Fmt("LEAF_NODE_CONTRADICTION\nbox.width_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", debug_info.file, debug_info.line), ERROR_MSG_SIZE);
-            }
-            if(leaf.height_unit == Unit::Type::CONTENT_PERCENT)
-            {
-                error.type = Error::Type::LEAF_NODE_CONTRADICTION;
-                StringCopy(error.msg, Fmt("LEAF_NODE_CONTRADICTION\nbox.height_unit = Unit::CONTENT_PERCENT with 0 children\nFile:%s\nLine%d", debug_info.file, debug_info.line), ERROR_MSG_SIZE);
-            }
-        #endif
-        return error;
-    }
-
     Error CheckNodeContradictions(const BoxCore& child, const BoxCore& parent)
     {
-        //The following errors are contradictions between parent and child
-        Error error;
-        #if UI_ENABLE_DEBUG
-
-            #define CHILD_PARENT_CONFLICT(child_unit, illegal_unit, parent_unit, error_type)\
-                if(child_unit == illegal_unit && parent_unit == Unit::CONTENT_PERCENT)\
-                {\
-                    error.type = error_type;\
-                    StringCopy(error.msg, Fmt(#error_type"\n"#child_unit " = " #illegal_unit" and "#parent_unit " = Unit::CONTENT_PERCENT\nFile: %s\nLine: %d\n", file, line), ERROR_MSG_SIZE);\
-                }
-
-            //DebugInfo debug_info = child.debug_info;
-            //CHILD_PARENT_CONFLICT(child.width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.min_width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.min_width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.max_width_unit, Unit::PARENT_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.max_width_unit, Unit::AVAILABLE_PERCENT, parent.width_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.min_height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.min_height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.max_height_unit, Unit::PARENT_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-            //CHILD_PARENT_CONFLICT(child.max_height_unit, Unit::AVAILABLE_PERCENT, parent.height_unit, Error::Type::NODE_CONTRADICTION);
-        #endif
-
-        return error;
+        return Error();
     }
 
     bool Rect::Overlap(const Rect& r1, const Rect& r2)
@@ -549,30 +465,9 @@ namespace UI
         return result;
     }
 
-    void StringCopy(char* dst, const char* src, uint32_t size)
-    {
-        if(!size || !src || !dst) return;
-        uint32_t i;
-        for(i = 0; i<size-1 && src[i] != '\0'; i++)
-            dst[i] = src[i];
-        dst[i] = '\0';
-    }
-    bool StringCompare(const char* s1, const char* s2)
-    {
-        if(s1 == nullptr || s2 == nullptr)
-            return false;
-        while(*s1 && *s2)
-        {
-            if(*s1 != *s2)
-                return false;
-            s1++;
-            s2++;
-        }
-        return *s1 == *s2;
-    }
 
     //TEXT RENDERING
-    const char *Fmt(const char *text, ...)
+    StringAsci Fmt(const char *text, ...)
     {
         static int index = 0;
         constexpr uint32_t MAX_LENGTH = 512;
@@ -583,36 +478,33 @@ namespace UI
         va_list args;
         va_start(args, text);
         int count = vsnprintf(buffer[index], MAX_LENGTH, text, args);
-        if(count >= MAX_LENGTH) //just for sanity
-            buffer[index][MAX_LENGTH-1] = '\0';
+        count = Clamp(count, 0, (int)MAX_LENGTH - 1);
+        buffer[index][count] = '\0';
         va_end(args);
-        return buffer[index];
+        return StringAsci{buffer[index], (uint64_t)count};
     }
+
+    StringU32 AsciToStrU32(const StringAsci& str)
+    {
+        static int index = 0;
+        constexpr uint32_t MAX_LENGTH = 512;
+        constexpr uint32_t MAX_BUFFERS = 6;
+        static char32_t buffer[MAX_BUFFERS][MAX_LENGTH]{};  // Fixed-size static buffer
+
+        index = (index + 1) % MAX_BUFFERS;
+
+        int size = Min((int)MAX_LENGTH-1, (int)str.Size());
+        for(int i = 0; i < size; i++)
+            buffer[index][i] = (char32_t)str[i];
+        buffer[index][size] = U'\0';
+        return StringU32{buffer[index], (uint64_t)size};
+    }
+
     inline char ToLower(char c)
     {
         return (c >= 'A' && c <= 'Z')? c + 32: c;
     }
-    int StrAsciLength(const char* text)
-    {
-        /*
-        if(!text)
-            return -1;
-        int i = 0;
-        for(; text[i]; i++);
-        return i;
-        */
-       if(!text)
-            return -1;
-        return std::strlen(text);
-    }
-    int StrU16Length(const char16_t* text)
-    {
-        if(!text)
-            return -1;
-        int i = 0;
-        for(; text[i]; i++);
-        return i;
-    }
+
     inline uint32_t StrToU32(const char* text, bool* error)
     {
         if(!text)
@@ -760,8 +652,8 @@ namespace UI
 
 namespace UI
 {
-    Context::Context(uint64_t arena_bytes) :
-        arena1(arena_bytes), arena2(arena_bytes)//, arena3(arena_bytes)
+    Context::Context(uint64_t arena_bytes, uint64_t string_bytes) :
+        arena1(arena_bytes), arena2(arena_bytes), arena3(string_bytes)
     {
 
         //Super rough estimate of how many elements we might be able to hold.
@@ -1013,7 +905,13 @@ namespace UI
             prev_inserted_box = &node->box;
         }
         assert(prev_inserted_box && "Should not be null");
-        TextSpan* span = prev_inserted_box->text_style_spans.Add(TextSpan{StringU32(string.data, string.Size()), style}, &arena1);
+        const char32_t* str_data = string.data;
+        if(copy_text)
+        {
+            str_data = arena3.NewArrayCopy(string.data, string.Size());
+            assert(str_data && "string arena out of memeory");
+        }
+        TextSpan* span = prev_inserted_box->text_style_spans.Add(TextSpan{StringU32(str_data, string.Size()), style}, &arena1);
         assert(span && "Arena1 out of memory");
         return;
     }

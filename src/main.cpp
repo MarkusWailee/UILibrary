@@ -14,56 +14,11 @@ int main(void)
     SetTargetFPS(60);
 
     UI::Init_impl("assets/fonts/RobotoMonoNerdFont-Regular.ttf");
-    UI::Context context(128 * UI::KB);
+    UI::Context context(128 * UI::KB, 128 * UI::KB);
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
-        //LayoutTest(&context);
+        LayoutTest(&context);
         //TextLayoutTest(&context);
-        UI::BoxStyle root =
-        {
-            .flow =
-            {
-                .vertical_alignment = UI::Flow::CENTERED,
-                .horizontal_alignment = UI::Flow::CENTERED,
-            },
-            .width = {GetScreenWidth()},
-            .height = {GetScreenHeight()},
-        };
-        UI::BoxStyle box1 =
-        {
-            .width = {100},
-            .height = {100},
-            .color = {255, 0, 255, 255}
-        };
-        UI::BoxStyle box2 =
-        {
-            //.x = -10,
-            //.y = -10,
-            .width = {200},
-            .height = {200},
-            .color = {0, 255, 0, 80},
-            .scissor = true
-        };
-
-        UI::Root(&context, root, [&]
-        {
-            UI::Box(box2)
-            .Run([&]
-            {
-                UI::Box(box1)
-                .Id("SomeBox")
-                .OnHover([&]
-                {
-                    UI::Style().color = {255, 0, 0, 255};
-                })
-                .Run([&]
-                {
-                    UI::Text(UI::TextStyle(), U"Hello World");
-                });
-            });
-
-        });
-
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
         UI::Draw();

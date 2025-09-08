@@ -29,8 +29,7 @@
 
 namespace UI
 {
-    template<typename char_type>
-    struct BaseString;
+    template<typename char_type> struct BaseString;
     using StringAsci = BaseString<const char>;
     using StringU8 = BaseString<const char8_t>; //UTF8 not supported right now
     using StringU32 = BaseString<const char32_t>;
@@ -46,17 +45,19 @@ namespace UI
     struct BoxInfo;
     struct Rect;
 }
-namespace UI::Internal
+namespace UI
 {
-    //Non owning string
-    struct BoxCore;
-    template<typename T>
-    struct TreeNode;
+    namespace Internal
+    {
+        struct BoxCore;
+        template<typename T>
+        struct TreeNode;
+    }
 }
 
 namespace UI
 {
-    enum Key
+    enum Key //copied from glfw or raylib
     {
         KEY_NULL            = 0,        // Key: NULL, used for no key pressed
         KEY_SPACE           = 32,       // Key: Space
@@ -193,14 +194,26 @@ namespace UI
             assert(start >= 0 && start <= (int)this->Size() && size <= (int)this->Size() - start);
             return {this->data + start, (uint64_t)size};
         }
+        char_type* Cstr(){return this->data; }
     };
 
     constexpr uint64_t KB = 1024;
     constexpr uint64_t MB = KB * KB;
 
-    const char *Fmt(const char *text, ...);
-    int StrAsciLength(const char* text);
-    int StrU16Length(const char16_t* text);
+    /*
+       Uses regular printf specifiers
+       %d => int
+       %u => unsigned int
+       %lld => 64bit signed
+       %llu => 64bit unsigned
+       %f => float
+       %.2f => float x.xx
+       %c => char
+       %s => c-string
+    */
+    StringAsci Fmt(const char *text, ...);
+    StringU32 AsciToStrU32(const StringAsci& str);
+    //StringU32 FmtU32(const char *text, ...);
 
     //Math helpers
     constexpr float DPI = 96.0f;
@@ -241,7 +254,6 @@ namespace UI
     }
 
     // ========== Hashing functions ==========
-    uint64_t StrHash(const char* str);
     // ========================================
 
     //All measurements are based on this Unit
@@ -424,7 +436,20 @@ namespace UI
     // ========== Builder Notation ==========
     template<typename Func>
     void Root(Context* context, const BoxStyle& style, Func&& func, DebugInfo debug_info = UI_DEBUG("Root"));
-    void Text(const TextStyle& style, const StringU32& string, DebugInfo debug_info = UI_DEBUG("Text"));
+
+    // ===== Text Overloads ====
+    void Text(const TextStyle& style, const StringU32& string, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
+    inline void Text(const TextStyle& style, const StringAsci& string, DebugInfo debug_info = UI_DEBUG("Text"))
+    {
+        Text(style, AsciToStrU32(string), true, debug_info);
+    }
+
+    template<int N>
+    inline void Text(const TextStyle& style, const char32_t(&str)[N], DebugInfo debug_info = UI_DEBUG("Text"))
+    {
+        Text(style, str, false, debug_info);
+    }
+    // =========================
     Builder& Box(const BoxStyle& style = BoxStyle(), const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
     BoxInfo Info();
     BoxStyle& Style();
@@ -717,7 +742,7 @@ namespace UI
         };
 
     public:
-        Context(uint64_t arena_bytes);
+        Context(uint64_t arena_bytes, uint64_t string_bytes);
         BoxInfo Info(const StringAsci& id);
         BoxInfo Info(uint64_t key);
         void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
@@ -784,7 +809,7 @@ namespace UI
 
         Internal::MemoryArena arena1; //Arena used for building the ui tree
         Internal::MemoryArena arena2; //Arena used for caching computed ui tree and computed text lines after measurements
-        //Internal::MemoryArena arena3; //Arena used for string allocation
+        Internal::MemoryArena arena3; //Arena used for string allocation
 
         Internal::FixedStack<TreeNode<BoxCore>*, 64> stack; //elements should never nest over 100 layers deep
         BoxCore* prev_inserted_box = nullptr;
@@ -803,7 +828,7 @@ namespace UI
 
         //Also Implemented as global functions
         Builder& Box(const BoxStyle& style = BoxStyle(), const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
-        void Text(const TextStyle& style, const StringU32& string, DebugInfo debug_info = UI_DEBUG("Text"));
+        void Text(const TextStyle& style, const StringU32& string, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
         BoxInfo Info() const;
         BoxStyle& Style();
         bool IsHover() const;
@@ -836,7 +861,7 @@ namespace UI
         BoxInfo info;
         BoxStyle style;
         DebugInfo debug_info;
-        bool should_copy = true;
+        bool copy_text = true;
     };
 
 }
@@ -845,17 +870,6 @@ namespace UI
 //Implementation
 namespace UI
 {
-    namespace Internal
-    {
-    }
-
-    inline uint64_t StrHash(const char* str)
-    {
-        if(!str)
-            return 0;
-        return Internal::HashBytes(str, (uint64_t)StrAsciLength(str));
-    }
-
     inline TextStyle& TextStyle::FontSize(int size)
     {
         font_size = size;
@@ -923,12 +937,12 @@ namespace UI
         }
         return *this;
     }
-    inline void Builder::Text(const TextStyle& style, const StringU32& string, DebugInfo debug_info)
+    inline void Builder::Text(const TextStyle& style, const StringU32& string, bool copy_text, DebugInfo debug_info)
     {
         ClearStates();
         if(HasContext())
         {
-            this->context->InsertText(style, string, nullptr, true, debug_info);
+            this->context->InsertText(style, string, nullptr, copy_text, debug_info);
         }
     }
     inline void Builder::SetContext(Context* context)
@@ -945,7 +959,7 @@ namespace UI
         info = BoxInfo();
         style = BoxStyle();
         debug_info = DebugInfo();
-        should_copy = true;
+        copy_text = true;
     }
     inline BoxInfo Builder::Info() const
     {
