@@ -34,6 +34,7 @@ namespace UI
     using StringU8 = BaseString<const char8_t>; //UTF8 not supported right now
     using StringU32 = BaseString<const char32_t>;
     class Context;
+    class DebugInspector;
     class Builder;
     struct Error;
     struct BoxStyle;
@@ -178,7 +179,120 @@ namespace UI
         MOUSE_FORWARD = 5,       // Mouse button forward (advanced mouse device)
         MOUSE_BACK    = 6,       // Mouse button back (advanced mouse device)
     };
+    struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
 
+
+    //Math helpers
+    constexpr float DPI = 96.0f;
+    inline int MmToPx(float mm) { return int(mm * DPI / 25.4f); }
+    inline int CmToPx(float cm) { return int(cm * DPI / 2.54f); }
+    inline int InchToPx(float inches) { return int(inches * DPI); }
+    template<typename T>
+    inline T Min(T a, T b) {return a < b? a: b;}
+    template<typename T>
+    inline T Max(T a, T b) {return a > b? a: b;}
+    template<typename T>
+    inline T Clamp(T value, T minimum, T maximum) { return Max(Min(value, maximum), minimum); }
+    template<typename T>
+    inline T Mix(T a, T b, float amount) { return a + Clamp(amount, 0.0f, 1.0f) * (b - a); }
+    template<>
+    inline Color Mix(Color c1, Color c2, float amount)
+    {
+        return Color
+        {
+            Mix(c1.r, c2.r, amount),
+            Mix(c1.g, c2.g, amount),
+            Mix(c1.b, c2.b, amount),
+            Mix(c1.a, c2.a, amount),
+        };
+    }
+
+    //Does not count '\0'
+    constexpr Color HexToRGBA(const char* text, bool* error)
+    {
+        auto ToLower = [&](char c) -> char
+        {
+            return (c >= 'A' && c <= 'Z')? c + 32: c;
+        };
+        auto HexToU32 = [&](const char* text, bool* error) -> uint32_t
+        {
+            if(!text)
+            {
+                if(error)
+                    *error = true;
+                return 0;
+            }
+            uint32_t result = 0;
+            for(; *text; text++)
+            {
+                result <<= 4;
+                char c = *text;
+                c = ToLower(c);
+                if(c >= '0' && c <= '9')
+                    result |= c - '0';
+                else if(c >= 'a' && c<= 'f')
+                    result |= c - 87;
+                else
+                {
+                    if(error)
+                        *error = true;
+                    return 0;
+                }
+            }
+            return result;
+        };
+
+        bool err = false;
+        if(!text)
+            err = true;
+        char hex[3]{};
+        Color result = {0, 0, 0, 255};
+        for(int i = 0; i<6; i++)
+        {
+            if(text[i] == '\0')
+                err = true;
+        }
+        hex[0] = text[0]; hex[1] = text[1]; hex[2] = '\0';
+        result.r = HexToU32(hex, &err);
+        hex[0] = text[2]; hex[1] = text[3]; hex[2] = '\0';
+        result.g = HexToU32(hex, &err);
+        hex[0] = text[4]; hex[1] = text[5]; hex[2] = '\0';
+        result.b = HexToU32(hex, &err);
+        if(text[6] == '\0')
+        {
+            if(error)
+                *error = err;
+            return err? Color() : result;
+        }
+        if(text[7] == '\0')
+        {
+            if(error)
+                *error = true;
+            return Color();
+        }
+        hex[0] = text[6]; hex[1] = text[7]; hex[2] = '\0';
+        result.a = HexToU32(hex, &err);
+        if(text[8] != '\0')
+            err = true;
+        if(error)
+            *error = err;
+        return err? Color(): result;
+    }
+
+    constexpr uint64_t KB = 1024;
+    constexpr uint64_t MB = KB * KB;
+
+    /*
+       Uses regular printf specifiers
+       %d => int
+       %u => unsigned int
+       %lld => 64bit signed
+       %llu => 64bit unsigned
+       %f => float
+       %.2f => float x.xx
+       %c => char
+       %s => c-string
+    */
     template<typename char_type>
     struct BaseString : public Internal::ArrayView<char_type>
     {
@@ -196,51 +310,10 @@ namespace UI
         }
         char_type* Cstr(){return this->data; }
     };
-
-    constexpr uint64_t KB = 1024;
-    constexpr uint64_t MB = KB * KB;
-
-    /*
-       Uses regular printf specifiers
-       %d => int
-       %u => unsigned int
-       %lld => 64bit signed
-       %llu => 64bit unsigned
-       %f => float
-       %.2f => float x.xx
-       %c => char
-       %s => c-string
-    */
     StringAsci Fmt(const char *text, ...);
     StringU32 AsciToStrU32(const StringAsci& str);
     //StringU32 FmtU32(const char *text, ...);
 
-    //Math helpers
-    constexpr float DPI = 96.0f;
-    inline int MmToPx(float mm) { return int(mm * DPI / 25.4f); }
-    inline int CmToPx(float cm) { return int(cm * DPI / 2.54f); }
-    inline int InchToPx(float inches) { return int(inches * DPI); }
-    template<typename T>
-    inline T Min(T a, T b) {return a < b? a: b;}
-    template<typename T>
-    inline T Max(T a, T b) {return a > b? a: b;}
-    template<typename T>
-    inline T Clamp(T value, T minimum, T maximum) { return Max(Min(value, maximum), minimum); }
-    template<typename T>
-    inline T Mix(T a, T b, float amount) { return a + Clamp(amount, 0.0f, 1.0f) * (b - a); }
-
-    struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
-    template<>
-    inline Color Mix(Color c1, Color c2, float amount)
-    {
-        return Color
-        {
-            Mix(c1.r, c2.r, amount),
-            Mix(c1.g, c2.g, amount),
-            Mix(c1.b, c2.b, amount),
-            Mix(c1.a, c2.a, amount),
-        };
-    }
 
     struct Rect
     {
@@ -748,6 +821,7 @@ namespace UI
         template<typename T>
         using ArenaLL = Internal::ArenaLL<T>;
         using BoxType = Internal::BoxCore::Type;
+        friend DebugInspector;
 
         struct DeferredBox
         {
@@ -837,7 +911,27 @@ namespace UI
         BoxCore* prev_inserted_box = nullptr;
         Internal::ArenaLL<DeferredBox> deferred_elements;
         uint64_t directly_hovered_element_key = 0;
+    };
 
+    struct DebugBox
+    {
+        BoxStyle style;
+        DebugInfo debug;
+        StringAsci id;
+        StringU32 text;
+    };
+    class DebugInspector
+    {
+        DebugInspector(uint64_t bytes);
+    private:
+
+        //Copying ui tree from context
+        void Push(const BoxStyle& box);
+        void Pop();
+
+    private:
+        Internal::MemoryArena arena;
+        Context ui;
     };
 
 

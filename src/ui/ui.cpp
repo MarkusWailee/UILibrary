@@ -17,12 +17,6 @@ namespace UI
 
     //size should includes '\0' if null terminated string are used
 
-    char ToLower(char c);
-
-    //Does not count '\0'
-    uint32_t StrToU32(const char* text, bool* error = nullptr);
-    uint32_t HexToU32(const char* text, bool* error = nullptr);
-    Color HexToRGBA(const char* text, bool* error = nullptr);
 
 
     //Computing PARENT_PERCENT
@@ -504,108 +498,6 @@ namespace UI
         return StringU32{buffer[index], (uint64_t)size};
     }
 
-    inline char ToLower(char c)
-    {
-        return (c >= 'A' && c <= 'Z')? c + 32: c;
-    }
-
-    inline uint32_t StrToU32(const char* text, bool* error)
-    {
-        if(!text)
-        {
-            if(error)
-                *error = true;
-            return 0;
-        }
-        uint32_t result = 0;
-        for(;*text; text++)
-        {
-            char c = *text;
-            if(c >= '0' && c <= '9')
-            {
-                uint32_t digit = c - '0';
-                if(result > (0xFFFFFFFF - digit)/10)
-                {
-                    if(error)
-                        *error = true;
-                    return 0;
-                }
-                result = result * 10 + digit;
-            }
-            else
-            {
-                if(error)
-                    *error = true;
-                return 0;
-            }
-        }
-        return result;
-    }
-    inline uint32_t HexToU32(const char* text, bool* error)
-    {
-        if(!text)
-        {
-            if(error)
-                *error = true;
-            return 0;
-        }
-        uint32_t result = 0;
-        for(; *text; text++)
-        {
-            result <<= 4;
-            char c = *text;
-            c = ToLower(c);
-            if(c >= '0' && c <= '9')
-                result |= c - '0';
-            else if(c >= 'a' && c<= 'f')
-                result |= c - 87;
-            else
-            {
-                if(error)
-                    *error = true;
-                return 0;
-            }
-        }
-        return result;
-    }
-    inline Color HexToRGBA(const char* text, bool* error)
-    {
-        bool err = false;
-        if(!text)
-            err = true;
-        char hex[3]{};
-        Color result = {0, 0, 0, 255};
-        for(int i = 0; i<6; i++)
-        {
-            if(text[i] == '\0')
-                err = true;
-        }
-        hex[0] = text[0]; hex[1] = text[1]; hex[2] = '\0';
-        result.r = HexToU32(hex, &err);
-        hex[0] = text[2]; hex[1] = text[3]; hex[2] = '\0';
-        result.g = HexToU32(hex, &err);
-        hex[0] = text[4]; hex[1] = text[5]; hex[2] = '\0';
-        result.b = HexToU32(hex, &err);
-        if(text[6] == '\0')
-        {
-            if(error)
-                *error = err;
-            return err? Color() : result;
-        }
-        if(text[7] == '\0')
-        {
-            if(error)
-                *error = true;
-            return Color();
-        }
-        hex[0] = text[6]; hex[1] = text[7]; hex[2] = '\0';
-        result.a = HexToU32(hex, &err);
-        if(text[8] != '\0')
-            err = true;
-        if(error)
-            *error = err;
-        return err? Color(): result;
-    }
 
 
 
@@ -2034,6 +1926,21 @@ namespace UI
         if(box_core.IsScissor())
             EndScissorMode_impl();
     }
+
+
+    DebugInspector::DebugInspector(uint64_t bytes) : arena(bytes/3), ui(bytes/3, bytes/3)
+    {
+
+    }
+    void DebugInspector::Push(const BoxStyle& box)
+    {
+
+    }
+    void DebugInspector::Pop()
+    {
+
+    }
+
 
 
 }
