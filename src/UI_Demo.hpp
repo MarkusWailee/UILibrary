@@ -1,6 +1,7 @@
 #pragma once
 #include <raylib.h>
 #include "ui/ui.hpp"
+#include <cmath>
 
 inline void TextLayoutTest(UI::Context* context)
 {
@@ -26,27 +27,20 @@ inline void TextLayoutTest(UI::Context* context)
         .Id("SomeBox")
         .PreRun([&]
         {
-            UI::Color c1 = {0, 0, 0, 0};
-            UI::Color c2 = {200, 200, 200, 255};
-            UI::Style().color = UI::Mix(c1, c2, UI::Info().states.appear_anim);
-            UI::Style().x = UI::Mix(-200.0f, 0.0f, UI::Info().states.appear_anim);
-
-            UI::Style().color = UI::Mix(UI::Style().color, {30, 30, 100, 255}, UI::Info().states.hover_anim);
-
+            if(UI::IsHover() && UI::IsMousePressed(UI::MOUSE_LEFT))
+                UI::State().custom_flags = 1;
+            else
+                UI::State().custom_flags = 0;
+            UI::Style().color = UI::Mix(UI::Color{255, 0, 0 , 255}, UI::Color{255, 0, 0, 0}, UI::State().hover_anim);
         })
         .Run([&]
         {
             UI::TextStyle text_style;
             text_style.FontSize(64).FgColor({255, 255, 255, 255}).BgColor({20, 20, 20, 100}).LineSpacing(2);
-            UI::StringU32 string = U"This is random colors a b c d e f g\n";
-            for(int i = 0; i < string.Size(); i++)
-            {
-                float col = (float)i / string.Size() * 255;
-                text_style.FgColor({(unsigned char)(col), 0, 0, 255});
-                UI::Text(text_style, string.SubStr(i, 1));
-            }
             text_style.FontSize(24).FgColor({0, 255, 0, 255});
             UI::Text(text_style,  U"Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchang");
+
+
         });
     });
 }

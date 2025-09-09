@@ -336,6 +336,7 @@ namespace UI::Internal
     }
     inline uint64_t HashBytes(const void* src, uint64_t byte_count)
     {
+        assert(src);
         constexpr uint64_t FNV1_PRIME = 1099511628211ULL;
         uint64_t size1 = byte_count & ~7;
         uint64_t size2 = byte_count - size1;
@@ -947,7 +948,7 @@ namespace UI::Internal
     template<typename T>
     T* ArenaMap<T>::GetValue(uint64_t key)
     {
-        if(data == nullptr)
+        if(data == nullptr || !key)
             return nullptr;
         for(int index = key % cap1; index != -1; index = data[index].next)
         {

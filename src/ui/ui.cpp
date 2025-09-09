@@ -142,6 +142,10 @@ namespace UI
     {
         return builder.Style();
     }
+    BoxState& State()
+    {
+        return builder.State();
+    }
 
     bool IsHover()
     {
@@ -696,8 +700,16 @@ namespace UI
             return *info;
         return BoxInfo();
     }
+    void Context::SetStates(uint64_t key, const BoxState& state)
+    {
+        BoxInfo* info = double_buffer_map.FrontValue(key);
+        if(info)
+            info->state = state;
+    }
     BoxInfo Context::Info(const StringAsci& id)
     {
+        if(id.IsEmpty())
+            return BoxInfo();
         return Info(HashBytes(id.data, id.Size()));
     }
     void Context::ResetAllStates()
@@ -823,7 +835,7 @@ namespace UI
             //Handling persistent state animation variables
             if(current_info)
             {
-                BoxStates& s = current_info->states;
+                BoxState& s = current_info->state;
                 if(current_info->IsHover())
                 {
                     s.hover_anim += GetFrameTime();
@@ -1985,7 +1997,6 @@ namespace UI
             info.height = draw.height;
             info.content_width = box_result.content_width;
             info.content_height = box_result.content_height;
-            info.valid = true; // mainly used when you want to verify sizings as they are default to 0
             if(Rect::Contains(new_aabb, GetMouseX(), GetMouseY()))
             {
                 info.is_hover = true;
@@ -1994,7 +2005,7 @@ namespace UI
             }
             const BoxInfo* front_value = double_buffer_map.FrontValue(info.key);
             if(front_value)
-                info.states = front_value->states;
+                info.state = front_value->state;
             BoxInfo* box_info = double_buffer_map.Insert(info.key, info);
             assert(box_info && "DoubleBufferMap out of memory");
         }

@@ -389,18 +389,18 @@ namespace UI
 
     //Per element states that are saved across frames
     //Users can use these however they like
-    struct BoxStates
+    struct BoxState
     {
         float hover_anim = 0.0f;
         float appear_anim = 0.0f;
         float custom_anim = 0.0f;
-        uint32_t bit_states = 0;
+        uint32_t custom_flags = 0;
     };
 
     struct BoxInfo
     {
         uint64_t key = 0;
-        BoxStates states;
+        BoxState state;
         int x = 0;
         int y = 0;
         int width = 0;
@@ -410,10 +410,10 @@ namespace UI
 
         int content_width =     0;
         int content_height =    0;
-        bool valid =            false; // mainly used when you want to verify sizings as they are default to 0
         bool is_hover =         false;
         bool is_direct_hover =  false;
         bool is_rendered =      false;
+
         bool IsValid() const { return key != 0; }
         bool IsDirectHover() const {return is_direct_hover; }
         bool IsHover() const {return is_hover; }
@@ -465,6 +465,7 @@ namespace UI
     Builder& Box(const BoxStyle& style = BoxStyle(), const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
     BoxInfo Info();
     BoxStyle& Style();
+    BoxState& State();
     bool IsHover();
     bool IsDirectHover();
     // ======================================
@@ -759,6 +760,13 @@ namespace UI
         Context(uint64_t arena_bytes, uint64_t string_bytes);
         BoxInfo Info(const StringAsci& id);
         BoxInfo Info(uint64_t key);
+
+
+        /* Set Persistent variables
+           Key is checked internally for 0
+        */
+        void SetStates(uint64_t key, const BoxState& states);
+
         void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
         void EndRoot();
         void BeginBox(const UI::BoxStyle& style, const StringAsci& id, DebugInfo debug_info = UI_DEBUG("Box"));
@@ -845,6 +853,7 @@ namespace UI
         void Text(const TextStyle& style, const StringU32& string, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
         BoxInfo Info() const;
         BoxStyle& Style();
+        BoxState& State();
         bool IsHover() const;
         bool IsDirectHover() const;
 
@@ -873,6 +882,7 @@ namespace UI
         //States
         StringAsci id;
         BoxInfo info;
+        BoxState state;
         BoxStyle style;
         DebugInfo debug_info;
         bool copy_text = true;
@@ -948,6 +958,7 @@ namespace UI
             this->debug_info = debug_info;
             this->id = id;
             info = context->Info(id);
+            state = info.state;
         }
         return *this;
     }
@@ -991,10 +1002,15 @@ namespace UI
     {
         return style;
     }
+    inline BoxState& Builder::State()
+    {
+        return state;
+    }
     inline Builder& Builder::Id(const StringAsci& id)
     {
         this->id = id;
         this->info = context->Info(id);
+        this->state = this->info.state;
         return *this;
     }
     inline Builder& Builder::Style(const BoxStyle& style)
@@ -1030,6 +1046,7 @@ namespace UI
     {
         if(HasContext())
         {
+            context->SetStates(info.GetKey(), state);
             context->BeginBox(style, id, debug_info);
             context->EndBox();
         }
@@ -1039,6 +1056,7 @@ namespace UI
     {
         if(HasContext())
         {
+            context->SetStates(info.GetKey(), state);
             context->BeginBox(style, id, debug_info);
             func();
             context->EndBox();
