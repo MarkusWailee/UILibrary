@@ -30,7 +30,8 @@
 namespace UI
 {
     template<typename char_type> struct BaseString;
-    using StringAsci = BaseString<const char>;
+    //using StringAsci = BaseString<const char>;
+    struct StringAsci;
     using StringU8 = BaseString<const char8_t>; //UTF8 not supported right now
     using StringU32 = BaseString<const char32_t>;
     class Context;
@@ -53,6 +54,7 @@ namespace UI
         struct BoxCore;
         template<typename T>
         struct TreeNode;
+        struct BoxDebug;
     }
 }
 
@@ -310,6 +312,15 @@ namespace UI
         }
         char_type* Cstr(){return this->data; }
     };
+
+    inline int StrLen(const char* str){ if(str) return std::strlen(str); return 0; }
+
+    struct StringAsci : public BaseString<const char>
+    {
+        using BaseString<const char>::BaseString;
+        //Exepects null terminator
+        StringAsci(const char* str) : BaseString<const char>(str, StrLen(str)){}
+    };
     StringAsci Fmt(const char *text, ...);
     StringU32 AsciToStrU32(const StringAsci& str);
     //StringU32 FmtU32(const char *text, ...);
@@ -502,8 +513,8 @@ namespace UI
 
     struct DebugInfo
     {
-        const char* name = nullptr;
-        const char* file = nullptr;
+        StringAsci name;
+        StringAsci file;
         int line = -1;
     };
 
@@ -534,6 +545,7 @@ namespace UI
     {
         Text(style, str, false, debug_info);
     }
+    void LineBreak();
     // =========================
     Builder& Box(const BoxStyle& style = BoxStyle(), const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
     BoxInfo Info();
@@ -768,6 +780,7 @@ namespace UI
             void SetComputedResults(BoxCore& node);
         };
 
+
         template<typename T>
         struct TreeNode
         {
@@ -846,14 +859,15 @@ namespace UI
         void BeginBox(const UI::BoxStyle& style, const StringAsci& id, DebugInfo debug_info = UI_DEBUG("Box"));
         //void InsertText(const UI::TextStyle& style, const StringU8& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
         void InsertText(const UI::TextStyle& style, const StringU32& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+        void LineBreak();
         void EndBox();
         void Draw();
         uint32_t GetElementCount() const;
 
-        //For Advanced Purposes
-
         //Might not even use this
         void ResetAllStates();
+
+        void SetDebugInspector(DebugInspector* inspector, Key activate_key);
     private:
         void ResetAtBeginRoot();
         void ResetArena1();
@@ -898,6 +912,13 @@ namespace UI
         Error internal_error;
         uint32_t element_count = 0;
 
+        #if UI_ENABLE_DEBUG
+            DebugInspector* inspector = nullptr;
+            Key activate_key = Key::KEY_F1;
+            bool enabled = false;
+            bool copy_tree = false;
+        #endif
+
 
         Internal::ArenaDoubleBufferMap<BoxInfo> double_buffer_map;
         TreeNode<BoxCore>* tree_core = nullptr;
@@ -913,25 +934,45 @@ namespace UI
         uint64_t directly_hovered_element_key = 0;
     };
 
-    struct DebugBox
+    namespace Internal
     {
-        BoxStyle style;
-        DebugInfo debug;
-        StringAsci id;
-        StringU32 text;
-    };
+        struct BoxDebug
+        {
+            BoxStyle style;
+            TextStyle text_style;
+            DebugInfo debug_info;
+            StringAsci id;
+            StringU32 text;
+            bool line_break = false;
+        };
+        template<>
+        struct TreeNode<BoxDebug>
+        {
+            BoxDebug box;
+            ArenaLL<TreeNode> children;
+        };
+    }
+
     class DebugInspector
     {
+        using BoxDebug = Internal::BoxDebug;
+        using TreeNodeDebug = Internal::TreeNode<BoxDebug>;
+        friend Context;
+    public:
         DebugInspector(uint64_t bytes);
     private:
 
         //Copying ui tree from context
-        void Push(const BoxStyle& box);
+        void Push(BoxDebug box);
         void Pop();
-
+        void Run();
+        void Reset();
+        void CreateMockUI(TreeNodeDebug* root);
     private:
         Internal::MemoryArena arena;
+        Internal::FixedStack<TreeNodeDebug*, 64> stack;
         Context ui;
+        TreeNodeDebug* root = nullptr;
     };
 
 
@@ -945,6 +986,7 @@ namespace UI
         //Also Implemented as global functions
         Builder& Box(const BoxStyle& style = BoxStyle(), const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
         void Text(const TextStyle& style, const StringU32& string, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
+        void LineBreak();
         BoxInfo Info() const;
         BoxStyle& Style();
         BoxState& State();
@@ -1062,6 +1104,13 @@ namespace UI
         if(HasContext())
         {
             this->context->InsertText(style, string, nullptr, copy_text, debug_info);
+        }
+    }
+    inline void Builder::LineBreak()
+    {
+        if(HasContext())
+        {
+            this->context->LineBreak();
         }
     }
     inline void Builder::SetContext(Context* context)

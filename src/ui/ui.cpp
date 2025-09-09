@@ -1,11 +1,15 @@
 #include "ui.hpp"
 #include "Memory.hpp"
+#include <algorithm>
 
 namespace UI
 {
     using namespace Internal;
     void DisplayError(const Error& error);
+    //Not Active
     Error CheckUnitErrors(const BoxCore& style);
+
+    //Not Active
     Error CheckNodeContradictions(const BoxCore& child, const BoxCore& parent);
 
     //Used during tree descending
@@ -108,6 +112,8 @@ namespace UI
 
     void Draw()
     {
+        assert(!context_queue.IsEmpty() && "No UI::Context attached or UI::Draw called multiple times");
+
         while(!context_queue.IsEmpty())
         {
             assert(context_queue.Front() && "Context nullptr");
@@ -121,6 +127,10 @@ namespace UI
     void Text(const TextStyle& style, const StringU32& string, bool copy_text, DebugInfo debug_info)
     {
         builder.Text(style, string, copy_text, debug_info);
+    }
+    void LineBreak()
+    {
+        builder.LineBreak();
     }
     Builder& Box(const BoxStyle& style, const StringAsci& id, DebugInfo debug_info)
     {
@@ -586,7 +596,13 @@ namespace UI
     BoxInfo Context::Info(uint64_t key)
     {
         #if UI_ENABLE_DEBUG
+            if(inspector && enabled)
+            {
+                if(!copy_tree)
+                    return BoxInfo();
+            }
         #endif
+
         const BoxInfo* info = double_buffer_map.FrontValue(key);
         if(info)
             return *info;
@@ -613,6 +629,11 @@ namespace UI
         tree_core = nullptr;
         element_count = 0;
         directly_hovered_element_key = 0;
+    }
+    void Context::SetDebugInspector(DebugInspector* inspector, Key activate_key)
+    {
+        this->inspector = inspector;
+        this->activate_key = activate_key;
     }
 
     void Context::ResetAtBeginRoot()
@@ -650,7 +671,38 @@ namespace UI
         style.min_width.unit = Unit::PIXEL;
         style.max_height.unit = Unit::PIXEL;
         style.max_width.unit = Unit::PIXEL;
+
         #if UI_ENABLE_DEBUG
+            if(IsKeyPressed(activate_key))
+            {
+                if(enabled)
+                {
+                    enabled = false;
+                    inspector->Reset();
+                    //reset inspector here
+                }
+                else
+                {
+                    enabled = true;
+                    copy_tree = true;
+                }
+            }
+
+            if(inspector && enabled)
+            {
+                if(copy_tree)
+                {
+                    BoxDebug box;
+                    box.style = style;
+                    box.debug_info = debug_info;
+                    inspector->Push(box);
+                }
+                else
+                {
+                    inspector->Run();
+                    return; //stop normal ui
+                }
+            }
         #endif
 
 
@@ -687,6 +739,17 @@ namespace UI
     void Context::EndRoot()
     {
         #if UI_ENABLE_DEBUG
+            if(inspector && enabled)
+            {
+                if(copy_tree)
+                {
+                    inspector->Pop();
+                }
+                else
+                {
+                    return;
+                }
+            }
         #endif
 
         if(HasInternalError())
@@ -711,6 +774,21 @@ namespace UI
     {
 
         #if UI_ENABLE_DEBUG
+            if(inspector && enabled)
+            {
+                if(copy_tree)
+                {
+                    BoxDebug box;
+                    box.style = style;
+                    box.debug_info = debug_info;
+                    box.id = id;
+                    inspector->Push(box);
+                }
+                else
+                {
+                    return; //stop normal ui
+                }
+            }
         #endif
 
 
@@ -775,6 +853,17 @@ namespace UI
     void Context::EndBox()
     {
         #if UI_ENABLE_DEBUG
+            if(inspector && enabled)
+            {
+                if(copy_tree)
+                {
+                    inspector->Pop();
+                }
+                else
+                {
+                    return;
+                }
+            }
         #endif
 
 
@@ -797,21 +886,32 @@ namespace UI
                 return;
         }
     }
-
-    //UTF 8 version
-    // void Context::InsertText(const UI::TextStyle& style, const StringU8& string, const char* id, bool copy_text, DebugInfo info)
-    //
-    // {
-    //     //Need some special decoding StringU8 to StringU32
-    //     assert(0 && "have not made function yet");
-    // }
-
     //UTF 32 version
     //This is complete for now.
     //Not proud of this, but it works temporarily
-    void Context::InsertText(const UI::TextStyle& style, const StringU32& string, const char* id, bool copy_text, DebugInfo info)
+    void Context::InsertText(const UI::TextStyle& style, const StringU32& string, const char* id, bool copy_text, DebugInfo debug_info)
     {
+        if(string.IsEmpty())
+            return;
+
         #if UI_ENABLE_DEBUG
+            if(inspector && enabled)
+            {
+                if(copy_tree)
+                {
+                    BoxDebug box;
+                    box.text_style = style;
+                    box.debug_info = debug_info;
+                    box.id = id;
+                    box.text = string;
+                    inspector->Push(box);
+                    inspector->Pop();
+                }
+                else
+                {
+                    return; //stop normal ui
+                }
+            }
         #endif
 
         if(HasInternalError())
@@ -841,6 +941,26 @@ namespace UI
         TextSpan* span = prev_inserted_box->text_style_spans.Add(TextSpan{StringU32(str_data, string.Size()), style}, &arena1);
         assert(span && "Arena1 out of memory");
         return;
+    }
+    void Context::LineBreak()
+    {
+        #if UI_ENABLE_DEBUG
+        if(inspector && enabled)
+        {
+            if(copy_tree)
+            {
+                BoxDebug box;
+                box.line_break = true;
+                inspector->Push(box);
+                inspector->Pop();
+            }
+            else
+            {
+                return;
+            }
+        }
+        #endif
+        prev_inserted_box = nullptr;
     }
 
 
@@ -956,6 +1076,13 @@ namespace UI
     void Context::Draw()
     {
         #if UI_ENABLE_DEBUG
+        if(inspector && enabled)
+        {
+            if(!copy_tree)
+                return;
+            else
+                copy_tree = false; //Finish copying tree
+        }
         #endif
 
 
@@ -1932,14 +2059,76 @@ namespace UI
     {
 
     }
-    void DebugInspector::Push(const BoxStyle& box)
+    void DebugInspector::Push(BoxDebug box)
     {
-
+        //TreeNode<BoxDebug>* box_debug = arena.New<TreeNode<BoxDebug>>(TreeNode<BoxDebug>(box));
+        // if(!box.id.IsEmpty())
+        // {
+        //     box.id.data = arena.NewArrayCopy(box.id.data, box.id.Size());
+        //     assert(box.id.data && "DebugInspector out of memory");
+        // }
+        if(!root)
+        {
+            root = arena.New<TreeNodeDebug>();
+            assert(root && "Inspector out of memory");
+            root->box = box;
+            stack.Push(root);
+            return;
+        }
+        assert(!stack.IsEmpty());
+        TreeNodeDebug* parent = stack.Peek(); assert(parent);
+        TreeNodeDebug* child = parent->children.Add(TreeNodeDebug(box), &arena);
+        assert(child && "Inspector out of memory");
+        stack.Push(child);
     }
     void DebugInspector::Pop()
     {
-
+        assert(!stack.IsEmpty() && "Begin/End uneven");
+        stack.Pop();
     }
+    void DebugInspector::Run()
+    {
+        assert(stack.IsEmpty());
+        CreateMockUI(root);
+    }
+    void DebugInspector::Reset()
+    {
+        arena.Reset();
+        root = nullptr;
+        stack.Clear();
+    }
+    void DebugInspector::CreateMockUI(TreeNodeDebug* node)
+    {
+        if(node == nullptr)
+            return;
+
+        if(node == root)
+        {
+            UI::Root(&ui, node->box.style, [&]
+            {
+                for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+                    CreateMockUI(&temp->value);
+            });
+        }
+        else if(node->box.line_break)
+        {
+            UI::LineBreak();
+        }
+        else if(node->box.text.IsEmpty())
+        {
+            UI::Box(node->box.style)
+            .Run([&]
+            {
+                for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+                    CreateMockUI(&temp->value);
+            });
+        }
+        else
+        {
+            UI::Text(node->box.text_style, node->box.text);
+        }
+    }
+
 
 
 
