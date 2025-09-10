@@ -490,7 +490,6 @@ namespace UI
         int width = 0;
         int height = 0;
         Spacing padding;
-        Spacing margin;
 
         int content_width =     0;
         int content_height =    0;
@@ -502,8 +501,8 @@ namespace UI
         bool IsDirectHover() const {return is_direct_hover; }
         bool IsHover() const {return is_hover; }
         bool IsRendered() const { return is_rendered; }
-        int DrawX() const { return x + margin.left; }
-        int DrawY() const { return y + margin.top; }
+        int DrawX() const { return x; }
+        int DrawY() const { return y; }
         int DrawWidth() const { return width + padding.left + padding.right; }
         int DrawHeight() const { return height + padding.top + padding.bottom; }
         int MaxScrollX() const { return Max(0, content_width - width);}
@@ -905,6 +904,9 @@ namespace UI
         void GenerateComputedTree();
         void GenerateComputedTree_h(TreeNode<BoxCore>* tree_core, TreeNode<BoxResult>* tree_result);
         // ================================
+
+        //This is most likely temporary since its just searching for floating/detached windows
+        void DetachedBoxesPass(TreeNode<BoxResult>* root, int x, int y);
         void AddDetachedBoxToQueue(TreeNode<BoxResult>* node, const Rect& parent);
         void DrawPass(TreeNode<BoxResult>* node, int x, int y, Rect scissor_aabb);
 
@@ -940,9 +942,10 @@ namespace UI
         {
             BoxStyle style;
             TextStyle text_style;
-            DebugInfo debug_info;
             StringAsci id;
             StringU32 text;
+            DebugInfo debug_info;
+            Rect dim;
             bool line_break = false;
         };
         template<>
@@ -969,10 +972,19 @@ namespace UI
         void Reset();
         void CreateMockUI(TreeNodeDebug* root);
     private:
+
+        // ===== Stores a copy of ui tree =====
         Internal::MemoryArena arena;
         Internal::FixedStack<TreeNodeDebug*, 64> stack;
         Context ui;
         TreeNodeDebug* root = nullptr;
+        // ====================================
+
+
+        BoxDebug* hovered_box = nullptr;
+        Rect hovered_box_dim;
+        BoxDebug* selected_box = nullptr;
+        Rect selected_box_dim;
     };
 
 

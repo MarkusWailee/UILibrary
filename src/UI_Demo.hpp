@@ -12,7 +12,7 @@ inline void TextLayoutTest(UI::Context* context)
     root.color = {50, 50, 60, 255};
 
     UI::BoxStyle box1;
-    box1.width = {50, UI::Unit::PARENT_PERCENT};
+    box1.width = {75, UI::Unit::PARENT_PERCENT};
     box1.height = {100, UI::Unit::CONTENT_PERCENT};
     box1.min_height = {5};
     box1.min_width = {5};
@@ -38,12 +38,9 @@ inline void TextLayoutTest(UI::Context* context)
             UI::TextStyle text_style;
             text_style.FontSize(64).FgColor({255, 255, 255, 255}).BgColor({20, 20, 20, 100}).LineSpacing(2);
             text_style.FontSize(24).FgColor({0, 255, 0, 255});
-            UI::Text(text_style,  U"Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchang");
-
+            UI::Text(text_style,  U"Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchang");
             UI::LineBreak();
             UI::Text(text_style, "Hello");
-            UI::LineBreak();
-            UI::Text(text_style, "World");
 
         });
     });

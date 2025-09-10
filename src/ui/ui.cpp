@@ -1,6 +1,7 @@
 #include "ui.hpp"
 #include "Memory.hpp"
 #include <algorithm>
+#include <cstdint>
 
 namespace UI
 {
@@ -603,9 +604,14 @@ namespace UI
             }
         #endif
 
-        const BoxInfo* info = double_buffer_map.FrontValue(key);
+        BoxInfo* info = double_buffer_map.FrontValue(key);
         if(info)
+        {
+            //TODO
+            if(directly_hovered_element_key == info->GetKey())
+                info->is_direct_hover = true;
             return *info;
+        }
         return BoxInfo();
     }
     void Context::SetStates(uint64_t key, const BoxState& state)
@@ -646,7 +652,6 @@ namespace UI
         deferred_elements.Clear();
         tree_core = nullptr;
         element_count = 0;
-        directly_hovered_element_key = 0;
     }
 
     void Context::ResetArena1()
@@ -1107,6 +1112,11 @@ namespace UI
         PositionPass(tree_core, 0, 0, BoxCore());
         GenerateComputedTree();
 
+        directly_hovered_element_key = 0; //Reset the directly hovered element
+        //TODO - add all floating elements to a queue
+
+        //This is most likely temporary because of performance, but I would like to keep developing
+        //DetachedBoxesPass(tree_result, 0, 0);
         DrawPass(tree_result, 0, 0, {0, 0, GetScreenWidth(), GetScreenHeight()});
         while(!deferred_elements.IsEmpty())
         {
@@ -1868,6 +1878,22 @@ namespace UI
         }
     }
 
+    void Context::DetachedBoxesPass(TreeNode<BoxResult>* node, int parent_x, int parent_y)
+    {
+        if(!node || !node->box.core)
+            return;
+        const BoxResult& box_result = node->box;
+        const BoxCore& box_core = *node->box.core;
+        int x = box_core.x + box_result.rel_x + parent_x;
+        int y = box_core.y + box_result.rel_y + parent_y;
+        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+        {
+            if(box_core.IsDetached())
+                AddDetachedBoxToQueue(&temp->value, Rect{x, y, box_result.draw_width, box_result.draw_height});
+            DetachedBoxesPass(&temp->value, x, y);
+        }
+    }
+
     void Context::AddDetachedBoxToQueue(TreeNode<BoxResult>* node, const Rect& parent)
     {
         assert(node);
@@ -2011,9 +2037,8 @@ namespace UI
             info.x = draw.x;
             info.y = draw.y;
             info.padding = box_core.padding;
-            info.margin = box_core.margin;
-            info.width = draw.width;
-            info.height = draw.height;
+            info.width = box_core.width;
+            info.height = box_core.height;
             info.content_width = box_result.content_width;
             info.content_height = box_result.content_height;
             if(Rect::Contains(new_aabb, GetMouseX(), GetMouseY()))
@@ -2061,12 +2086,12 @@ namespace UI
     }
     void DebugInspector::Push(BoxDebug box)
     {
-        //TreeNode<BoxDebug>* box_debug = arena.New<TreeNode<BoxDebug>>(TreeNode<BoxDebug>(box));
-        // if(!box.id.IsEmpty())
-        // {
-        //     box.id.data = arena.NewArrayCopy(box.id.data, box.id.Size());
-        //     assert(box.id.data && "DebugInspector out of memory");
-        // }
+        TreeNode<BoxDebug>* box_debug = arena.New<TreeNode<BoxDebug>>(TreeNode<BoxDebug>(box));
+        if(!box.id.IsEmpty())
+        {
+            box.id.data = arena.NewArrayCopy(box.id.data, box.id.Size());
+            assert(box.id.data && "DebugInspector out of memory");
+        }
         if(!root)
         {
             root = arena.New<TreeNodeDebug>();
@@ -2086,37 +2111,82 @@ namespace UI
         assert(!stack.IsEmpty() && "Begin/End uneven");
         stack.Pop();
     }
-    void DebugInspector::Run()
-    {
-        assert(stack.IsEmpty());
-        CreateMockUI(root);
-    }
+
     void DebugInspector::Reset()
     {
         arena.Reset();
         root = nullptr;
+        selected_box = nullptr;
+        hovered_box = nullptr;
         stack.Clear();
+    }
+
+    void DebugInspector::Run()
+    {
+        assert(stack.IsEmpty());
+
+        BoxStyle root_style =
+        {
+            .width = {GetScreenWidth()},
+            .height = {GetScreenHeight()},
+        };
+        BoxStyle selected_box_style =
+        {
+            .x = selected_box_dim.x,
+            .y = selected_box_dim.y,
+            .width = {selected_box_dim.width},
+            .height = {selected_box_dim.height},
+            .border_color = {255, 100, 100, 255},
+            .border_width = 2,
+            .detach = Detach::ABSOLUTE
+        };
+        BoxStyle hovered_box_style =
+        {
+            .x = hovered_box_dim.x,
+            .y = hovered_box_dim.y,
+            .width = {hovered_box_dim.width},
+            .height = {hovered_box_dim.height},
+            .border_color = {255, 233, 233, 255},
+            .border_width = 2,
+            .detach = Detach::ABSOLUTE
+        };
+
+        UI::Root(&ui, root_style, [&]
+        {
+            CreateMockUI(root);
+            const Rect& dim = hovered_box_dim;
+
+            if(hovered_box)
+                Box(hovered_box_style).Run();
+            if(selected_box)
+                Box(selected_box_style).Run();
+
+        });
     }
     void DebugInspector::CreateMockUI(TreeNodeDebug* node)
     {
         if(node == nullptr)
             return;
 
-        if(node == root)
+        if(node->box.line_break)
         {
-            UI::Root(&ui, node->box.style, [&]
-            {
-                for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
-                    CreateMockUI(&temp->value);
-            });
-        }
-        else if(node->box.line_break)
-        {
-            UI::LineBreak();
+            LineBreak();
         }
         else if(node->box.text.IsEmpty())
         {
-            UI::Box(node->box.style)
+            Box(node->box.style)
+            .Id(Fmt("node-id:%llu", (uintptr_t)node))
+            .OnDirectHover([&]
+            {
+                hovered_box = &node->box;
+                hovered_box_dim = {Info().DrawX(), Info().DrawY(), Info().DrawWidth(), Info().DrawHeight()};
+                if(IsMousePressed(MouseButton::MOUSE_LEFT))
+                {
+                    selected_box = &node->box;
+                    selected_box_dim = {Info().DrawX(), Info().DrawY(), Info().DrawWidth(), Info().DrawHeight()};
+                }
+
+            })
             .Run([&]
             {
                 for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
@@ -2125,7 +2195,7 @@ namespace UI
         }
         else
         {
-            UI::Text(node->box.text_style, node->box.text);
+            Text(node->box.text_style, node->box.text);
         }
     }
 

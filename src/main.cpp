@@ -1,3 +1,4 @@
+#include <functional>
 #include <raylib/raylib.h>
 #include "ui/ui.hpp"
 #include "UI_Demo.hpp"
@@ -20,28 +21,48 @@ int main(void)
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
         //LayoutTest(&context);
-        TextLayoutTest(&context);
+        //TextLayoutTest(&context);
 
-        // UI::BoxStyle root =
-        // {
-        //     .width = {GetScreenWidth()},
-        //     .height = {GetScreenHeight()},
-        //     .color = {255, 0,0,50},
-        //     .scissor = true
-        // };
-        // UI::BoxStyle box0 =
-        // {
-        //     .width = {50, UI::Unit::PARENT_PERCENT},
-        //     .height = {50, UI::Unit::PARENT_PERCENT},
-        //     .color = {10, 10,100,255}
-        // };
-        // UI::Root(&context, root, [&]
-        // {
-        //     UI::Box(box0)
-        //     .Run([&]
-        //     {
-        //     });
-        // });
+        UI::BoxStyle root =
+        {
+            .flow = {.vertical_alignment = UI::Flow::CENTERED, .horizontal_alignment = UI::Flow::CENTERED },
+            .width = {GetScreenWidth()},
+            .height = {GetScreenHeight()},
+            .color = {40, 40, 40,255},
+            .scissor = true
+        };
+        UI::BoxStyle box0 =
+        {
+            .width = {50},
+            .height = {50},
+            .color = {255, 255,255,255},
+        };
+        UI::BoxStyle box1 = box0;
+        box1.detach = UI::Detach::RIGHT;
+
+        UI::Root(&context, root, [&]
+        {
+            UI::Box(box0)
+            .Run([&]
+            {
+                UI::Box(box1)
+                .PreRun([&]
+                {
+                    UI::Style().color = {200, 200, 200, 255};
+                })
+                .Run([&]
+                {
+                    UI::Box(box1)
+                    .PreRun([&]
+                    {
+                        UI::Style().color = {150, 150, 150, 255};
+                    })
+                    .Run([&]
+                    {
+                    });
+                });
+            });
+        });
 
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
