@@ -1116,7 +1116,7 @@ namespace UI
         //TODO - add all floating elements to a queue
 
         //This is most likely temporary because of performance, but I would like to keep developing
-        //DetachedBoxesPass(tree_result, 0, 0);
+        DetachedBoxesPass(tree_result, 0, 0);
         DrawPass(tree_result, 0, 0, {0, 0, GetScreenWidth(), GetScreenHeight()});
         while(!deferred_elements.IsEmpty())
         {
@@ -1886,10 +1886,19 @@ namespace UI
         const BoxCore& box_core = *node->box.core;
         int x = box_core.x + box_result.rel_x + parent_x;
         int y = box_core.y + box_result.rel_y + parent_y;
+
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
-            if(box_core.IsDetached())
-                AddDetachedBoxToQueue(&temp->value, Rect{x, y, box_result.draw_width, box_result.draw_height});
+            assert(temp->value.box.core);
+            if(temp->value.box.core->IsDetached())
+            {
+                AddDetachedBoxToQueue(&temp->value, {x, y, box_result.draw_width, box_result.draw_height});
+                assert(deferred_elements.GetTail());
+                x = deferred_elements.GetTail()->value.x;
+                y = deferred_elements.GetTail()->value.y;
+                DetachedBoxesPass(&temp->value, x, y);
+                continue;
+            }
             DetachedBoxesPass(&temp->value, x, y);
         }
     }
@@ -2067,7 +2076,7 @@ namespace UI
             assert(temp->value.box.core);
             if(temp->value.box.core->IsDetached())
             {
-                AddDetachedBoxToQueue(&temp->value, draw);
+                //AddDetachedBoxToQueue(&temp->value, draw);
                 continue;
             }
 
