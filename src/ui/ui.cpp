@@ -1,6 +1,5 @@
 #include "ui.hpp"
 #include "Memory.hpp"
-#include <algorithm>
 #include <cstdint>
 
 namespace UI
@@ -1884,8 +1883,8 @@ namespace UI
             return;
         const BoxResult& box_result = node->box;
         const BoxCore& box_core = *node->box.core;
-        int x = box_core.x + box_result.rel_x + parent_x;
-        int y = box_core.y + box_result.rel_y + parent_y;
+        int x = box_core.x + box_result.rel_x + parent_x - box_core.scroll_x;
+        int y = box_core.y + box_result.rel_y + parent_y - box_core.scroll_y;
 
         for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
         {
@@ -2093,6 +2092,14 @@ namespace UI
     {
 
     }
+    int DebugInspector::GetMouseDeltaX()
+    {
+        return GetMouseX() - mouse_x;
+    }
+    int DebugInspector::GetMouseDeltaY()
+    {
+        return GetMouseY() - mouse_y;
+    }
     void DebugInspector::Push(BoxDebug box)
     {
         TreeNode<BoxDebug>* box_debug = arena.New<TreeNode<BoxDebug>>(TreeNode<BoxDebug>(box));
@@ -2162,15 +2169,21 @@ namespace UI
 
         UI::Root(&ui, root_style, [&]
         {
-            CreateMockUI(root);
-            const Rect& dim = hovered_box_dim;
+           CreateMockUI(root);
 
+           // ===== Rendering Selected/Hovered Boxes ====
+            const Rect& dim = hovered_box_dim;
             if(hovered_box)
                 Box(hovered_box_style).Run();
             if(selected_box)
                 Box(selected_box_style).Run();
+            // ==========================================
+            CreateDebugUI();
 
         });
+
+        this->mouse_x = GetMouseX();
+        this->mouse_y = GetMouseY();
     }
     void DebugInspector::CreateMockUI(TreeNodeDebug* node)
     {
@@ -2206,6 +2219,77 @@ namespace UI
         {
             Text(node->box.text_style, node->box.text);
         }
+    }
+
+    void DebugInspector::CreateDebugUI()
+    {
+        BoxStyle base =
+        {
+            .flow =
+            {
+                .axis = Flow::VERTICAL,
+                //.horizontal_alignment = Flow::CENTERED,
+            },
+            .x = base_dim.x,
+            .y = base_dim.y,
+            .width = {base_dim.width},
+            .height = {base_dim.height},
+            .color = theme.black1,
+            .border_color = theme.black0,
+            .corner_radius = 5,
+            .border_width = 2,
+            .detach = Detach::ABSOLUTE
+        };
+        base.color.a = 200;
+
+        BoxStyle title_bar =
+        {
+            //.y = -12,
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .min_width = {100, Unit::CONTENT_PERCENT},
+            .padding = {10, 10, 5, 5},
+            .color = theme.black1,
+            .border_color = theme.black0,
+            .corner_radius = 5,
+            .border_width = 2,
+        };
+
+        TextStyle title_bar_text;
+        title_bar_text.FgColor(theme.white).FontSize(24);
+
+        Box(base)
+        .Run([&]
+        {
+            Box(title_bar)
+            .Id("base_title_bar")
+            .OnDirectHover([&]
+            {
+                //Enable mouse dragging
+                if(IsMousePressed(MouseButton::MOUSE_LEFT))
+                    State().custom_flags = true;
+            })
+            .PreRun([&]
+            {
+                //Disable Mouse dragging
+                if(IsMouseReleased(MouseButton::MOUSE_LEFT))
+                    State().custom_flags = false;
+
+                //Drag if enabled
+                if(State().custom_flags)
+                {
+                    base_dim.x += GetMouseDeltaX();
+                    base_dim.y += GetMouseDeltaY();
+                }
+            })
+            .Run([&]
+            {
+                Text(title_bar_text, U"Inspector");
+            });
+        });
+
+
+
     }
 
 

@@ -210,7 +210,7 @@ namespace UI
     }
 
     //Does not count '\0'
-    constexpr Color HexToRGBA(const char* text, bool* error)
+    constexpr Color HexToRGBA(const char* text, bool* error = nullptr)
     {
         auto ToLower = [&](char c) -> char
         {
@@ -247,6 +247,10 @@ namespace UI
         bool err = false;
         if(!text)
             err = true;
+
+        if(*text == '#')
+            text++;
+
         char hex[3]{};
         Color result = {0, 0, 0, 255};
         for(int i = 0; i<6; i++)
@@ -463,7 +467,6 @@ namespace UI
         Color GetFgColor() const;
         Color GetBgColor() const;
         // bool operator==(const TextStyle& t) const;
-    private:
         Color fg_color = {255, 255, 255, 255};
         Color bg_color;
         uint8_t font_size = 32;
@@ -947,6 +950,7 @@ namespace UI
             DebugInfo debug_info;
             Rect dim;
             bool line_break = false;
+            bool is_open = false; //[+] button is open
         };
         template<>
         struct TreeNode<BoxDebug>
@@ -961,9 +965,21 @@ namespace UI
         using BoxDebug = Internal::BoxDebug;
         using TreeNodeDebug = Internal::TreeNode<BoxDebug>;
         friend Context;
+        struct Theme
+        {
+            Color white = HexToRGBA("#F6F4F5");
+            Color black0 = {30, 30, 30, 255};
+            Color black1 = HexToRGBA("#252525");
+            Color black2 = HexToRGBA("#3a3a3a");
+            Color black3 = HexToRGBA("#818181");
+
+        };
     public:
         DebugInspector(uint64_t bytes);
+        Theme theme;
     private:
+        int GetMouseDeltaX();
+        int GetMouseDeltaY();
 
         //Copying ui tree from context
         void Push(BoxDebug box);
@@ -971,7 +987,11 @@ namespace UI
         void Run();
         void Reset();
         void CreateMockUI(TreeNodeDebug* root);
+        void CreateDebugUI();
+
     private:
+        int mouse_x = 0;
+        int mouse_y = 0;
 
         // ===== Stores a copy of ui tree =====
         Internal::MemoryArena arena;
@@ -981,10 +1001,16 @@ namespace UI
         // ====================================
 
 
+        //======= Hovered/Selected =======
         BoxDebug* hovered_box = nullptr;
         Rect hovered_box_dim;
         BoxDebug* selected_box = nullptr;
         Rect selected_box_dim;
+        //================================
+
+        //======= Inspector UI ========
+        Rect base_dim = {50, 50, 400, 300};
+        //=============================
     };
 
 
