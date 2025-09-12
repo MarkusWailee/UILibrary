@@ -462,15 +462,23 @@ namespace UI
 
     int MeasureTextSpans(BoxCore& box)
     {
-        int result = 0;
+        int largest_width = 0;
+        int width = 0;
         for(auto node = box.text_style_spans.GetHead(); node != nullptr; node = node->next)
         {
             for(int i = 0; i < node->value.Size(); i++)
             {
-                result += MeasureChar_impl(node->value[i], node->value.style);
+                char32_t c = node->value[i];
+                if(c == U'\n')
+                {
+                    width = 0;
+                    continue;
+                }
+                width += MeasureChar_impl(c, node->value.style);
+                largest_width = Max(largest_width, width);
             }
         }
-        return result;
+        return largest_width;
     }
 
 
@@ -878,6 +886,7 @@ namespace UI
             HandleInternalError(Error{Error::Type::MISSING_BEGIN, "Missing BeginBox()"});
             return;
         }
+        LineBreak(); //Just to set prev_inserted_box to nullptr
         TreeNode<BoxCore>* node = stack.Peek();
         assert(node);
         BoxCore& parent_box = node->box;
@@ -1103,19 +1112,41 @@ namespace UI
 
 
         //Layout pipeline
+        float time = 0;
+        StopWatch s;
         ResetArena2();
+
+        s.Start();
         WidthContentPercentPass(tree_core);
+        //std::cout<<"WidthContent:"<< s.Stop()<<'\n';
+
+        s.Start();
         WidthPass(tree_core);
+        //std::cout<<"WidthPass:"<< s.Stop()<<'\n';
+
+        s.Start();
         HeightContentPercentPass(tree_core);
+        //std::cout<<"HeightContent:"<< s.Stop()<<'\n';
+
+        s.Start();
         HeightPass(tree_core);
+        //std::cout<<"HeightPass:"<< s.Stop()<<'\n';
+
+        s.Start();
         PositionPass(tree_core, 0, 0, BoxCore());
+        //std::cout<<"PositionPass:"<< s.Stop()<<'\n';
+
+        s.Start();
         GenerateComputedTree();
+        //std::cout<<"GenerateTree:"<< s.Stop()<<'\n';
+        s.Start();
 
         directly_hovered_element_key = 0; //Reset the directly hovered element
         //TODO - add all floating elements to a queue
 
         //This is most likely temporary because of performance, but I would like to keep developing
         DetachedBoxesPass(tree_result, 0, 0);
+        //std::cout<<"Detach:"<< s.Stop()<<'\n';
         DrawPass(tree_result, 0, 0, {0, 0, GetScreenWidth(), GetScreenHeight()});
         while(!deferred_elements.IsEmpty())
         {
@@ -1123,6 +1154,7 @@ namespace UI
             DrawPass(box.node, box.x, box.y, {0, 0, GetScreenWidth(), GetScreenHeight()});
             deferred_elements.PopHead();
         }
+        //std::cout<<"Draw: " << s.Stop()<<"\n\n";
     }
 
 
@@ -1142,7 +1174,9 @@ namespace UI
 
                 if(box.IsTextElement())
                 {
-                    content_width += MeasureTextSpans(box);
+                    float w = MeasureTextSpans(box);
+                    box.max_width = w;
+                    content_width += w;
                 }
                 else if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
                 box.width_unit != Unit::Type::PARENT_PERCENT &&
@@ -1641,7 +1675,7 @@ namespace UI
                 }
 
 
-                //Ignore these values
+                //Ignoring these values
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT &&
                     box.height_unit != Unit::Type::PARENT_PERCENT &&
                     box.min_height_unit != Unit::Type::PARENT_PERCENT &&
@@ -1682,7 +1716,13 @@ namespace UI
                     box.height = md.GetMeasuredHeight();
                 }
                 */
-                //Ignore these values
+
+                if(box.IsTextElement())
+                {
+                    this->ComputeTextLinesAndHeight(box);
+                }
+
+                //Ignoring these values
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT &&
                     box.height_unit != Unit::Type::PARENT_PERCENT &&
                     box.min_height_unit != Unit::Type::PARENT_PERCENT &&
@@ -1759,7 +1799,7 @@ namespace UI
             PositionPass_Grid(node->children.GetHead(), x, y, box);
         }
     }
-    void Context::PositionPass_Flow(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent)
+    void Context::PositionPass_Flow(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, BoxCore& parent)
     {
         assert(child);
         int content_height = 0;
@@ -1862,8 +1902,10 @@ namespace UI
                 cursor_y += box.GetBoxModelHeight() + parent.gap_row + offset;
             }
         }
+        parent.result_content_width = content_width;
+        parent.result_content_height = content_height;
     }
-    void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent)
+    void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, BoxCore& parent)
     {
         assert(child);
         int cell_width = parent.GetGridCellWidth() + parent.gap_column;

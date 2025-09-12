@@ -59,6 +59,11 @@ inline void LayoutTest(UI::Context* context)
 
     UI::BoxStyle top_bar =
     {
+        .flow =
+        {
+            .vertical_alignment = UI::Flow::CENTERED,
+            .horizontal_alignment = UI::Flow::CENTERED,
+        },
         .width = {100, UI::Unit::PARENT_PERCENT},
         .height = {65},
         .color = {25, 25, 25, 255}
@@ -90,16 +95,29 @@ inline void LayoutTest(UI::Context* context)
         .corner_radius = 10
     };
     UI::BoxStyle right_panel = left_panel;
+    right_panel.padding = {10, 10, 10, 10};
     right_panel.min_width = {0};
 
     UI::BoxStyle middle_panel =
     {
+        .flow =
+        {
+            .axis = UI::Flow::VERTICAL
+        },
         .width = {100, UI::Unit::AVAILABLE_PERCENT},
         .height = {100, UI::Unit::PARENT_PERCENT},
-        .min_width = {200},
+        .min_width = {100, UI::Unit::CONTENT_PERCENT},
         .color = {25, 25, 25, 255},
         .corner_radius = 5,
     };
+    UI::BoxStyle timeline =
+    {
+        .width = {60, UI::Unit::PARENT_PERCENT},
+        .height = {12},
+        .color = {5, 5, 5, 255},
+        .corner_radius = 6
+    };
+
     auto CustomButton = [&](UI::Color color, const UI::StringU32& name, const UI::StringAsci& id)
     {
         UI::BoxStyle h_container
@@ -187,6 +205,18 @@ inline void LayoutTest(UI::Context* context)
             .min_width = {100, UI::Unit::CONTENT_PERCENT},
             .gap_column = 10
         };
+
+        UI::BoxStyle playlist_container
+        {
+            .flow =
+            {
+                .axis = UI::Flow::VERTICAL,
+            },
+            .width = {100,UI::Unit::PARENT_PERCENT},
+            .height = {100, UI::Unit::AVAILABLE_PERCENT},
+            .scissor = true
+        };
+
         UI::Box(v_container).Run([&]
         {
             UI::Box(h_container).Run([&]
@@ -201,16 +231,6 @@ inline void LayoutTest(UI::Context* context)
             });
         });
 
-        UI::BoxStyle playlist_container
-        {
-            .flow =
-            {
-                .axis = UI::Flow::VERTICAL,
-            },
-            .width = {100,UI::Unit::PARENT_PERCENT},
-            .height = {100, UI::Unit::AVAILABLE_PERCENT},
-            .scissor = true
-        };
         UI::Box(playlist_container)
         .Id("playlists-container")
         .OnHover([&]
@@ -218,8 +238,6 @@ inline void LayoutTest(UI::Context* context)
             float scroll_y = UI::State().custom_anim;
             scroll_y -= UI::GetMouseScroll() * 40;
             UI::State().custom_anim = UI::Clamp(scroll_y, 0.0f, (float)UI::Info().MaxScrollY());
-            std::cout<<UI::Info().MaxScrollY()<<'\n';
-            //UI::State().custom_anim = scroll_y;
         })
         .PreRun([&]
         {
@@ -230,18 +248,88 @@ inline void LayoutTest(UI::Context* context)
             //PLAYLIST selection goes here
             for(int i = 0; i < 10; i++)
                 CustomButton({230, 200, 200, 255}, U"Name", UI::Fmt("Playlists %d", i + 1));
-
         });
+    };
 
+    auto MiddlePanel = [&]
+    {
+        UI::BoxStyle h_container
+        {
+            .flow =
+            {
+                .vertical_alignment = UI::Flow::CENTERED
+            },
+            .width = {100, UI::Unit::CONTENT_PERCENT},
+            .height = {100, UI::Unit::CONTENT_PERCENT},
+            .padding = {16, 16, 16, 16},
+            .gap_column = 10,
+        };
+        UI::BoxStyle image
+        {
+            .flow =
+            {
+                .vertical_alignment = UI::Flow::CENTERED,
+                .horizontal_alignment = UI::Flow::CENTERED,
+            },
+            .width = {200},
+            .height = {200},
+            .color = {255, 210, 210, 255},
+            .corner_radius = 10,
+        };
 
+        UI::BoxStyle play_button
+        {
+            .width = {50},
+            .height = {50},
+            .color = {200, 255, 200, 255},
+            .corner_radius = 24
+        };
+        static float liked_song_scroll = 0;
+        UI::BoxStyle v_container =
+        {
+            .flow =
+            {
+                .axis = UI::Flow::VERTICAL,
+            },
+            .width = {100, UI::Unit::PARENT_PERCENT},
+            .height = {100, UI::Unit::AVAILABLE_PERCENT},
+            .scroll_y = (int)liked_song_scroll,
+            .scissor = true
+        };
 
+        UI::Box(h_container).Run([&]
+        {
+            UI::Box(image).Run([&]
+            {
+                UI::Text({}, U"L");
+            });
+            UI::Text({}, U"Playlists\n");
+            UI::Text({.font_size = 64}, U"Liked Songs\n");
+            UI::Text({.font_size = 24}, U"Profile - Markus Angrignon");
+        });
+        UI::Box(v_container)
+        .Id("liked-song-panel")
+        .OnHover([&]
+        {
+            liked_song_scroll -= UI::GetMouseScroll() * 40;
+            liked_song_scroll = UI::Clamp(liked_song_scroll, 0.0f, (float)UI::Info().MaxScrollY());
+        })
+        .Run([&]
+        {
+            for(int i = 0; i < 16; i ++)
+                CustomButton({200, 200, 255, 255}, U"Song Name", UI::Fmt("Play Song id%d", i + 1));
+        });
 
     };
 
 
+    //The actual ui tree
     UI::Root(context, root, [&]
     {
-        UI::Box(top_bar).Run();
+        UI::Box(top_bar).Run([&]
+        {
+
+        });
         UI::Box(middle_base).Run([&]
         {
             UI::Box(left_panel).Run([&]
@@ -250,14 +338,27 @@ inline void LayoutTest(UI::Context* context)
             });
             UI::Box(middle_panel).Run([&]
             {
+                MiddlePanel();
 
             });
             UI::Box(right_panel).Run([&]
             {
-
+                UI::StringU32 text = U"Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.";
+                for(int i = 0; i < text.Size(); i++)
+                {
+                    float amount = (float)i / text.Size();
+                    UI::Color c = {255, 255, 255, 255};
+                    c.g = amount * 255;
+                    c.r = 255 - amount * 255;
+                    UI::Text({.fg_color = c, .font_size = 24}, text.SubStr(i, 1));
+                }
             });
         });
-        UI::Box(bottom_bar).Run();
+        UI::Box(bottom_bar).Run([&]
+        {
+            UI::Box(timeline).Run();
+            UI::Text({.font_size = 18}, U"1:30");
+        });
     });
 
 }

@@ -20,6 +20,7 @@
 
 //Only used for Fmt
 #include <stdarg.h>
+#include <math.h>
 //#include <stdio.h>
 //#include <uchar.h>
 
@@ -900,8 +901,8 @@ namespace UI
         void HeightPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box); //Recurse Helpe
 
         //Computes relative positions from parent
-        void PositionPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent_box);
-        void PositionPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent_box);
+        void PositionPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, BoxCore& parent_box);
+        void PositionPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, BoxCore& parent_box);
         void PositionPass(TreeNode<BoxCore>* node, int x, int y, const BoxCore& parent_box);
 
         void GenerateComputedTree();
