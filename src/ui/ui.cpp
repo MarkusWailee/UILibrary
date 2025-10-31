@@ -1218,13 +1218,15 @@ namespace UI
     }
     void Context::WidthPass(TreeNode<BoxCore>* node)
     {
-        if(node == nullptr || node->children.IsEmpty())
+        if(node == nullptr)
             return;
-        BoxCore& box = node->box;
 
+        BoxCore& box = node->box;
         //Might aswell compute this here since width is all calculated
         ComputeWidthPercentForHeight(box);
 
+        if(node->children.IsEmpty())
+            return;
         if(box.GetLayout() == Layout::FLOW)
         {
             WidthPass_Flow(node->children.GetHead(), box);
