@@ -20,6 +20,7 @@
 
 //Only used for Fmt
 #include <stdarg.h>
+#include <math.h>
 //#include <stdio.h>
 //#include <uchar.h>
 
@@ -30,10 +31,12 @@
 namespace UI
 {
     template<typename char_type> struct BaseString;
-    using StringAsci = BaseString<const char>;
+    //using StringAsci = BaseString<const char>;
+    struct StringAsci;
     using StringU8 = BaseString<const char8_t>; //UTF8 not supported right now
     using StringU32 = BaseString<const char32_t>;
     class Context;
+    class DebugInspector;
     class Builder;
     struct Error;
     struct BoxStyle;
@@ -52,6 +55,7 @@ namespace UI
         struct BoxCore;
         template<typename T>
         struct TreeNode;
+        struct BoxDebug;
     }
 }
 
@@ -178,7 +182,124 @@ namespace UI
         MOUSE_FORWARD = 5,       // Mouse button forward (advanced mouse device)
         MOUSE_BACK    = 6,       // Mouse button back (advanced mouse device)
     };
+    struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
 
+
+    //Math helpers
+    constexpr float DPI = 96.0f;
+    inline int MmToPx(float mm) { return int(mm * DPI / 25.4f); }
+    inline int CmToPx(float cm) { return int(cm * DPI / 2.54f); }
+    inline int InchToPx(float inches) { return int(inches * DPI); }
+    template<typename T>
+    inline T Min(T a, T b) {return a < b? a: b;}
+    template<typename T>
+    inline T Max(T a, T b) {return a > b? a: b;}
+    template<typename T>
+    inline T Clamp(T value, T minimum, T maximum) { return Max(Min(value, maximum), minimum); }
+    template<typename T>
+    inline T Mix(T a, T b, float amount) { return a + Clamp(amount, 0.0f, 1.0f) * (b - a); }
+    template<>
+    inline Color Mix(Color c1, Color c2, float amount)
+    {
+        return Color
+        {
+            Mix(c1.r, c2.r, amount),
+            Mix(c1.g, c2.g, amount),
+            Mix(c1.b, c2.b, amount),
+            Mix(c1.a, c2.a, amount),
+        };
+    }
+
+    //Does not count '\0'
+    constexpr Color HexToRGBA(const char* text, bool* error = nullptr)
+    {
+        auto ToLower = [&](char c) -> char
+        {
+            return (c >= 'A' && c <= 'Z')? c + 32: c;
+        };
+        auto HexToU32 = [&](const char* text, bool* error) -> uint32_t
+        {
+            if(!text)
+            {
+                if(error)
+                    *error = true;
+                return 0;
+            }
+            uint32_t result = 0;
+            for(; *text; text++)
+            {
+                result <<= 4;
+                char c = *text;
+                c = ToLower(c);
+                if(c >= '0' && c <= '9')
+                    result |= c - '0';
+                else if(c >= 'a' && c<= 'f')
+                    result |= c - 87;
+                else
+                {
+                    if(error)
+                        *error = true;
+                    return 0;
+                }
+            }
+            return result;
+        };
+
+        bool err = false;
+        if(!text)
+            err = true;
+
+        if(*text == '#')
+            text++;
+
+        char hex[3]{};
+        Color result = {0, 0, 0, 255};
+        for(int i = 0; i<6; i++)
+        {
+            if(text[i] == '\0')
+                err = true;
+        }
+        hex[0] = text[0]; hex[1] = text[1]; hex[2] = '\0';
+        result.r = HexToU32(hex, &err);
+        hex[0] = text[2]; hex[1] = text[3]; hex[2] = '\0';
+        result.g = HexToU32(hex, &err);
+        hex[0] = text[4]; hex[1] = text[5]; hex[2] = '\0';
+        result.b = HexToU32(hex, &err);
+        if(text[6] == '\0')
+        {
+            if(error)
+                *error = err;
+            return err? Color() : result;
+        }
+        if(text[7] == '\0')
+        {
+            if(error)
+                *error = true;
+            return Color();
+        }
+        hex[0] = text[6]; hex[1] = text[7]; hex[2] = '\0';
+        result.a = HexToU32(hex, &err);
+        if(text[8] != '\0')
+            err = true;
+        if(error)
+            *error = err;
+        return err? Color(): result;
+    }
+
+    constexpr uint64_t KB = 1024;
+    constexpr uint64_t MB = KB * KB;
+
+    /*
+       Uses regular printf specifiers
+       %d => int
+       %u => unsigned int
+       %lld => 64bit signed
+       %llu => 64bit unsigned
+       %f => float
+       %.2f => float x.xx
+       %c => char
+       %s => c-string
+    */
     template<typename char_type>
     struct BaseString : public Internal::ArrayView<char_type>
     {
@@ -197,50 +318,18 @@ namespace UI
         char_type* Cstr(){return this->data; }
     };
 
-    constexpr uint64_t KB = 1024;
-    constexpr uint64_t MB = KB * KB;
+    inline int StrLen(const char* str){ if(str) return std::strlen(str); return 0; }
 
-    /*
-       Uses regular printf specifiers
-       %d => int
-       %u => unsigned int
-       %lld => 64bit signed
-       %llu => 64bit unsigned
-       %f => float
-       %.2f => float x.xx
-       %c => char
-       %s => c-string
-    */
+    struct StringAsci : public BaseString<const char>
+    {
+        using BaseString<const char>::BaseString;
+        //Exepects null terminator
+        StringAsci(const char* str) : BaseString<const char>(str, StrLen(str)){}
+    };
     StringAsci Fmt(const char *text, ...);
     StringU32 AsciToStrU32(const StringAsci& str);
     //StringU32 FmtU32(const char *text, ...);
 
-    //Math helpers
-    constexpr float DPI = 96.0f;
-    inline int MmToPx(float mm) { return int(mm * DPI / 25.4f); }
-    inline int CmToPx(float cm) { return int(cm * DPI / 2.54f); }
-    inline int InchToPx(float inches) { return int(inches * DPI); }
-    template<typename T>
-    inline T Min(T a, T b) {return a < b? a: b;}
-    template<typename T>
-    inline T Max(T a, T b) {return a > b? a: b;}
-    template<typename T>
-    inline T Clamp(T value, T minimum, T maximum) { return Max(Min(value, maximum), minimum); }
-    template<typename T>
-    inline T Mix(T a, T b, float amount) { return a + Clamp(amount, 0.0f, 1.0f) * (b - a); }
-
-    struct Color { unsigned char r = 0, g = 0, b = 0, a = 0; };
-    template<>
-    inline Color Mix(Color c1, Color c2, float amount)
-    {
-        return Color
-        {
-            Mix(c1.r, c2.r, amount),
-            Mix(c1.g, c2.g, amount),
-            Mix(c1.b, c2.b, amount),
-            Mix(c1.a, c2.a, amount),
-        };
-    }
 
     struct Rect
     {
@@ -379,7 +468,6 @@ namespace UI
         Color GetFgColor() const;
         Color GetBgColor() const;
         // bool operator==(const TextStyle& t) const;
-    private:
         Color fg_color = {255, 255, 255, 255};
         Color bg_color;
         uint8_t font_size = 32;
@@ -389,37 +477,36 @@ namespace UI
 
     //Per element states that are saved across frames
     //Users can use these however they like
-    struct BoxStates
+    struct BoxState
     {
         float hover_anim = 0.0f;
         float appear_anim = 0.0f;
         float custom_anim = 0.0f;
-        uint32_t bit_states = 0;
+        uint32_t custom_flags = 0;
     };
 
     struct BoxInfo
     {
         uint64_t key = 0;
-        BoxStates states;
+        BoxState state;
         int x = 0;
         int y = 0;
         int width = 0;
         int height = 0;
         Spacing padding;
-        Spacing margin;
 
         int content_width =     0;
         int content_height =    0;
-        bool valid =            false; // mainly used when you want to verify sizings as they are default to 0
         bool is_hover =         false;
         bool is_direct_hover =  false;
         bool is_rendered =      false;
+
         bool IsValid() const { return key != 0; }
         bool IsDirectHover() const {return is_direct_hover; }
         bool IsHover() const {return is_hover; }
         bool IsRendered() const { return is_rendered; }
-        int DrawX() const { return x + margin.left; }
-        int DrawY() const { return y + margin.top; }
+        int DrawX() const { return x; }
+        int DrawY() const { return y; }
         int DrawWidth() const { return width + padding.left + padding.right; }
         int DrawHeight() const { return height + padding.top + padding.bottom; }
         int MaxScrollX() const { return Max(0, content_width - width);}
@@ -429,8 +516,8 @@ namespace UI
 
     struct DebugInfo
     {
-        const char* name = nullptr;
-        const char* file = nullptr;
+        StringAsci name;
+        StringAsci file;
         int line = -1;
     };
 
@@ -461,10 +548,12 @@ namespace UI
     {
         Text(style, str, false, debug_info);
     }
+    void LineBreak();
     // =========================
     Builder& Box(const BoxStyle& style = BoxStyle(), const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
     BoxInfo Info();
     BoxStyle& Style();
+    BoxState& State();
     bool IsHover();
     bool IsDirectHover();
     // ======================================
@@ -694,6 +783,7 @@ namespace UI
             void SetComputedResults(BoxCore& node);
         };
 
+
         template<typename T>
         struct TreeNode
         {
@@ -747,6 +837,7 @@ namespace UI
         template<typename T>
         using ArenaLL = Internal::ArenaLL<T>;
         using BoxType = Internal::BoxCore::Type;
+        friend DebugInspector;
 
         struct DeferredBox
         {
@@ -759,19 +850,27 @@ namespace UI
         Context(uint64_t arena_bytes, uint64_t string_bytes);
         BoxInfo Info(const StringAsci& id);
         BoxInfo Info(uint64_t key);
+
+
+        /* Set Persistent variables
+           Key is checked internally for 0
+        */
+        void SetStates(uint64_t key, const BoxState& states);
+
         void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
         void EndRoot();
         void BeginBox(const UI::BoxStyle& style, const StringAsci& id, DebugInfo debug_info = UI_DEBUG("Box"));
         //void InsertText(const UI::TextStyle& style, const StringU8& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
         void InsertText(const UI::TextStyle& style, const StringU32& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
+        void LineBreak();
         void EndBox();
         void Draw();
         uint32_t GetElementCount() const;
 
-        //For Advanced Purposes
-
         //Might not even use this
         void ResetAllStates();
+
+        void SetDebugInspector(DebugInspector* inspector, Key activate_key);
     private:
         void ResetAtBeginRoot();
         void ResetArena1();
@@ -802,19 +901,29 @@ namespace UI
         void HeightPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, const BoxCore& parent_box); //Recurse Helpe
 
         //Computes relative positions from parent
-        void PositionPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent_box);
-        void PositionPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent_box);
+        void PositionPass_Flow(ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, BoxCore& parent_box);
+        void PositionPass_Grid(ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, BoxCore& parent_box);
         void PositionPass(TreeNode<BoxCore>* node, int x, int y, const BoxCore& parent_box);
 
         void GenerateComputedTree();
         void GenerateComputedTree_h(TreeNode<BoxCore>* tree_core, TreeNode<BoxResult>* tree_result);
         // ================================
+
+        //This is most likely temporary since its just searching for floating/detached windows
+        void DetachedBoxesPass(TreeNode<BoxResult>* root, int x, int y);
         void AddDetachedBoxToQueue(TreeNode<BoxResult>* node, const Rect& parent);
         void DrawPass(TreeNode<BoxResult>* node, int x, int y, Rect scissor_aabb);
 
     private:
         Error internal_error;
         uint32_t element_count = 0;
+
+        #if UI_ENABLE_DEBUG
+            DebugInspector* inspector = nullptr;
+            Key activate_key = Key::KEY_F1;
+            bool enabled = false;
+            bool copy_tree = false;
+        #endif
 
 
         Internal::ArenaDoubleBufferMap<BoxInfo> double_buffer_map;
@@ -829,7 +938,80 @@ namespace UI
         BoxCore* prev_inserted_box = nullptr;
         Internal::ArenaLL<DeferredBox> deferred_elements;
         uint64_t directly_hovered_element_key = 0;
+    };
 
+    namespace Internal
+    {
+        struct BoxDebug
+        {
+            BoxStyle style;
+            TextStyle text_style;
+            StringAsci id;
+            StringU32 text;
+            DebugInfo debug_info;
+            Rect dim;
+            bool line_break = false;
+            bool is_open = false; //[+] button is open
+        };
+        template<>
+        struct TreeNode<BoxDebug>
+        {
+            BoxDebug box;
+            ArenaLL<TreeNode> children;
+        };
+    }
+
+    class DebugInspector
+    {
+        using BoxDebug = Internal::BoxDebug;
+        using TreeNodeDebug = Internal::TreeNode<BoxDebug>;
+        friend Context;
+        struct Theme
+        {
+            Color white = HexToRGBA("#F6F4F5");
+            Color black0 = {30, 30, 30, 255};
+            Color black1 = HexToRGBA("#252525");
+            Color black2 = HexToRGBA("#3a3a3a");
+            Color black3 = HexToRGBA("#818181");
+
+        };
+    public:
+        DebugInspector(uint64_t bytes);
+        Theme theme;
+    private:
+        int GetMouseDeltaX();
+        int GetMouseDeltaY();
+
+        //Copying ui tree from context
+        void Push(BoxDebug box);
+        void Pop();
+        void Run();
+        void Reset();
+        void CreateMockUI(TreeNodeDebug* root);
+        void CreateDebugUI();
+
+    private:
+        int mouse_x = 0;
+        int mouse_y = 0;
+
+        // ===== Stores a copy of ui tree =====
+        Internal::MemoryArena arena;
+        Internal::FixedStack<TreeNodeDebug*, 64> stack;
+        Context ui;
+        TreeNodeDebug* root = nullptr;
+        // ====================================
+
+
+        //======= Hovered/Selected =======
+        BoxDebug* hovered_box = nullptr;
+        Rect hovered_box_dim;
+        BoxDebug* selected_box = nullptr;
+        Rect selected_box_dim;
+        //================================
+
+        //======= Inspector UI ========
+        Rect base_dim = {50, 50, 400, 300};
+        //=============================
     };
 
 
@@ -843,8 +1025,10 @@ namespace UI
         //Also Implemented as global functions
         Builder& Box(const BoxStyle& style = BoxStyle(), const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
         void Text(const TextStyle& style, const StringU32& string, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
+        void LineBreak();
         BoxInfo Info() const;
         BoxStyle& Style();
+        BoxState& State();
         bool IsHover() const;
         bool IsDirectHover() const;
 
@@ -873,6 +1057,7 @@ namespace UI
         //States
         StringAsci id;
         BoxInfo info;
+        BoxState state;
         BoxStyle style;
         DebugInfo debug_info;
         bool copy_text = true;
@@ -948,6 +1133,7 @@ namespace UI
             this->debug_info = debug_info;
             this->id = id;
             info = context->Info(id);
+            state = info.state;
         }
         return *this;
     }
@@ -957,6 +1143,13 @@ namespace UI
         if(HasContext())
         {
             this->context->InsertText(style, string, nullptr, copy_text, debug_info);
+        }
+    }
+    inline void Builder::LineBreak()
+    {
+        if(HasContext())
+        {
+            this->context->LineBreak();
         }
     }
     inline void Builder::SetContext(Context* context)
@@ -991,10 +1184,15 @@ namespace UI
     {
         return style;
     }
+    inline BoxState& Builder::State()
+    {
+        return state;
+    }
     inline Builder& Builder::Id(const StringAsci& id)
     {
         this->id = id;
         this->info = context->Info(id);
+        this->state = this->info.state;
         return *this;
     }
     inline Builder& Builder::Style(const BoxStyle& style)
@@ -1030,6 +1228,7 @@ namespace UI
     {
         if(HasContext())
         {
+            context->SetStates(info.GetKey(), state);
             context->BeginBox(style, id, debug_info);
             context->EndBox();
         }
@@ -1039,6 +1238,7 @@ namespace UI
     {
         if(HasContext())
         {
+            context->SetStates(info.GetKey(), state);
             context->BeginBox(style, id, debug_info);
             func();
             context->EndBox();

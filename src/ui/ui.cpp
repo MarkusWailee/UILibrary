@@ -1,11 +1,15 @@
 #include "ui.hpp"
 #include "Memory.hpp"
+#include <cstdint>
 
 namespace UI
 {
     using namespace Internal;
     void DisplayError(const Error& error);
+    //Not Active
     Error CheckUnitErrors(const BoxCore& style);
+
+    //Not Active
     Error CheckNodeContradictions(const BoxCore& child, const BoxCore& parent);
 
     //Used during tree descending
@@ -17,12 +21,6 @@ namespace UI
 
     //size should includes '\0' if null terminated string are used
 
-    char ToLower(char c);
-
-    //Does not count '\0'
-    uint32_t StrToU32(const char* text, bool* error = nullptr);
-    uint32_t HexToU32(const char* text, bool* error = nullptr);
-    Color HexToRGBA(const char* text, bool* error = nullptr);
 
 
     //Computing PARENT_PERCENT
@@ -114,6 +112,8 @@ namespace UI
 
     void Draw()
     {
+        assert(!context_queue.IsEmpty() && "No UI::Context attached or UI::Draw called multiple times");
+
         while(!context_queue.IsEmpty())
         {
             assert(context_queue.Front() && "Context nullptr");
@@ -128,6 +128,10 @@ namespace UI
     {
         builder.Text(style, string, copy_text, debug_info);
     }
+    void LineBreak()
+    {
+        builder.LineBreak();
+    }
     Builder& Box(const BoxStyle& style, const StringAsci& id, DebugInfo debug_info)
     {
         return builder.Box(style, id, debug_info);
@@ -141,6 +145,10 @@ namespace UI
     BoxStyle& Style()
     {
         return builder.Style();
+    }
+    BoxState& State()
+    {
+        return builder.State();
     }
 
     bool IsHover()
@@ -454,15 +462,23 @@ namespace UI
 
     int MeasureTextSpans(BoxCore& box)
     {
-        int result = 0;
+        int largest_width = 0;
+        int width = 0;
         for(auto node = box.text_style_spans.GetHead(); node != nullptr; node = node->next)
         {
             for(int i = 0; i < node->value.Size(); i++)
             {
-                result += MeasureChar_impl(node->value[i], node->value.style);
+                char32_t c = node->value[i];
+                if(c == U'\n')
+                {
+                    width = 0;
+                    continue;
+                }
+                width += MeasureChar_impl(c, node->value.style);
+                largest_width = Max(largest_width, width);
             }
         }
-        return result;
+        return largest_width;
     }
 
 
@@ -500,108 +516,6 @@ namespace UI
         return StringU32{buffer[index], (uint64_t)size};
     }
 
-    inline char ToLower(char c)
-    {
-        return (c >= 'A' && c <= 'Z')? c + 32: c;
-    }
-
-    inline uint32_t StrToU32(const char* text, bool* error)
-    {
-        if(!text)
-        {
-            if(error)
-                *error = true;
-            return 0;
-        }
-        uint32_t result = 0;
-        for(;*text; text++)
-        {
-            char c = *text;
-            if(c >= '0' && c <= '9')
-            {
-                uint32_t digit = c - '0';
-                if(result > (0xFFFFFFFF - digit)/10)
-                {
-                    if(error)
-                        *error = true;
-                    return 0;
-                }
-                result = result * 10 + digit;
-            }
-            else
-            {
-                if(error)
-                    *error = true;
-                return 0;
-            }
-        }
-        return result;
-    }
-    inline uint32_t HexToU32(const char* text, bool* error)
-    {
-        if(!text)
-        {
-            if(error)
-                *error = true;
-            return 0;
-        }
-        uint32_t result = 0;
-        for(; *text; text++)
-        {
-            result <<= 4;
-            char c = *text;
-            c = ToLower(c);
-            if(c >= '0' && c <= '9')
-                result |= c - '0';
-            else if(c >= 'a' && c<= 'f')
-                result |= c - 87;
-            else
-            {
-                if(error)
-                    *error = true;
-                return 0;
-            }
-        }
-        return result;
-    }
-    inline Color HexToRGBA(const char* text, bool* error)
-    {
-        bool err = false;
-        if(!text)
-            err = true;
-        char hex[3]{};
-        Color result = {0, 0, 0, 255};
-        for(int i = 0; i<6; i++)
-        {
-            if(text[i] == '\0')
-                err = true;
-        }
-        hex[0] = text[0]; hex[1] = text[1]; hex[2] = '\0';
-        result.r = HexToU32(hex, &err);
-        hex[0] = text[2]; hex[1] = text[3]; hex[2] = '\0';
-        result.g = HexToU32(hex, &err);
-        hex[0] = text[4]; hex[1] = text[5]; hex[2] = '\0';
-        result.b = HexToU32(hex, &err);
-        if(text[6] == '\0')
-        {
-            if(error)
-                *error = err;
-            return err? Color() : result;
-        }
-        if(text[7] == '\0')
-        {
-            if(error)
-                *error = true;
-            return Color();
-        }
-        hex[0] = text[6]; hex[1] = text[7]; hex[2] = '\0';
-        result.a = HexToU32(hex, &err);
-        if(text[8] != '\0')
-            err = true;
-        if(error)
-            *error = err;
-        return err? Color(): result;
-    }
 
 
 
@@ -690,14 +604,33 @@ namespace UI
     BoxInfo Context::Info(uint64_t key)
     {
         #if UI_ENABLE_DEBUG
+            if(inspector && enabled)
+            {
+                if(!copy_tree)
+                    return BoxInfo();
+            }
         #endif
-        const BoxInfo* info = double_buffer_map.FrontValue(key);
+
+        BoxInfo* info = double_buffer_map.FrontValue(key);
         if(info)
+        {
+            //TODO
+            if(directly_hovered_element_key == info->GetKey())
+                info->is_direct_hover = true;
             return *info;
+        }
         return BoxInfo();
+    }
+    void Context::SetStates(uint64_t key, const BoxState& state)
+    {
+        BoxInfo* info = double_buffer_map.FrontValue(key);
+        if(info)
+            info->state = state;
     }
     BoxInfo Context::Info(const StringAsci& id)
     {
+        if(id.IsEmpty())
+            return BoxInfo();
         return Info(HashBytes(id.data, id.Size()));
     }
     void Context::ResetAllStates()
@@ -710,6 +643,11 @@ namespace UI
         element_count = 0;
         directly_hovered_element_key = 0;
     }
+    void Context::SetDebugInspector(DebugInspector* inspector, Key activate_key)
+    {
+        this->inspector = inspector;
+        this->activate_key = activate_key;
+    }
 
     void Context::ResetAtBeginRoot()
     {
@@ -721,7 +659,6 @@ namespace UI
         deferred_elements.Clear();
         tree_core = nullptr;
         element_count = 0;
-        directly_hovered_element_key = 0;
     }
 
     void Context::ResetArena1()
@@ -746,7 +683,38 @@ namespace UI
         style.min_width.unit = Unit::PIXEL;
         style.max_height.unit = Unit::PIXEL;
         style.max_width.unit = Unit::PIXEL;
+
         #if UI_ENABLE_DEBUG
+            if(IsKeyPressed(activate_key))
+            {
+                if(enabled)
+                {
+                    enabled = false;
+                    inspector->Reset();
+                    //reset inspector here
+                }
+                else
+                {
+                    enabled = true;
+                    copy_tree = true;
+                }
+            }
+
+            if(inspector && enabled)
+            {
+                if(copy_tree)
+                {
+                    BoxDebug box;
+                    box.style = style;
+                    box.debug_info = debug_info;
+                    inspector->Push(box);
+                }
+                else
+                {
+                    inspector->Run();
+                    return; //stop normal ui
+                }
+            }
         #endif
 
 
@@ -783,6 +751,17 @@ namespace UI
     void Context::EndRoot()
     {
         #if UI_ENABLE_DEBUG
+            if(inspector && enabled)
+            {
+                if(copy_tree)
+                {
+                    inspector->Pop();
+                }
+                else
+                {
+                    return;
+                }
+            }
         #endif
 
         if(HasInternalError())
@@ -807,6 +786,21 @@ namespace UI
     {
 
         #if UI_ENABLE_DEBUG
+            if(inspector && enabled)
+            {
+                if(copy_tree)
+                {
+                    BoxDebug box;
+                    box.style = style;
+                    box.debug_info = debug_info;
+                    box.id = id;
+                    inspector->Push(box);
+                }
+                else
+                {
+                    return; //stop normal ui
+                }
+            }
         #endif
 
 
@@ -823,7 +817,7 @@ namespace UI
             //Handling persistent state animation variables
             if(current_info)
             {
-                BoxStates& s = current_info->states;
+                BoxState& s = current_info->state;
                 if(current_info->IsHover())
                 {
                     s.hover_anim += GetFrameTime();
@@ -871,6 +865,17 @@ namespace UI
     void Context::EndBox()
     {
         #if UI_ENABLE_DEBUG
+            if(inspector && enabled)
+            {
+                if(copy_tree)
+                {
+                    inspector->Pop();
+                }
+                else
+                {
+                    return;
+                }
+            }
         #endif
 
 
@@ -881,6 +886,7 @@ namespace UI
             HandleInternalError(Error{Error::Type::MISSING_BEGIN, "Missing BeginBox()"});
             return;
         }
+        LineBreak(); //Just to set prev_inserted_box to nullptr
         TreeNode<BoxCore>* node = stack.Peek();
         assert(node);
         BoxCore& parent_box = node->box;
@@ -893,21 +899,32 @@ namespace UI
                 return;
         }
     }
-
-    //UTF 8 version
-    // void Context::InsertText(const UI::TextStyle& style, const StringU8& string, const char* id, bool copy_text, DebugInfo info)
-    //
-    // {
-    //     //Need some special decoding StringU8 to StringU32
-    //     assert(0 && "have not made function yet");
-    // }
-
     //UTF 32 version
     //This is complete for now.
     //Not proud of this, but it works temporarily
-    void Context::InsertText(const UI::TextStyle& style, const StringU32& string, const char* id, bool copy_text, DebugInfo info)
+    void Context::InsertText(const UI::TextStyle& style, const StringU32& string, const char* id, bool copy_text, DebugInfo debug_info)
     {
+        if(string.IsEmpty())
+            return;
+
         #if UI_ENABLE_DEBUG
+            if(inspector && enabled)
+            {
+                if(copy_tree)
+                {
+                    BoxDebug box;
+                    box.text_style = style;
+                    box.debug_info = debug_info;
+                    box.id = id;
+                    box.text = string;
+                    inspector->Push(box);
+                    inspector->Pop();
+                }
+                else
+                {
+                    return; //stop normal ui
+                }
+            }
         #endif
 
         if(HasInternalError())
@@ -937,6 +954,26 @@ namespace UI
         TextSpan* span = prev_inserted_box->text_style_spans.Add(TextSpan{StringU32(str_data, string.Size()), style}, &arena1);
         assert(span && "Arena1 out of memory");
         return;
+    }
+    void Context::LineBreak()
+    {
+        #if UI_ENABLE_DEBUG
+        if(inspector && enabled)
+        {
+            if(copy_tree)
+            {
+                BoxDebug box;
+                box.line_break = true;
+                inspector->Push(box);
+                inspector->Pop();
+            }
+            else
+            {
+                return;
+            }
+        }
+        #endif
+        prev_inserted_box = nullptr;
     }
 
 
@@ -1052,6 +1089,13 @@ namespace UI
     void Context::Draw()
     {
         #if UI_ENABLE_DEBUG
+        if(inspector && enabled)
+        {
+            if(!copy_tree)
+                return;
+            else
+                copy_tree = false; //Finish copying tree
+        }
         #endif
 
 
@@ -1068,14 +1112,41 @@ namespace UI
 
 
         //Layout pipeline
+        float time = 0;
+        StopWatch s;
         ResetArena2();
-        WidthContentPercentPass(tree_core);
-        WidthPass(tree_core);
-        HeightContentPercentPass(tree_core);
-        HeightPass(tree_core);
-        PositionPass(tree_core, 0, 0, BoxCore());
-        GenerateComputedTree();
 
+        s.Start();
+        WidthContentPercentPass(tree_core);
+        //std::cout<<"WidthContent:"<< s.Stop()<<'\n';
+
+        s.Start();
+        WidthPass(tree_core);
+        //std::cout<<"WidthPass:"<< s.Stop()<<'\n';
+
+        s.Start();
+        HeightContentPercentPass(tree_core);
+        //std::cout<<"HeightContent:"<< s.Stop()<<'\n';
+
+        s.Start();
+        HeightPass(tree_core);
+        //std::cout<<"HeightPass:"<< s.Stop()<<'\n';
+
+        s.Start();
+        PositionPass(tree_core, 0, 0, BoxCore());
+        //std::cout<<"PositionPass:"<< s.Stop()<<'\n';
+
+        s.Start();
+        GenerateComputedTree();
+        //std::cout<<"GenerateTree:"<< s.Stop()<<'\n';
+        s.Start();
+
+        directly_hovered_element_key = 0; //Reset the directly hovered element
+        //TODO - add all floating elements to a queue
+
+        //This is most likely temporary because of performance, but I would like to keep developing
+        DetachedBoxesPass(tree_result, 0, 0);
+        //std::cout<<"Detach:"<< s.Stop()<<'\n';
         DrawPass(tree_result, 0, 0, {0, 0, GetScreenWidth(), GetScreenHeight()});
         while(!deferred_elements.IsEmpty())
         {
@@ -1083,6 +1154,7 @@ namespace UI
             DrawPass(box.node, box.x, box.y, {0, 0, GetScreenWidth(), GetScreenHeight()});
             deferred_elements.PopHead();
         }
+        //std::cout<<"Draw: " << s.Stop()<<"\n\n";
     }
 
 
@@ -1102,7 +1174,9 @@ namespace UI
 
                 if(box.IsTextElement())
                 {
-                    content_width += MeasureTextSpans(box);
+                    float w = MeasureTextSpans(box);
+                    box.max_width = w;
+                    content_width += w;
                 }
                 else if(box.width_unit != Unit::Type::AVAILABLE_PERCENT &&
                 box.width_unit != Unit::Type::PARENT_PERCENT &&
@@ -1603,7 +1677,7 @@ namespace UI
                 }
 
 
-                //Ignore these values
+                //Ignoring these values
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT &&
                     box.height_unit != Unit::Type::PARENT_PERCENT &&
                     box.min_height_unit != Unit::Type::PARENT_PERCENT &&
@@ -1644,7 +1718,13 @@ namespace UI
                     box.height = md.GetMeasuredHeight();
                 }
                 */
-                //Ignore these values
+
+                if(box.IsTextElement())
+                {
+                    this->ComputeTextLinesAndHeight(box);
+                }
+
+                //Ignoring these values
                 if(box.height_unit != Unit::Type::AVAILABLE_PERCENT &&
                     box.height_unit != Unit::Type::PARENT_PERCENT &&
                     box.min_height_unit != Unit::Type::PARENT_PERCENT &&
@@ -1721,7 +1801,7 @@ namespace UI
             PositionPass_Grid(node->children.GetHead(), x, y, box);
         }
     }
-    void Context::PositionPass_Flow(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent)
+    void Context::PositionPass_Flow(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, BoxCore& parent)
     {
         assert(child);
         int content_height = 0;
@@ -1824,8 +1904,10 @@ namespace UI
                 cursor_y += box.GetBoxModelHeight() + parent.gap_row + offset;
             }
         }
+        parent.result_content_width = content_width;
+        parent.result_content_height = content_height;
     }
-    void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, const BoxCore& parent)
+    void Context::PositionPass_Grid(Internal::ArenaLL<TreeNode<BoxCore>>::Node* child, int x, int y, BoxCore& parent)
     {
         assert(child);
         int cell_width = parent.GetGridCellWidth() + parent.gap_column;
@@ -1836,6 +1918,31 @@ namespace UI
             box.result_rel_x = cell_width * box.grid_x;
             box.result_rel_y = cell_height * box.grid_y;
             PositionPass(&temp->value, x, y, parent);
+        }
+    }
+
+    void Context::DetachedBoxesPass(TreeNode<BoxResult>* node, int parent_x, int parent_y)
+    {
+        if(!node || !node->box.core)
+            return;
+        const BoxResult& box_result = node->box;
+        const BoxCore& box_core = *node->box.core;
+        int x = box_core.x + box_result.rel_x + parent_x - box_core.scroll_x;
+        int y = box_core.y + box_result.rel_y + parent_y - box_core.scroll_y;
+
+        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+        {
+            assert(temp->value.box.core);
+            if(temp->value.box.core->IsDetached())
+            {
+                AddDetachedBoxToQueue(&temp->value, {x, y, box_result.draw_width, box_result.draw_height});
+                assert(deferred_elements.GetTail());
+                x = deferred_elements.GetTail()->value.x;
+                y = deferred_elements.GetTail()->value.y;
+                DetachedBoxesPass(&temp->value, x, y);
+                continue;
+            }
+            DetachedBoxesPass(&temp->value, x, y);
         }
     }
 
@@ -1982,12 +2089,10 @@ namespace UI
             info.x = draw.x;
             info.y = draw.y;
             info.padding = box_core.padding;
-            info.margin = box_core.margin;
-            info.width = draw.width;
-            info.height = draw.height;
+            info.width = box_core.width;
+            info.height = box_core.height;
             info.content_width = box_result.content_width;
             info.content_height = box_result.content_height;
-            info.valid = true; // mainly used when you want to verify sizings as they are default to 0
             if(Rect::Contains(new_aabb, GetMouseX(), GetMouseY()))
             {
                 info.is_hover = true;
@@ -1996,7 +2101,7 @@ namespace UI
             }
             const BoxInfo* front_value = double_buffer_map.FrontValue(info.key);
             if(front_value)
-                info.states = front_value->states;
+                info.state = front_value->state;
             BoxInfo* box_info = double_buffer_map.Insert(info.key, info);
             assert(box_info && "DoubleBufferMap out of memory");
         }
@@ -2014,7 +2119,7 @@ namespace UI
             assert(temp->value.box.core);
             if(temp->value.box.core->IsDetached())
             {
-                AddDetachedBoxToQueue(&temp->value, draw);
+                //AddDetachedBoxToQueue(&temp->value, draw);
                 continue;
             }
 
@@ -2025,6 +2130,213 @@ namespace UI
         if(box_core.IsScissor())
             EndScissorMode_impl();
     }
+
+
+    DebugInspector::DebugInspector(uint64_t bytes) : arena(bytes/3), ui(bytes/3, bytes/3)
+    {
+
+    }
+    int DebugInspector::GetMouseDeltaX()
+    {
+        return GetMouseX() - mouse_x;
+    }
+    int DebugInspector::GetMouseDeltaY()
+    {
+        return GetMouseY() - mouse_y;
+    }
+    void DebugInspector::Push(BoxDebug box)
+    {
+        TreeNode<BoxDebug>* box_debug = arena.New<TreeNode<BoxDebug>>(TreeNode<BoxDebug>(box));
+        if(!box.id.IsEmpty())
+        {
+            box.id.data = arena.NewArrayCopy(box.id.data, box.id.Size());
+            assert(box.id.data && "DebugInspector out of memory");
+        }
+        if(!root)
+        {
+            root = arena.New<TreeNodeDebug>();
+            assert(root && "Inspector out of memory");
+            root->box = box;
+            stack.Push(root);
+            return;
+        }
+        assert(!stack.IsEmpty());
+        TreeNodeDebug* parent = stack.Peek(); assert(parent);
+        TreeNodeDebug* child = parent->children.Add(TreeNodeDebug(box), &arena);
+        assert(child && "Inspector out of memory");
+        stack.Push(child);
+    }
+    void DebugInspector::Pop()
+    {
+        assert(!stack.IsEmpty() && "Begin/End uneven");
+        stack.Pop();
+    }
+
+    void DebugInspector::Reset()
+    {
+        arena.Reset();
+        root = nullptr;
+        selected_box = nullptr;
+        hovered_box = nullptr;
+        stack.Clear();
+    }
+
+    void DebugInspector::Run()
+    {
+        assert(stack.IsEmpty());
+
+        BoxStyle root_style =
+        {
+            .width = {GetScreenWidth()},
+            .height = {GetScreenHeight()},
+        };
+        BoxStyle selected_box_style =
+        {
+            .x = selected_box_dim.x,
+            .y = selected_box_dim.y,
+            .width = {selected_box_dim.width},
+            .height = {selected_box_dim.height},
+            .border_color = {255, 100, 100, 255},
+            .border_width = 2,
+            .detach = Detach::ABSOLUTE
+        };
+        BoxStyle hovered_box_style =
+        {
+            .x = hovered_box_dim.x,
+            .y = hovered_box_dim.y,
+            .width = {hovered_box_dim.width},
+            .height = {hovered_box_dim.height},
+            .border_color = {255, 233, 233, 255},
+            .border_width = 2,
+            .detach = Detach::ABSOLUTE
+        };
+
+        UI::Root(&ui, root_style, [&]
+        {
+           CreateMockUI(root);
+
+           // ===== Rendering Selected/Hovered Boxes ====
+            const Rect& dim = hovered_box_dim;
+            if(hovered_box)
+                Box(hovered_box_style).Run();
+            if(selected_box)
+                Box(selected_box_style).Run();
+            // ==========================================
+            CreateDebugUI();
+
+        });
+
+        this->mouse_x = GetMouseX();
+        this->mouse_y = GetMouseY();
+    }
+    void DebugInspector::CreateMockUI(TreeNodeDebug* node)
+    {
+        if(node == nullptr)
+            return;
+
+        if(node->box.line_break)
+        {
+            LineBreak();
+        }
+        else if(node->box.text.IsEmpty())
+        {
+            Box(node->box.style)
+            .Id(Fmt("node-id:%llu", (uintptr_t)node))
+            .OnDirectHover([&]
+            {
+                hovered_box = &node->box;
+                hovered_box_dim = {Info().DrawX(), Info().DrawY(), Info().DrawWidth(), Info().DrawHeight()};
+                if(IsMousePressed(MouseButton::MOUSE_LEFT))
+                {
+                    selected_box = &node->box;
+                    selected_box_dim = {Info().DrawX(), Info().DrawY(), Info().DrawWidth(), Info().DrawHeight()};
+                }
+
+            })
+            .Run([&]
+            {
+                for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+                    CreateMockUI(&temp->value);
+            });
+        }
+        else
+        {
+            Text(node->box.text_style, node->box.text);
+        }
+    }
+
+    void DebugInspector::CreateDebugUI()
+    {
+        BoxStyle base =
+        {
+            .flow =
+            {
+                .axis = Flow::VERTICAL,
+                //.horizontal_alignment = Flow::CENTERED,
+            },
+            .x = base_dim.x,
+            .y = base_dim.y,
+            .width = {base_dim.width},
+            .height = {base_dim.height},
+            .color = theme.black1,
+            .border_color = theme.black0,
+            .corner_radius = 5,
+            .border_width = 2,
+            .detach = Detach::ABSOLUTE
+        };
+        base.color.a = 200;
+
+        BoxStyle title_bar =
+        {
+            //.y = -12,
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .min_width = {100, Unit::CONTENT_PERCENT},
+            .padding = {10, 10, 5, 5},
+            .color = theme.black1,
+            .border_color = theme.black0,
+            .corner_radius = 5,
+            .border_width = 2,
+        };
+
+        TextStyle title_bar_text;
+        title_bar_text.FgColor(theme.white).FontSize(24);
+
+        Box(base)
+        .Run([&]
+        {
+            Box(title_bar)
+            .Id("base_title_bar")
+            .OnDirectHover([&]
+            {
+                //Enable mouse dragging
+                if(IsMousePressed(MouseButton::MOUSE_LEFT))
+                    State().custom_flags = true;
+            })
+            .PreRun([&]
+            {
+                //Disable Mouse dragging
+                if(IsMouseReleased(MouseButton::MOUSE_LEFT))
+                    State().custom_flags = false;
+
+                //Drag if enabled
+                if(State().custom_flags)
+                {
+                    base_dim.x += GetMouseDeltaX();
+                    base_dim.y += GetMouseDeltaY();
+                }
+            })
+            .Run([&]
+            {
+                Text(title_bar_text, U"Inspector");
+            });
+        });
+
+
+
+    }
+
+
 
 
 }
