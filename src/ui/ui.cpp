@@ -1,6 +1,7 @@
 #include "ui.hpp"
 #include "Memory.hpp"
 #include <cstdint>
+#include <ios>
 
 namespace UI
 {
@@ -1785,7 +1786,7 @@ namespace UI
             return;
         BoxCore& box = node->box;
         box.result_rel_x += parent_box.padding.left + box.margin.left;
-        box.result_rel_y += parent_box.padding.top + box.margin.right;
+        box.result_rel_y += parent_box.padding.top + box.margin.top;
         x += box.result_rel_x;
         y += box.result_rel_y;
 
@@ -2300,21 +2301,75 @@ namespace UI
         };
 
         TextStyle title_bar_text;
-        title_bar_text.FgColor(theme.white).FontSize(24);
+        title_bar_text.FgColor(theme.white).FontSize(20);
+
+        BoxStyle resize_button =
+        {
+            .width = {12},
+            .height = {12},
+            .color = {100, 100, 100, 255},
+            .detach = Detach::BOTTOM_END
+        };
+
+        BoxStyle h_container =
+        {
+            .flow = { .axis = Flow::HORIZONTAL, .vertical_alignment = Flow::CENTERED},
+            .width = {100, Unit::AVAILABLE_PERCENT},
+            .height = {100, Unit::AVAILABLE_PERCENT}
+        };
+        BoxStyle left_panel =
+        {
+            .flow = {.axis = Flow::VERTICAL},
+            .width = {left_panel_width},
+            .height = {100, Unit::AVAILABLE_PERCENT},
+            .margin = {10, 2, 10, 10},
+            .color = {90, 90, 90, 255},
+            .corner_radius = 5,
+        };
+        BoxStyle right_panel =
+        {
+            .flow = {.axis = Flow::VERTICAL},
+            .width = {100, Unit::AVAILABLE_PERCENT},
+            .height = {100, Unit::AVAILABLE_PERCENT},
+            .margin = {2, 10, 10, 10},
+            .color = {90, 90, 90, 255},
+            .corner_radius = 5,
+        };
+        BoxStyle title_bar2 =
+        {
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = {100, Unit::CONTENT_PERCENT},
+            .padding = {5, 5, 5, 5}
+        };
+
+        BoxStyle left_scroll_panel =
+        {
+            .flow = {.axis = Flow::VERTICAL},
+            .width = {100, Unit::PARENT_PERCENT},
+            .height = {100, Unit::AVAILABLE_PERCENT},
+            .color = {0, 0, 0, 0},
+            .scissor = true,
+        };
+        BoxStyle left_panel_resize =
+        {
+            .flow = {.vertical_alignment = Flow::CENTERED, .horizontal_alignment = Flow::CENTERED},
+            .width = {100, Unit::CONTENT_PERCENT},
+            .height = {100},
+            .padding = {1,1,1,1},
+            .color = {200, 200, 200, 255},
+            .corner_radius = 2,
+        };
+
 
         Box(base)
         .Run([&]
         {
             Box(title_bar)
             .Id("base_title_bar")
-            .OnDirectHover([&]
-            {
-                //Enable mouse dragging
-                if(IsMousePressed(MouseButton::MOUSE_LEFT))
-                    State().custom_flags = true;
-            })
             .PreRun([&]
             {
+                if(IsDirectHover() && IsMousePressed(MouseButton::MOUSE_LEFT))
+                    State().custom_flags = true;
                 //Disable Mouse dragging
                 if(IsMouseReleased(MouseButton::MOUSE_LEFT))
                     State().custom_flags = false;
@@ -2330,12 +2385,98 @@ namespace UI
             {
                 Text(title_bar_text, U"Inspector");
             });
+            Box(h_container)
+            .Run([&]
+            {
+                Box(left_panel)
+                .Run([&]
+                {
+                    Box(title_bar2)
+                    .Run([&]
+                    {
+                        Text(title_bar_text, U"View");
+                    });
+                    Box(left_scroll_panel)
+                    .Id("left_scroll_panel")
+                    .Run([&]
+                    {
+                        this->CreateTreeView(this->root);
+                    });
+                });
+                Box(left_panel_resize)
+                .Id("left_panel_resize")
+                .PreRun([&]
+                {
+                    if(IsDirectHover() && IsMousePressed(MouseButton::MOUSE_LEFT))
+                        State().custom_flags = true;
+                    //Disable Mouse dragging
+                    if(IsMouseReleased(MouseButton::MOUSE_LEFT))
+                        State().custom_flags = false;
+
+                    //Drag if enabled
+                    if(State().custom_flags)
+                    {
+                        left_panel_width += GetMouseDeltaX();
+                        left_panel_width = Clamp(left_panel_width, 60, base_dim.width - 100);
+                    }
+                })
+                .Run([&]{Text(TextStyle{.fg_color={0,0,0,255}, .font_size=13}, U"|||");});
+                Box(right_panel)
+                .Run([&]
+                {
+                    Box(title_bar2)
+                    .Run([&]
+                    {
+                        Text(title_bar_text, U"Details");
+                    });
+                });
+            });
+            Box(resize_button)
+            .Id("resize_button")
+            .PreRun([&]
+            {
+                if(IsDirectHover() && IsMousePressed(MouseButton::MOUSE_LEFT))
+                    State().custom_flags = true;
+                //Disable Mouse dragging
+                if(IsMouseReleased(MouseButton::MOUSE_LEFT))
+                    State().custom_flags = false;
+
+                //Drag if enabled
+                if(State().custom_flags)
+                {
+                    base_dim.width += GetMouseDeltaX();
+                    base_dim.height += GetMouseDeltaY();
+                    base_dim.width = Max(base_dim.width, 300);
+                    base_dim.height = Max(base_dim.height, 300);
+                }
+            })
+            .Run();
         });
 
 
 
     }
+    void DebugInspector::CreateTreeView(TreeNodeDebug* node)
+    {
+        if(!node)
+            return;
+        BoxStyle h_container =
+        {
+            .width = {9999},
+            .height = {10},
+            .color = {255,255,255,255},
+            .border_color = {100, 100, 100, 255},
+            .border_width = 1
+        };
 
+        Box(h_container)
+        .Run();
+
+        for(auto temp = node->children.GetHead(); temp!=nullptr; temp = temp->next)
+        {
+            CreateTreeView(&temp->value);
+        }
+    }
 
 
 

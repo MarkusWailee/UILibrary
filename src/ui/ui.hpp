@@ -989,6 +989,7 @@ namespace UI
         void Reset();
         void CreateMockUI(TreeNodeDebug* root);
         void CreateDebugUI();
+        void CreateTreeView(TreeNodeDebug* node);
 
     private:
         int mouse_x = 0;
@@ -1011,6 +1012,7 @@ namespace UI
 
         //======= Inspector UI ========
         Rect base_dim = {50, 50, 400, 300};
+        int left_panel_width = 150;
         //=============================
     };
 
