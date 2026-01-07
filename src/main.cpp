@@ -16,52 +16,15 @@ int main(void)
 
     UI::Init_impl("assets/fonts/Roboto-Regular.ttf");
     UI::Context context(128 * UI::KB, 128 * UI::KB);
-    UI::DebugInspector inspector(2 * UI::MB);
+    UI::DebugInspector inspector(8 * UI::MB);
     context.SetDebugInspector(&inspector, UI::KEY_F1);
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
-        LayoutTest(&context);
-        //TextLayoutTest(&context);
-        // UI::BoxStyle root =
-        // {
-        //     .flow = {.vertical_alignment = UI::Flow::CENTERED, .horizontal_alignment = UI::Flow::CENTERED },
-        //     .width = {GetScreenWidth()},
-        //     .height = {GetScreenHeight()},
-        //     .color = {40, 40, 40,255},
-        //     .scissor = true
-        // };
-        // UI::BoxStyle box0 =
-        // {
-        //     .width = {50},
-        //     .height = {50},
-        //     .color = {255, 255,255,255},
-        // };
-        // UI::BoxStyle box1 = box0;
-        // box1.detach = UI::Detach::RIGHT;
-        //
-        // UI::Root(&context, root, [&]
-        // {
-        //     UI::Box(box0)
-        //     .Run([&]
-        //     {
-        //         UI::Box(box1)
-        //         .PreRun([&]
-        //         {
-        //             UI::Style().color = {200, 200, 200, 255};
-        //         })
-        //         .Run([&]
-        //         {
-        //             UI::Box(box1)
-        //             .PreRun([&]
-        //             {
-        //                 UI::Style().color = {150, 150, 150, 255};
-        //             })
-        //             .Run([&]
-        //             {
-        //             });
-        //         });
-        //     });
-        // });
+        // LayoutTest(&context);
+        UI::Root(&context, {.color = {255, 255, 255, 255}}, [&]
+        {
+            UI::Box({.color = {255, 0, 0, 255}}).Run();
+        });
 
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});

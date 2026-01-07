@@ -2147,7 +2147,6 @@ namespace UI
     }
     void DebugInspector::Push(BoxDebug box)
     {
-        TreeNode<BoxDebug>* box_debug = arena.New<TreeNode<BoxDebug>>(TreeNode<BoxDebug>(box));
         if(!box.id.IsEmpty())
         {
             box.id.data = arena.NewArrayCopy(box.id.data, box.id.Size());
@@ -2301,13 +2300,13 @@ namespace UI
         };
 
         TextStyle title_bar_text;
-        title_bar_text.FgColor(theme.white).FontSize(20);
+        title_bar_text.FgColor(theme.white0).FontSize(20);
 
         BoxStyle resize_button =
         {
             .width = {12},
             .height = {12},
-            .color = {100, 100, 100, 255},
+            .color = theme.white0,
             .detach = Detach::BOTTOM_END
         };
 
@@ -2323,7 +2322,7 @@ namespace UI
             .width = {left_panel_width},
             .height = {100, Unit::AVAILABLE_PERCENT},
             .margin = {10, 2, 10, 10},
-            .color = {90, 90, 90, 255},
+            .color = theme.white0,
             .corner_radius = 5,
         };
         BoxStyle right_panel =
@@ -2332,7 +2331,7 @@ namespace UI
             .width = {100, Unit::AVAILABLE_PERCENT},
             .height = {100, Unit::AVAILABLE_PERCENT},
             .margin = {2, 10, 10, 10},
-            .color = {90, 90, 90, 255},
+            .color = theme.black1,
             .corner_radius = 5,
         };
         BoxStyle title_bar2 =
@@ -2347,7 +2346,6 @@ namespace UI
             .flow = {.axis = Flow::VERTICAL},
             .width = {100, Unit::PARENT_PERCENT},
             .height = {100, Unit::AVAILABLE_PERCENT},
-            .color = {0, 0, 0, 0},
             .scissor = true,
         };
         BoxStyle left_panel_resize =
@@ -2356,7 +2354,7 @@ namespace UI
             .width = {100, Unit::CONTENT_PERCENT},
             .height = {100},
             .padding = {1,1,1,1},
-            .color = {200, 200, 200, 255},
+            .color = theme.white0,
             .corner_radius = 2,
         };
 
@@ -2400,7 +2398,7 @@ namespace UI
                     .Id("left_scroll_panel")
                     .Run([&]
                     {
-                        this->CreateTreeView(this->root);
+                        this->CreateTreeView(this->root, 0);
                     });
                 });
                 Box(left_panel_resize)
@@ -2456,25 +2454,94 @@ namespace UI
 
 
     }
-    void DebugInspector::CreateTreeView(TreeNodeDebug* node)
+    void DebugInspector::CreateTreeView(TreeNodeDebug* node, int depth)
     {
         if(!node)
             return;
+        BoxStyle gap = {.width = {20}, .height = {100, Unit::AVAILABLE_PERCENT}};
+        BoxStyle bar =
+        {
+            .width = {1},
+            .height = {24},
+            .margin = {9, 9, 0, 0},
+            .color = theme.black0,
+        };
         BoxStyle h_container =
         {
+            .flow = {.vertical_alignment = Flow::CENTERED},
             .width = {9999},
-            .height = {10},
-            .color = {255,255,255,255},
-            .border_color = {100, 100, 100, 255},
-            .border_width = 1
+            .height = {100, Unit::CONTENT_PERCENT},
         };
+        BoxStyle icon_button =
+        {
+            .flow =
+            {
+                .vertical_alignment = Flow::CENTERED,
+                .horizontal_alignment = Flow::CENTERED
+            },
+            .width = {20},
+            .height = {20},
+            .border_color = theme.black0,
+            .corner_radius = 2,
+            .border_width = 1,
+        };
+        Color fg_color = theme.black0;
+        Color bg_color = theme.white0;
+        bool is_open = false;
+        bool invert_color = false;
 
         Box(h_container)
-        .Run();
-
-        for(auto temp = node->children.GetHead(); temp!=nullptr; temp = temp->next)
+        .Id(Fmt("tree-element-%llu", (uintptr_t)node))
+        .OnDirectHover([&]
         {
-            CreateTreeView(&temp->value);
+            invert_color = true;
+            Style().color = theme.black0;
+        })
+        .PreRun([&]
+        {
+            if(invert_color)
+            {
+                fg_color = theme.white0;
+                bg_color = theme.black0;
+                icon_button.border_color = fg_color;
+            }
+        })
+        .Run([&]
+        {
+            for(int i = 0; i < depth; i++)
+            {
+                Box(bar).Run();
+                Box(gap).Run();
+            }
+
+            if(!node->children.IsEmpty())
+            {
+                Box(icon_button)
+                .Id(Fmt("tree-element-icon-%llu", (uintptr_t)node))
+                .OnDirectHover([&]
+                {
+                    Style().color = theme.black0;
+                    icon_button.border_color = theme.white0;
+                    if(IsMousePressed(MouseButton::MOUSE_LEFT))
+                        State().custom_flags = !State().custom_flags;
+
+                })
+                .Run([&]
+                {
+                    is_open = State().custom_flags;
+                    Text(TextStyle{.fg_color = icon_button.border_color, .font_size = 24}, (is_open? StringU32(U"-"): StringU32(U"+")));
+                });
+            }
+            Text(TextStyle{.fg_color = {255,0,0,255}, .font_size = 24}, node->box.debug_info.name);
+        });
+
+        if(is_open)
+        {
+            for(auto temp = node->children.GetHead(); temp!=nullptr; temp = temp->next)
+            {
+                CreateTreeView(&temp->value, depth + 1);
+            }
+
         }
     }
 

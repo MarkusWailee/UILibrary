@@ -848,23 +848,23 @@ namespace UI
 
     public:
         Context(uint64_t arena_bytes, uint64_t string_bytes);
-        BoxInfo Info(const StringAsci& id);
-        BoxInfo Info(uint64_t key);
 
 
         /* Set Persistent variables
            Key is checked internally for 0
         */
-        void SetStates(uint64_t key, const BoxState& states);
 
+        BoxInfo Info(const StringAsci& id);
+        BoxInfo Info(uint64_t key);
+        void SetStates(uint64_t key, const BoxState& states);
         void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
         void EndRoot();
         void BeginBox(const UI::BoxStyle& style, const StringAsci& id, DebugInfo debug_info = UI_DEBUG("Box"));
-        //void InsertText(const UI::TextStyle& style, const StringU8& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
         void InsertText(const UI::TextStyle& style, const StringU32& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
         void LineBreak();
         void EndBox();
         void Draw();
+
         uint32_t GetElementCount() const;
 
         //Might not even use this
@@ -968,7 +968,8 @@ namespace UI
         friend Context;
         struct Theme
         {
-            Color white = HexToRGBA("#F6F4F5");
+            Color white0 = {230, 230, 230, 255};
+            Color white1 = {200, 200, 200, 255};
             Color black0 = {30, 30, 30, 255};
             Color black1 = HexToRGBA("#252525");
             Color black2 = HexToRGBA("#3a3a3a");
@@ -989,7 +990,7 @@ namespace UI
         void Reset();
         void CreateMockUI(TreeNodeDebug* root);
         void CreateDebugUI();
-        void CreateTreeView(TreeNodeDebug* node);
+        void CreateTreeView(TreeNodeDebug* node, int depth);
 
     private:
         int mouse_x = 0;
