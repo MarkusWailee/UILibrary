@@ -1,2 +1,4 @@
 # Debug Inspector
-<img width="414.4" height="248.15" alt="image" src="https://github.com/user-attachments/assets/03e13aa6-1b93-41c2-84c2-011a1675f983" />
+<img width="414" height="261" alt="image" src="https://github.com/user-attachments/assets/2a423bcc-21fd-408b-88a9-3492aa86b7a2" />
+
+
