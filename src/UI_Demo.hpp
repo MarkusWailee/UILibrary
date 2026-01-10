@@ -328,7 +328,20 @@ inline void LayoutTest(UI::Context* context)
     {
         UI::Box(top_bar).Run([&]
         {
-
+            UI::BoxStyle search_bar =
+            {
+                .flow = {.vertical_alignment = UI::Flow::CENTERED, .horizontal_alignment = UI::Flow::CENTERED},
+                .width = {40, UI::Unit::PARENT_PERCENT},
+                .height = {100, UI::Unit::PARENT_PERCENT},
+                .margin = {10, 10, 12, 12},
+                .color = {60, 60, 60, 255},
+                .corner_radius = 16
+            };
+            UI::Box(search_bar)
+            .Run([&]
+            {
+                UI::Text({.fg_color={100, 100, 100, 255}, .font_size = 32}, U"Search Bar");
+            });
         });
         UI::Box(middle_base).Run([&]
         {

@@ -1,5 +1,6 @@
 #include "ui.hpp"
 #include "Memory.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <ios>
 
@@ -142,6 +143,10 @@ namespace UI
     {
         return builder.Info();
     }
+    void NewLine()
+    {
+        builder.NewLine();
+    }
 
     BoxStyle& Style()
     {
@@ -150,6 +155,10 @@ namespace UI
     BoxState& State()
     {
         return builder.State();
+    }
+    void SetState(const StringAsci& id, const BoxState& state)
+    {
+        builder.SetState(id, state);
     }
 
     bool IsHover()
@@ -516,6 +525,10 @@ namespace UI
         buffer[index][size] = U'\0';
         return StringU32{buffer[index], (uint64_t)size};
     }
+    uint64_t Hash(const StringAsci& id)
+    {
+        return Internal::HashBytes(id.data, id.Size());
+    }
 
 
 
@@ -605,10 +618,9 @@ namespace UI
     BoxInfo Context::Info(uint64_t key)
     {
         #if UI_ENABLE_DEBUG
-            if(inspector && enabled)
+            if(is_debug_mode && inspector)
             {
-                if(!copy_tree)
-                    return BoxInfo();
+                return BoxInfo();
             }
         #endif
 
@@ -624,15 +636,25 @@ namespace UI
     }
     void Context::SetStates(uint64_t key, const BoxState& state)
     {
+        #if UI_ENABLE_DEBUG
+        if(is_debug_mode && inspector)
+        {
+            return;
+        }
+        #endif
         BoxInfo* info = double_buffer_map.FrontValue(key);
         if(info)
             info->state = state;
+    }
+    void Context::SetStates(const StringAsci& id, const BoxState& state)
+    {
+        SetStates(Hash(id), state);
     }
     BoxInfo Context::Info(const StringAsci& id)
     {
         if(id.IsEmpty())
             return BoxInfo();
-        return Info(HashBytes(id.data, id.Size()));
+        return Info(Hash(id));
     }
     void Context::ResetAllStates()
     {
@@ -686,22 +708,19 @@ namespace UI
         style.max_width.unit = Unit::PIXEL;
 
         #if UI_ENABLE_DEBUG
-            if(IsKeyPressed(activate_key))
+            if(inspector && IsKeyPressed(activate_key))
             {
-                if(enabled)
+                is_debug_mode = !is_debug_mode;
+                if(is_debug_mode)
                 {
-                    enabled = false;
-                    inspector->Reset();
-                    //reset inspector here
+                    copy_tree = true;
                 }
                 else
                 {
-                    enabled = true;
-                    copy_tree = true;
+                    inspector->Reset();
                 }
             }
-
-            if(inspector && enabled)
+            if(is_debug_mode && inspector)
             {
                 if(copy_tree)
                 {
@@ -713,9 +732,39 @@ namespace UI
                 else
                 {
                     inspector->Run();
-                    return; //stop normal ui
+                    return;
                 }
             }
+            // if(IsKeyPressed(activate_key))
+            // {
+            //     if(enabled)
+            //     {
+            //         enabled = false;
+            //         inspector->Reset();
+            //         //reset inspector here
+            //     }
+            //     else
+            //     {
+            //         enabled = true;
+            //         copy_tree = true;
+            //     }
+            // }
+            //
+            // if(inspector && enabled)
+            // {
+            //     if(copy_tree)
+            //     {
+            //         BoxDebug box;
+            //         box.style = style;
+            //         box.debug_info = debug_info;
+            //         inspector->Push(box);
+            //     }
+            //     else
+            //     {
+            //         inspector->Run();
+            //         return; //stop normal ui
+            //     }
+            // }
         #endif
 
 
@@ -752,17 +801,29 @@ namespace UI
     void Context::EndRoot()
     {
         #if UI_ENABLE_DEBUG
-            if(inspector && enabled)
+            if(is_debug_mode && inspector)
             {
                 if(copy_tree)
                 {
                     inspector->Pop();
+                    copy_tree = false;
                 }
                 else
                 {
                     return;
                 }
             }
+            // if(inspector && enabled)
+            // {
+            //     if(copy_tree)
+            //     {
+            //         inspector->Pop();
+            //     }
+            //     else
+            //     {
+            //         return;
+            //     }
+            // }
         #endif
 
         if(HasInternalError())
@@ -787,21 +848,36 @@ namespace UI
     {
 
         #if UI_ENABLE_DEBUG
-            if(inspector && enabled)
+        if(is_debug_mode && inspector)
+        {
+            if(copy_tree)
             {
-                if(copy_tree)
-                {
-                    BoxDebug box;
-                    box.style = style;
-                    box.debug_info = debug_info;
-                    box.id = id;
-                    inspector->Push(box);
-                }
-                else
-                {
-                    return; //stop normal ui
-                }
+                BoxDebug box;
+                box.style = style;
+                box.debug_info = debug_info;
+                box.id = id;
+                inspector->Push(box);
             }
+            else
+            {
+                return;
+            }
+        }
+            // if(inspector && enabled)
+            // {
+            //     if(copy_tree)
+            //     {
+            //         BoxDebug box;
+            //         box.style = style;
+            //         box.debug_info = debug_info;
+            //         box.id = id;
+            //         inspector->Push(box);
+            //     }
+            //     else
+            //     {
+            //         return; //stop normal ui
+            //     }
+            // }
         #endif
 
 
@@ -813,7 +889,7 @@ namespace UI
         uint64_t id_key = 0;
         if(!id.IsEmpty())
         {
-            id_key = HashBytes(id.data, id.Size());
+            id_key = Hash(id);
             BoxInfo* current_info = double_buffer_map.FrontValue(id_key);
             //Handling persistent state animation variables
             if(current_info)
@@ -866,7 +942,7 @@ namespace UI
     void Context::EndBox()
     {
         #if UI_ENABLE_DEBUG
-            if(inspector && enabled)
+            if(is_debug_mode && inspector)
             {
                 if(copy_tree)
                 {
@@ -877,6 +953,17 @@ namespace UI
                     return;
                 }
             }
+            // if(inspector && enabled)
+            // {
+            //     if(copy_tree)
+            //     {
+            //         inspector->Pop();
+            //     }
+            //     else
+            //     {
+            //         return;
+            //     }
+            // }
         #endif
 
 
@@ -887,7 +974,7 @@ namespace UI
             HandleInternalError(Error{Error::Type::MISSING_BEGIN, "Missing BeginBox()"});
             return;
         }
-        LineBreak(); //Just to set prev_inserted_box to nullptr
+        prev_inserted_box = nullptr;
         TreeNode<BoxCore>* node = stack.Peek();
         assert(node);
         BoxCore& parent_box = node->box;
@@ -909,7 +996,7 @@ namespace UI
             return;
 
         #if UI_ENABLE_DEBUG
-            if(inspector && enabled)
+            if(is_debug_mode)
             {
                 if(copy_tree)
                 {
@@ -926,6 +1013,23 @@ namespace UI
                     return; //stop normal ui
                 }
             }
+            // if(inspector && enabled)
+            // {
+            //     if(copy_tree)
+            //     {
+            //         BoxDebug box;
+            //         box.text_style = style;
+            //         box.debug_info = debug_info;
+            //         box.id = id;
+            //         box.text = string;
+            //         inspector->Push(box);
+            //         inspector->Pop();
+            //     }
+            //     else
+            //     {
+            //         return; //stop normal ui
+            //     }
+            // }
         #endif
 
         if(HasInternalError())
@@ -956,23 +1060,23 @@ namespace UI
         assert(span && "Arena1 out of memory");
         return;
     }
-    void Context::LineBreak()
+    void Context::NewLine()
     {
         #if UI_ENABLE_DEBUG
-        if(inspector && enabled)
-        {
-            if(copy_tree)
+            if(is_debug_mode && inspector)
             {
-                BoxDebug box;
-                box.line_break = true;
-                inspector->Push(box);
-                inspector->Pop();
+                if(copy_tree)
+                {
+                    BoxDebug box;
+                    box.line_break = true;
+                    inspector->Push(box);
+                    inspector->Pop();
+                }
+                else
+                {
+                    return;
+                }
             }
-            else
-            {
-                return;
-            }
-        }
         #endif
         prev_inserted_box = nullptr;
     }
@@ -1090,13 +1194,17 @@ namespace UI
     void Context::Draw()
     {
         #if UI_ENABLE_DEBUG
-        if(inspector && enabled)
-        {
-            if(!copy_tree)
+            if(is_debug_mode && inspector)
+            {
                 return;
-            else
-                copy_tree = false; //Finish copying tree
-        }
+            }
+        // if(inspector && enabled)
+        // {
+        //     if(!copy_tree)
+        //         return;
+        //     else
+        //         copy_tree = false; //Finish copying tree
+        // }
         #endif
 
 
@@ -2176,8 +2284,8 @@ namespace UI
     {
         arena.Reset();
         root = nullptr;
-        selected_box = nullptr;
-        hovered_box = nullptr;
+        selected_node = nullptr;
+        hovered_node = nullptr;
         stack.Clear();
     }
 
@@ -2190,37 +2298,43 @@ namespace UI
             .width = {GetScreenWidth()},
             .height = {GetScreenHeight()},
         };
-        BoxStyle selected_box_style =
-        {
-            .x = selected_box_dim.x,
-            .y = selected_box_dim.y,
-            .width = {selected_box_dim.width},
-            .height = {selected_box_dim.height},
-            .border_color = {255, 100, 100, 255},
-            .border_width = 2,
-            .detach = Detach::ABSOLUTE
-        };
-        BoxStyle hovered_box_style =
-        {
-            .x = hovered_box_dim.x,
-            .y = hovered_box_dim.y,
-            .width = {hovered_box_dim.width},
-            .height = {hovered_box_dim.height},
-            .border_color = {255, 233, 233, 255},
-            .border_width = 2,
-            .detach = Detach::ABSOLUTE
-        };
 
         UI::Root(&ui, root_style, [&]
         {
            CreateMockUI(root);
 
            // ===== Rendering Selected/Hovered Boxes ====
-            const Rect& dim = hovered_box_dim;
-            if(hovered_box)
+            if(hovered_node)
+            {
+                auto dim = hovered_node->box.dim;
+                BoxStyle hovered_box_style =
+                {
+                    .x = dim.x,
+                    .y = dim.y,
+                    .width = {dim.width},
+                    .height = {dim.height},
+                    .border_color = {255, 233, 233, 255},
+                    .border_width = 2,
+                    .detach = Detach::ABSOLUTE
+                };
                 Box(hovered_box_style).Run();
-            if(selected_box)
+            }
+            if(selected_node)
+            {
+                auto dim = selected_node->box.dim;
+                BoxStyle selected_box_style =
+                {
+                    .x = dim.x,
+                    .y = dim.y,
+                    .width = {dim.width},
+                    .height = {dim.height},
+                    .border_color = {255, 100, 100, 255},
+                    .border_width = 2,
+                    .detach = Detach::ABSOLUTE
+                };
+
                 Box(selected_box_style).Run();
+            }
             // ==========================================
             CreateDebugUI();
 
@@ -2228,6 +2342,18 @@ namespace UI
 
         this->mouse_x = GetMouseX();
         this->mouse_y = GetMouseY();
+    }
+    bool DebugInspector::AutoCloseTreeView(TreeNodeDebug* node)
+    {
+        if(!node)
+            return false;
+
+        bool found = false;
+        for(auto temp = node->children.GetHead(); temp != nullptr; temp = temp->next)
+            found = &temp->value == selected_node || AutoCloseTreeView(&temp->value) || found;
+        node->box.is_open = found;
+
+        return found;
     }
     void DebugInspector::CreateMockUI(TreeNodeDebug* node)
     {
@@ -2244,14 +2370,17 @@ namespace UI
             .Id(Fmt("node-id:%llu", (uintptr_t)node))
             .OnDirectHover([&]
             {
-                hovered_box = &node->box;
-                hovered_box_dim = {Info().DrawX(), Info().DrawY(), Info().DrawWidth(), Info().DrawHeight()};
+                hovered_node = node;
                 if(IsMousePressed(MouseButton::MOUSE_LEFT))
                 {
-                    selected_box = &node->box;
-                    selected_box_dim = {Info().DrawX(), Info().DrawY(), Info().DrawWidth(), Info().DrawHeight()};
+                    selected_node = node;
+                    AutoCloseTreeView(root);
                 }
 
+            })
+            .PreRun([&]
+            {
+                node->box.dim = {Info().DrawX(), Info().DrawY(), Info().DrawWidth(), Info().DrawHeight()};
             })
             .Run([&]
             {
@@ -2300,12 +2429,12 @@ namespace UI
         };
 
         TextStyle title_bar_text;
-        title_bar_text.FgColor(theme.white0).FontSize(20);
+        title_bar_text.FgColor(theme.white0).FontSize(24);
 
         BoxStyle resize_button =
         {
-            .width = {12},
-            .height = {12},
+            .width = {14},
+            .height = {14},
             .color = theme.white0,
             .detach = Detach::BOTTOM_END
         };
@@ -2319,11 +2448,12 @@ namespace UI
         BoxStyle left_panel =
         {
             .flow = {.axis = Flow::VERTICAL},
-            .width = {left_panel_width},
+            .width = {100, Unit::AVAILABLE_PERCENT},
             .height = {100, Unit::AVAILABLE_PERCENT},
-            .margin = {10, 2, 10, 10},
+            .margin = {10, 10, 10, 10},
             .color = theme.white0,
             .corner_radius = 5,
+            .scissor = true
         };
         BoxStyle right_panel =
         {
@@ -2334,11 +2464,13 @@ namespace UI
             .color = theme.black1,
             .corner_radius = 5,
         };
-        BoxStyle title_bar2 =
+        BoxStyle node_details_panel =
         {
-            .width = {100, Unit::PARENT_PERCENT},
+            .flow = {.axis = Flow::VERTICAL},
+            .width = {9999},
             .height = {100, Unit::CONTENT_PERCENT},
-            .padding = {5, 5, 5, 5}
+            .padding = {5, 5, 5, 5},
+            // .color = theme.white0,
         };
 
         BoxStyle left_scroll_panel =
@@ -2387,46 +2519,38 @@ namespace UI
             .Run([&]
             {
                 Box(left_panel)
-                .Run([&]
+                .Id("left-panel-scroll")
+                .OnHover([&]
                 {
-                    Box(title_bar2)
-                    .Run([&]
-                    {
-                        Text(title_bar_text, U"View");
-                    });
-                    Box(left_scroll_panel)
-                    .Id("left_scroll_panel")
-                    .Run([&]
-                    {
-                        this->CreateTreeView(this->root, 0);
-                    });
-                });
-                Box(left_panel_resize)
-                .Id("left_panel_resize")
+                    State().custom_anim -= GetMouseScroll() * 30;
+                    State().custom_anim = (float)Clamp((int)State().custom_anim,0, Info().MaxScrollY());
+                })
                 .PreRun([&]
                 {
-                    if(IsDirectHover() && IsMousePressed(MouseButton::MOUSE_LEFT))
-                        State().custom_flags = true;
-                    //Disable Mouse dragging
-                    if(IsMouseReleased(MouseButton::MOUSE_LEFT))
-                        State().custom_flags = false;
-
-                    //Drag if enabled
-                    if(State().custom_flags)
-                    {
-                        left_panel_width += GetMouseDeltaX();
-                        left_panel_width = Clamp(left_panel_width, 60, base_dim.width - 100);
-                    }
+                    Style().scroll_y = State().custom_anim;
                 })
-                .Run([&]{Text(TextStyle{.fg_color={0,0,0,255}, .font_size=13}, U"|||");});
-                Box(right_panel)
                 .Run([&]
                 {
-                    Box(title_bar2)
+                    Box(node_details_panel)
                     .Run([&]
                     {
-                        Text(title_bar_text, U"Details");
+                        // Text(TextStyle{.fg_color = theme.black0, .font_size = 24}, U"Info\n");
+                        if(selected_node)
+                        {
+                            Internal::BoxDebug& box = selected_node->box;
+                            Color fg_color = theme.black0;
+                            Text(TextStyle{.fg_color = fg_color, .font_size = 24}, U"Name: ");
+                            Text(TextStyle{.fg_color = theme.black3, .font_size = 24}, box.debug_info.name);
+                            Text(TextStyle{.fg_color = fg_color, .font_size = 24}, U"\nline: ");
+                            Text(TextStyle{.fg_color = theme.black3, .font_size = 24}, Fmt("%d\n", box.debug_info.line));
+                            Text(TextStyle{.fg_color = fg_color, .font_size = 24}, U"id: ");
+                            Text(TextStyle{.fg_color = theme.yellow0, .font_size = 24}, selected_node->box.id);
+                            Text(TextStyle{.fg_color = fg_color, .font_size = 24}, U"\nFile: ");
+                            Text(TextStyle{.fg_color = theme.black3, .font_size = 24}, selected_node->box.debug_info.file);
+                        }
                     });
+                    Box({.width = {100, Unit::AVAILABLE_PERCENT}, .height={1}, .margin = {0, 0, 5,6}, .color = theme.black0}).Run();
+                    this->CreateTreeView(this->root, 0);
                 });
             });
             Box(resize_button)
@@ -2462,7 +2586,7 @@ namespace UI
         BoxStyle bar =
         {
             .width = {1},
-            .height = {24},
+            .height = {100, Unit::AVAILABLE_PERCENT},
             .margin = {9, 9, 0, 0},
             .color = theme.black0,
         };
@@ -2487,23 +2611,27 @@ namespace UI
         };
         Color fg_color = theme.black0;
         Color bg_color = theme.white0;
-        bool is_open = false;
-        bool invert_color = false;
+        bool invert_color = selected_node == node || hovered_node == node;
 
         Box(h_container)
         .Id(Fmt("tree-element-%llu", (uintptr_t)node))
-        .OnDirectHover([&]
-        {
-            invert_color = true;
-            Style().color = theme.black0;
-        })
         .PreRun([&]
         {
+            if(IsDirectHover())
+            {
+                invert_color = true;
+                if(IsMousePressed(MouseButton::MOUSE_LEFT))
+                {
+                    selected_node = node;
+                }
+                hovered_node = node;
+            }
             if(invert_color)
             {
                 fg_color = theme.white0;
                 bg_color = theme.black0;
                 icon_button.border_color = fg_color;
+                Style().color = theme.black0;
             }
         })
         .Run([&]
@@ -2518,24 +2646,45 @@ namespace UI
             {
                 Box(icon_button)
                 .Id(Fmt("tree-element-icon-%llu", (uintptr_t)node))
+                .PreRun([&]
+                {
+                    if(node->box.is_open)
+                        Style().color = theme.green0;
+                })
                 .OnDirectHover([&]
                 {
                     Style().color = theme.black0;
                     icon_button.border_color = theme.white0;
                     if(IsMousePressed(MouseButton::MOUSE_LEFT))
-                        State().custom_flags = !State().custom_flags;
+                        node->box.is_open = !node->box.is_open;
 
                 })
                 .Run([&]
                 {
-                    is_open = State().custom_flags;
-                    Text(TextStyle{.fg_color = icon_button.border_color, .font_size = 24}, (is_open? StringU32(U"-"): StringU32(U"+")));
+                    Text(TextStyle{.fg_color = icon_button.border_color, .font_size = 24}, (node->box.is_open? StringU32(U"-"): StringU32(U"+")));
                 });
             }
-            Text(TextStyle{.fg_color = {255,0,0,255}, .font_size = 24}, node->box.debug_info.name);
+
+
+            Text(TextStyle{.fg_color = fg_color, .font_size = 24}, node->box.debug_info.name);
+            Text(TextStyle{.fg_color = fg_color, .font_size = 24}, U"  line: ");
+            Text(TextStyle{.fg_color = theme.black3, .font_size = 24}, Fmt("%d ", node->box.debug_info.line));
+
+            if(!node->box.text.IsEmpty())
+            {
+                Text(TextStyle{.fg_color = theme.green0, .font_size = 24}, U" \"");
+                Text(TextStyle{.fg_color = theme.green0, .font_size = 24}, node->box.text);
+                Text(TextStyle{.fg_color = theme.green0, .font_size = 24}, U"\" ");
+            }
+            if(!node->box.id.IsEmpty())
+            {
+                Text(TextStyle{.fg_color = fg_color, .font_size = 24}, U" id: ");
+                Text(TextStyle{.fg_color = theme.yellow0, .font_size = 24}, node->box.id);
+            }
+
         });
 
-        if(is_open)
+        if(node->box.is_open)
         {
             for(auto temp = node->children.GetHead(); temp!=nullptr; temp = temp->next)
             {

@@ -327,7 +327,9 @@ namespace UI
         StringAsci(const char* str) : BaseString<const char>(str, StrLen(str)){}
     };
     StringAsci Fmt(const char *text, ...);
+
     StringU32 AsciToStrU32(const StringAsci& str);
+    uint64_t Hash(const StringAsci& id);
     //StringU32 FmtU32(const char *text, ...);
 
 
@@ -552,6 +554,9 @@ namespace UI
     // =========================
     Builder& Box(const BoxStyle& style = BoxStyle(), const StringAsci& id = StringAsci(), DebugInfo debug_info = UI_DEBUG("Box"));
     BoxInfo Info();
+    // BoxInfo Info(const StringAsci& id);
+    // BoxInfo SetState(const StringAsci& id);
+    void SetState(const StringAsci& id, const BoxState& state);
     BoxStyle& Style();
     BoxState& State();
     bool IsHover();
@@ -856,12 +861,13 @@ namespace UI
 
         BoxInfo Info(const StringAsci& id);
         BoxInfo Info(uint64_t key);
+        void SetStates(const StringAsci& id, const BoxState& states);
         void SetStates(uint64_t key, const BoxState& states);
         void BeginRoot(BoxStyle style, DebugInfo debug_info = UI_DEBUG("Root"));
         void EndRoot();
         void BeginBox(const UI::BoxStyle& style, const StringAsci& id, DebugInfo debug_info = UI_DEBUG("Box"));
         void InsertText(const UI::TextStyle& style, const StringU32& string, const char* id = nullptr, bool copy_text = true, DebugInfo info = UI_DEBUG("Text"));
-        void LineBreak();
+        void NewLine();
         void EndBox();
         void Draw();
 
@@ -921,7 +927,7 @@ namespace UI
         #if UI_ENABLE_DEBUG
             DebugInspector* inspector = nullptr;
             Key activate_key = Key::KEY_F1;
-            bool enabled = false;
+            bool is_debug_mode = false;
             bool copy_tree = false;
         #endif
 
@@ -935,7 +941,7 @@ namespace UI
         Internal::MemoryArena arena3; //Arena used for string allocation
 
         Internal::FixedStack<TreeNode<BoxCore>*, 64> stack; //elements should never nest over 100 layers deep
-        BoxCore* prev_inserted_box = nullptr;
+        BoxCore* prev_inserted_box = nullptr; //
         Internal::ArenaLL<DeferredBox> deferred_elements;
         uint64_t directly_hovered_element_key = 0;
     };
@@ -974,7 +980,8 @@ namespace UI
             Color black1 = HexToRGBA("#252525");
             Color black2 = HexToRGBA("#3a3a3a");
             Color black3 = HexToRGBA("#818181");
-
+            Color green0 = HexToRGBA("#75ad4e");
+            Color yellow0 = HexToRGBA("#e5b355");
         };
     public:
         DebugInspector(uint64_t bytes);
@@ -988,6 +995,8 @@ namespace UI
         void Pop();
         void Run();
         void Reset();
+        // Searches tree for selected_node
+        bool AutoCloseTreeView(TreeNodeDebug* node);
         void CreateMockUI(TreeNodeDebug* root);
         void CreateDebugUI();
         void CreateTreeView(TreeNodeDebug* node, int depth);
@@ -1005,10 +1014,8 @@ namespace UI
 
 
         //======= Hovered/Selected =======
-        BoxDebug* hovered_box = nullptr;
-        Rect hovered_box_dim;
-        BoxDebug* selected_box = nullptr;
-        Rect selected_box_dim;
+        TreeNodeDebug* hovered_node = nullptr;
+        TreeNodeDebug* selected_node = nullptr;
         //================================
 
         //======= Inspector UI ========
@@ -1030,8 +1037,11 @@ namespace UI
         void Text(const TextStyle& style, const StringU32& string, bool copy_text = true, DebugInfo debug_info = UI_DEBUG("Text"));
         void LineBreak();
         BoxInfo Info() const;
+        BoxInfo Info(const StringAsci& id) const;
         BoxStyle& Style();
         BoxState& State();
+        void NewLine();
+        void SetState(const StringAsci& id, const BoxState& state);
         bool IsHover() const;
         bool IsDirectHover() const;
 
@@ -1152,7 +1162,7 @@ namespace UI
     {
         if(HasContext())
         {
-            this->context->LineBreak();
+            this->context->NewLine();
         }
     }
     inline void Builder::SetContext(Context* context)
@@ -1175,6 +1185,12 @@ namespace UI
     {
         return info;
     }
+    inline BoxInfo Builder::Info(const StringAsci& id) const
+    {
+        if(context)
+            return context->Info(id);
+        return BoxInfo();
+    }
     inline bool Builder::IsHover() const
     {
         return info.IsHover();
@@ -1190,6 +1206,18 @@ namespace UI
     inline BoxState& Builder::State()
     {
         return state;
+    }
+    inline void Builder::NewLine()
+    {
+        if(context)
+            context->NewLine();
+    }
+    inline void Builder::SetState(const StringAsci& id, const BoxState& state)
+    {
+        if(context)
+        {
+            context->SetStates(id, state);
+        }
     }
     inline Builder& Builder::Id(const StringAsci& id)
     {

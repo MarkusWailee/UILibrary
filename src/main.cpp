@@ -10,9 +10,9 @@ int main(void)
     float screenHeight = 600;
 
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
-    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+    InitWindow(screenWidth, screenHeight, "Window");
     SetExitKey(0);
-    //SetTargetFPS(60);
+    // SetTargetFPS(60);
 
     UI::Init_impl("assets/fonts/Roboto-Regular.ttf");
     UI::Context context(128 * UI::KB, 128 * UI::KB);
@@ -20,16 +20,38 @@ int main(void)
     context.SetDebugInspector(&inspector, UI::KEY_F1);
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
-        // LayoutTest(&context);
-        UI::Root(&context, {.color = {255, 255, 255, 255}}, [&]
-        {
-            UI::Box({.color = {255, 0, 0, 255}}).Run();
-        });
+        LayoutTest(&context);
+        // UI::Root(&context, {.width={GetScreenWidth()}, .height = {GetScreenHeight()}, .color = {255, 255, 255, 255}}, [&]
+        // {
+        //     UI::Box({.width = {50,UI::Unit::PARENT_PERCENT}, .height={50, UI::Unit::PARENT_PERCENT}, .margin={5,5,5,5}, .color = {255, 0, 0, 255}})
+        //     .Run([&]
+        //     {
+        //         UI::Box({.width = {50,UI::Unit::PARENT_PERCENT}, .height={50, UI::Unit::PARENT_PERCENT}, .margin={5,5,5,5}, .color = {200, 100, 0, 255}})
+        //         .Run([&]
+        //         {
+        //             UI::Box({.width = {50,UI::Unit::PARENT_PERCENT}, .height={50, UI::Unit::PARENT_PERCENT}, .margin={5,5,5,5}, .color = {100, 100, 0, 255}})
+        //             .Run([&]
+        //             {
+        //
+        //             });
+        //             UI::Box({.width = {50,UI::Unit::PARENT_PERCENT}, .height={50, UI::Unit::PARENT_PERCENT}, .margin={5,5,5,5}, .color = {100, 100, 0, 255}})
+        //             .Run([&]
+        //             {
+        //
+        //             });
+        //         });
+        //         UI::Box({.width = {50,UI::Unit::PARENT_PERCENT}, .height={50, UI::Unit::PARENT_PERCENT}, .margin={5,5,5,5}, .color = {100, 100, 20, 255}})
+        //         .Run([&]
+        //         {
+        //
+        //         });
+        //     });
+        // });
 
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
         UI::Draw();
-        DrawText(TextFormat("Fps = %d", GetFPS()), 10, 10, 20, WHITE);
+        // DrawText(TextFormat("Fps = %d", GetFPS()), 10, 10, 20, WHITE);
         EndDrawing();
     }
 
